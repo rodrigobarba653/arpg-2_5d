@@ -1,0 +1,31 @@
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+
+# Rider / VS / VSCode
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.user
+*.unityproj
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Addressables cache (optional)
+Assets/AddressableAssetsData/*/CacheData/
+
+printf "\n# IDE / crash files\n*.sln\n*.slnx\nmono_crash.*\ncrash.*\n" >> .gitignore
