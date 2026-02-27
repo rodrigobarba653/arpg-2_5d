@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class BillboardToCamera : MonoBehaviour
+public class BillboardToCameraPaco : MonoBehaviour
 {
     Camera cam;
 
