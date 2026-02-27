@@ -28,4 +28,4 @@ Thumbs.db
 # Addressables cache (optional)
 Assets/AddressableAssetsData/*/CacheData/
 
-printf "\n# IDE / crash files\n*.sln\n*.slnx\nmono_crash.*\ncrash.*\n" >> .gitignore
+printf "\n# IDE / crash files\n*.sln\n*.slnx\nmono_crash.*\ncrash.*\n" >> .gitignoreTest.slnx
