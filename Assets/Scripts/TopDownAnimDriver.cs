@@ -4,16 +4,19 @@ using UnityEngine.InputSystem;
 public class TopDownAnimDriver : MonoBehaviour
 {
     [Header("Refs")]
-    public Animator animator;
+    [SerializeField] private Animator animator;
+
+    [Tooltip("Drag the Player root that has PlayerMotor (NOT SpriteBody).")]
+    [SerializeField] private PlayerMotor motor;
 
     [Header("Tuning")]
-    public float moveDeadzone = 0.01f;
+    [SerializeField] private float moveDeadzone = 0.01f;
 
     [Header("Debug")]
-    public bool logInput = false;
+    [SerializeField] private bool logInput = false;
 
     private Vector2 moveInput;
-    private Vector2 lastDir = Vector2.down;
+    private float moveDeadzoneSqr;
 
     public void OnMove(InputAction.CallbackContext ctx)
     {
@@ -30,21 +33,27 @@ public class TopDownAnimDriver : MonoBehaviour
 
     void Awake()
     {
-        // Auto-grab animator if you forgot to assign it
         if (!animator) animator = GetComponent<Animator>();
+
+        if (!motor) motor = GetComponentInParent<PlayerMotor>();
+        if (!motor) Debug.LogError("[TopDownAnimDriver] Missing PlayerMotor reference (assign motor or ensure it's on a parent).", this);
+
+        moveDeadzoneSqr = moveDeadzone * moveDeadzone;
     }
 
     void Update()
     {
-        if (!animator) return;
+        if (!animator || !motor) return;
 
-        bool isMoving = moveInput.sqrMagnitude > (moveDeadzone * moveDeadzone);
+        bool isMoving = moveInput.sqrMagnitude > moveDeadzoneSqr;
 
-        if (isMoving)
-            lastDir = moveInput.normalized;
+        // Direction always comes from motor facing (respects facing lock during roll/attack)
+        Vector2 dir = motor.GetFacing2D();
+        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.down;
+        dir.Normalize();
 
         animator.SetBool("IsMoving", isMoving);
-        animator.SetFloat("MoveX", lastDir.x);
-        animator.SetFloat("MoveY", lastDir.y);
+        animator.SetFloat("MoveX", dir.x);
+        animator.SetFloat("MoveY", dir.y);
     }
 }
