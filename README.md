@@ -1,6 +1,9 @@
 Ultima Actualización 09/marzo/26
 
 
+FALTA HACER LA ACTUALIZACIÓN DEL PROYECTO
+
+
 ---------------Controles---------------- 
 
 Movimiento: WASD o Left Stick
