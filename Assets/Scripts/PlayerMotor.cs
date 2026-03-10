@@ -13,11 +13,17 @@ public class PlayerMotor : MonoBehaviour
     public bool preserveAnalogMagnitude = false;
 
     [Header("Grounding")]
-    public float groundRayLength = 1.2f;
+    public float groundRayLength = 0.25f;
     public float stickToGroundForce = 5f;
+
+    [Header("Air Control")]
+    [Tooltip("0 = casi sin control en el aire, 1 = control total")]
+    [Range(0f, 1f)]
+    public float airControlMultiplier = 0.03f;
 
     private Rigidbody rb;
     private Camera mainCam;
+    private PlayerJump jump;
 
     private Vector2 moveInput;
 
@@ -45,13 +51,14 @@ public class PlayerMotor : MonoBehaviour
     private float currentPreStopTime;
     private float currentPostStopTime;
 
-    // Lock normal movement while attacking / rolling
+    // Lock normal movement while attacking / rolling / landing lock
     private bool movementLocked = false;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         mainCam = Camera.main;
+        jump = GetComponent<PlayerJump>();
 
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
@@ -104,7 +111,7 @@ public class PlayerMotor : MonoBehaviour
             return;
         }
 
-        // If movement locked (attacking), hold still
+        // If movement locked (attacking / landing), hold still
         if (movementLocked)
         {
             HoldStill();
@@ -114,18 +121,41 @@ public class PlayerMotor : MonoBehaviour
         // Normal movement
         Vector3 move = GetMoveWorld(moveInput);
 
-        if (move.sqrMagnitude > 1f) move.Normalize();
-        move *= moveSpeed;
+        if (move.sqrMagnitude > 1f)
+            move.Normalize();
 
-        if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, groundRayLength))
+        // IMPORTANT:
+        // Use PlayerJump's grounded state as the source of truth.
+        bool grounded = jump != null && jump.IsGrounded;
+
+        // Only use raycast here to get ground normal for slope projection.
+        if (grounded && Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, groundRayLength))
+        {
             move = Vector3.ProjectOnPlane(move, hit.normal);
+        }
+
+        // Full target speed in world space
+        Vector3 targetMove = move * moveSpeed;
 
         Vector3 vel = rb.linearVelocity;
-        vel.x = move.x;
-        vel.z = move.z;
 
-        if (Physics.Raycast(transform.position, Vector3.down, groundRayLength))
+        if (grounded)
+        {
+            // Ground = direct, responsive control
+            vel.x = targetMove.x;
+            vel.z = targetMove.z;
+        }
+        else
+        {
+            // Air = only slight correction toward desired horizontal velocity
+            vel.x = Mathf.Lerp(vel.x, targetMove.x, airControlMultiplier);
+            vel.z = Mathf.Lerp(vel.z, targetMove.z, airControlMultiplier);
+        }
+
+        if (grounded && vel.y <= 0f)
+        {
             vel.y = -stickToGroundForce;
+        }
 
         rb.linearVelocity = vel;
     }
@@ -144,7 +174,9 @@ public class PlayerMotor : MonoBehaviour
 
     public void LockFacing(Vector2 dir)
     {
-        if (dir.sqrMagnitude < 0.0001f) dir = lastNonZeroFacing;
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = lastNonZeroFacing;
+
         dir.Normalize();
         lockedFacing = dir;
         facingLocked = true;
@@ -154,13 +186,11 @@ public class PlayerMotor : MonoBehaviour
     {
         facingLocked = false;
 
-        // If the player is already holding a direction, immediately update facing
-        // so the run animation matches movement after roll/attack.
+        // If already holding direction, immediately restore facing from move input
         if (moveInput.sqrMagnitude > 0.0001f)
         {
             Vector2 dir = moveInput.normalized;
 
-            // Safety: keep snap behavior consistent even if OnMove changes later
             if (snapTo8Directions)
                 dir = SnapTo8(dir);
 
@@ -202,7 +232,7 @@ public class PlayerMotor : MonoBehaviour
         rollActive = false;
         rollElapsed = 0f;
         HoldStill();
-        // UnlockFacing() is handled by CombatController when roll ends
+        // UnlockFacing() should be handled externally when roll ends
     }
 
     private void ApplyRollVelocity()
@@ -213,7 +243,8 @@ public class PlayerMotor : MonoBehaviour
         vel.x = rollWorldDir.x * currentRollSpeed;
         vel.z = rollWorldDir.z * currentRollSpeed;
 
-        if (Physics.Raycast(transform.position, Vector3.down, groundRayLength))
+        bool grounded = jump != null && jump.IsGrounded;
+        if (grounded && vel.y <= 0f)
             vel.y = -stickToGroundForce;
 
         rb.linearVelocity = vel;
@@ -272,7 +303,8 @@ public class PlayerMotor : MonoBehaviour
             vel.x = lungeWorldDir.x * currentLungeSpeed;
             vel.z = lungeWorldDir.z * currentLungeSpeed;
 
-            if (Physics.Raycast(transform.position, Vector3.down, groundRayLength))
+            bool grounded = jump != null && jump.IsGrounded;
+            if (grounded && vel.y <= 0f)
                 vel.y = -stickToGroundForce;
 
             rb.linearVelocity = vel;
@@ -295,7 +327,8 @@ public class PlayerMotor : MonoBehaviour
         vel.x = 0f;
         vel.z = 0f;
 
-        if (Physics.Raycast(transform.position, Vector3.down, groundRayLength))
+        bool grounded = jump != null && jump.IsGrounded;
+        if (grounded && vel.y <= 0f)
             vel.y = -stickToGroundForce;
 
         rb.linearVelocity = vel;
@@ -304,7 +337,8 @@ public class PlayerMotor : MonoBehaviour
 
     private Vector3 GetMoveWorld(Vector2 input)
     {
-        if (mainCam == null) mainCam = Camera.main;
+        if (mainCam == null)
+            mainCam = Camera.main;
 
         Vector3 camForward = mainCam.transform.forward;
         camForward.y = 0f;
