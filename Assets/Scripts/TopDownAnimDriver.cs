@@ -5,38 +5,34 @@ public class TopDownAnimDriver : MonoBehaviour
 {
     [Header("Refs")]
     [SerializeField] private Animator animator;
-
-    [Tooltip("Drag the Player root that has PlayerMotor (NOT SpriteBody).")]
     [SerializeField] private PlayerMotor motor;
+    [SerializeField] private PlayerJump jump;
 
     [Header("Tuning")]
     [SerializeField] private float moveDeadzone = 0.01f;
 
-    [Header("Debug")]
-    [SerializeField] private bool logInput = false;
-
     private Vector2 moveInput;
     private float moveDeadzoneSqr;
+
+    // dirección guardada cuando saltas
+    private Vector2 lockedAirDirection;
 
     public void OnMove(InputAction.CallbackContext ctx)
     {
         if (ctx.canceled)
         {
             moveInput = Vector2.zero;
-            if (logInput) Debug.Log("[TopDownAnimDriver] Move canceled -> zero");
             return;
         }
 
         moveInput = ctx.ReadValue<Vector2>();
-        if (logInput) Debug.Log($"[TopDownAnimDriver] Move: {moveInput} phase={ctx.phase}");
     }
 
     void Awake()
     {
         if (!animator) animator = GetComponent<Animator>();
-
         if (!motor) motor = GetComponentInParent<PlayerMotor>();
-        if (!motor) Debug.LogError("[TopDownAnimDriver] Missing PlayerMotor reference (assign motor or ensure it's on a parent).", this);
+        if (!jump) jump = GetComponentInParent<PlayerJump>();
 
         moveDeadzoneSqr = moveDeadzone * moveDeadzone;
     }
@@ -45,11 +41,34 @@ public class TopDownAnimDriver : MonoBehaviour
     {
         if (!animator || !motor) return;
 
-        bool isMoving = moveInput.sqrMagnitude > moveDeadzoneSqr;
+        Rigidbody rb = motor.GetComponent<Rigidbody>();
 
-        // Direction always comes from motor facing (respects facing lock during roll/attack)
-        Vector2 dir = motor.GetFacing2D();
-        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.down;
+        Vector3 velocity = rb.linearVelocity;
+        Vector2 planarVelocity = new Vector2(velocity.x, velocity.z);
+
+        bool isMoving = planarVelocity.sqrMagnitude > moveDeadzoneSqr;
+
+        Vector2 dir;
+
+        // Si estamos en el aire
+        if (jump != null && !jump.IsGrounded)
+        {
+            // la primera vez que dejamos el suelo guardamos la dirección
+            if (lockedAirDirection == Vector2.zero)
+                lockedAirDirection = motor.GetFacing2D();
+
+            dir = lockedAirDirection;
+        }
+        else
+        {
+            // cuando estamos en suelo usamos dirección normal
+            dir = motor.GetFacing2D();
+            lockedAirDirection = Vector2.zero;
+        }
+
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = Vector2.down;
+
         dir.Normalize();
 
         animator.SetBool("IsMoving", isMoving);
