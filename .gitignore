@@ -35,3 +35,4 @@ printf "\n# IDE / crash files\n*.sln\n*.slnx\nmono_crash.*\ncrash.*\n" >> .gitig
 *.slnx
 mono_crash.*
 crash.*
+.vs/
