@@ -13,11 +13,11 @@ public class SpriteSheetClipGenerator
     "Up", "UpRight", "Right", "DownRight"
 };
 
-    [MenuItem("Tools/Sprites/Generate 8x6 CombatRun Clips (from selected texture)")]
-    public static void Generate8x6()
+    [MenuItem("Tools/Sprites/Generate 8x3 Hurt Clips (from selected texture)")]
+    public static void Generate8x3()
     {
         const int directions = 8;
-        const int framesPerDir = 6;
+        const int framesPerDir = 3;
         const float fps = 12f;
 
         // 1) You must select the spritesheet TEXTURE in the Project window
@@ -26,7 +26,7 @@ public class SpriteSheetClipGenerator
         {
             EditorUtility.DisplayDialog(
                 "Select spritesheet texture",
-                "In the Project window, click your spritesheet Texture2D (the image), then run:\nTools > Sprites > Generate 8x6 CombatRun Clips",
+                "In the Project window, click your spritesheet Texture2D (the image), then run:\nTools > Sprites > Generate 8x3 Hurt Clips",
                 "OK"
             );
             return;
@@ -43,7 +43,7 @@ public class SpriteSheetClipGenerator
         {
             EditorUtility.DisplayDialog(
                 "Not enough sprites",
-                $"Found {sprites.Count} sprites, but need at least {directions * framesPerDir} (8 directions × 6 frames).\n\nCheck that Sprite Mode = Multiple and slicing is correct.",
+                $"Found {sprites.Count} sprites, but need at least {directions * framesPerDir} (8 directions × 3 frames).\n\nCheck that Sprite Mode = Multiple and slicing is correct.",
                 "OK"
             );
             return;
@@ -75,7 +75,7 @@ public class SpriteSheetClipGenerator
         for (int d = 0; d < directions; d++)
         {
             string dirName = (d < DirectionNames8.Length) ? DirectionNames8[d] : $"Dir{d}";
-            string clipPath = $"{outFolder}/CombatRun_{dirName}.anim";
+            string clipPath = $"{outFolder}/Hurt_{dirName}.anim";
 
             var clip = new AnimationClip
             {
@@ -120,7 +120,7 @@ public class SpriteSheetClipGenerator
 
         EditorUtility.DisplayDialog(
             "Done ✅",
-            $"Created 8 CombatRun clips (6 frames each) in:\n{outFolder}\n\nIf the directions are in the wrong order, tell me how your sheet is laid out and I’ll adjust the direction mapping.",
+            $"Created 8 Hurt clips (3 frames each) in:\n{outFolder}\n\nIf the directions are in the wrong order, tell me how your sheet is laid out and I’ll adjust the direction mapping.",
             "OK"
         );
     }
