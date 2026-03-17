@@ -149,12 +149,7 @@ Jump: South Button o Space
 
 ---------------Bugs Conocidos-----------
 
-El movimiento se traba con algunos angulos de plataformas
-
-En el salto si el jugador toca la orilla de una plataforma se puede trabar
-
-Faltan animaciones de salto, para senitr el salto y ajusar script
-
+La camara tiene una leve vibración con el roll, posiblemente choque con la configuración de la camara.
 
 
 -----------Siguientes Acciones--------
