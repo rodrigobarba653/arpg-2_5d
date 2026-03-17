@@ -1,81 +1,245 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CharacterController))]
 public class PlayerMotor : MonoBehaviour
 {
+    [Header("References")]
+    public CharacterController controller;
+    public Rigidbody rb;
+    public Camera mainCam;
+    public PlayerJump jump;
+
     [Header("Movement")]
     public float moveSpeed = 4.5f;
+    public float gravity = -20f;
     public float deadZone = 0.15f;
 
-    [Header("Input Snapping (helps diagonals)")]
+    [Header("Direction")]
     public bool snapTo8Directions = true;
     public bool preserveAnalogMagnitude = false;
 
-    [Header("Grounding")]
-    public float groundRayLength = 0.25f;
-    public float stickToGroundForce = 5f;
+    [Header("Roll")]
+    public bool rollActive;
+    public float rollTimer;
+    public float rollDuration;
+    [Range(1f, 3f)] public float rollSpeedMultiplier = 1.2f;
 
     [Header("Air Control")]
-    [Tooltip("0 = casi sin control en el aire, 1 = control total")]
     [Range(0f, 1f)]
-    public float airControlMultiplier = 0.03f;
+    public float airControl = 0.4f;
+    Vector3 airMoveDirection;
 
-    private Rigidbody rb;
-    private Camera mainCam;
-    private PlayerJump jump;
+    // ATTACK LUNGE
+    bool attackLungeActive;
+    float attackLungeTimer;
+    float attackLungeSpeed;
+    Vector3 attackLungeDir;
 
+    Vector3 rollDirection;
+    
     private Vector2 moveInput;
-
-    // Facing used by animations and action directions (roll/lunge fallbacks)
     private Vector2 lastNonZeroFacing = Vector2.down;
+    private Vector3 verticalVelocity;
+    private Vector2 rawInput;
+    public bool movementLocked = false;
+    
 
-    // Facing lock (roll/attack)
-    private bool facingLocked = false;
-    private Vector2 lockedFacing = Vector2.down;
-
-    // Roll state
-    private bool rollActive = false;
-    private float rollElapsed = 0f;
-    private float currentRollDuration = 0.25f;
-    private float currentRollSpeed = 8f;
-    private Vector3 rollWorldDir = Vector3.zero;
-
-    // Lunge state
-    private bool lungeActive = false;
-    private float lungeElapsed = 0f;
-    private Vector3 lungeWorldDir = Vector3.zero;
-
-    private float currentLungeSpeed;
-    private float currentLungeDuration;
-    private float currentPreStopTime;
-    private float currentPostStopTime;
-
-    // Lock normal movement while attacking / rolling / landing lock
-    private bool movementLocked = false;
 
     void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        mainCam = Camera.main;
-        jump = GetComponent<PlayerJump>();
+        if (!controller)
+            controller = GetComponent<CharacterController>();
 
-        rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        if (!jump)
+            jump = GetComponent<PlayerJump>();
+
+        if (!rb)
+            rb = GetComponent<Rigidbody>();
+
+        if (!mainCam)
+            mainCam = Camera.main;
+
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
     }
 
     public void OnMove(InputAction.CallbackContext ctx)
     {
-        Vector2 raw = ctx.ReadValue<Vector2>();
+        rawInput = ctx.ReadValue<Vector2>();
+    }
 
-        float mag = raw.magnitude;
+    void Update()
+    {
+        if (!controller)
+            return;
+
+        UpdateInput();
+
+        Move();
+    }
+
+    void Move()
+    {
+        Vector3 moveWorld = Vector3.zero;
+        float speed = moveSpeed;
+
+        // ---------- ROLL ----------
+        if (rollActive)
+        {
+            rollTimer -= Time.deltaTime;
+
+            moveWorld = rollDirection;
+            speed = moveSpeed * rollSpeedMultiplier;
+
+            if (rollTimer <= 0f)
+            {
+                rollActive = false;
+                movementLocked = false;
+            }
+        }
+
+        // ---------- ATTACK LUNGE ----------
+        else if (attackLungeActive)
+        {
+            attackLungeTimer -= Time.deltaTime;
+
+            moveWorld = attackLungeDir;
+            speed = attackLungeSpeed;
+
+            if (attackLungeTimer <= 0f)
+            {
+                attackLungeActive = false;
+            }
+        }
+
+        // ---------- NORMAL ----------
+        else if (!movementLocked)
+        {
+            Vector3 targetMove = GetMoveWorld(moveInput);
+
+            if (targetMove.sqrMagnitude > 1f)
+                targetMove.Normalize();
+
+            if (controller.isGrounded)
+            {
+                moveWorld = targetMove;
+                airMoveDirection = moveWorld;
+            }
+            else
+            {
+                airMoveDirection = Vector3.Lerp(
+                    airMoveDirection,
+                    targetMove,
+                    airControl
+                );
+
+                moveWorld = airMoveDirection;
+            }
+        }
+
+        // ---------- GRAVITY ----------
+        if (controller.isGrounded && verticalVelocity.y < 0f)
+            verticalVelocity.y = -2f;
+
+        verticalVelocity.y += gravity * Time.deltaTime;
+
+        Vector3 finalMove = moveWorld * speed;
+        finalMove.y = verticalVelocity.y;
+
+        controller.Move(finalMove * Time.deltaTime);
+    }
+
+    Vector3 GetMoveWorld(Vector2 input)
+    {
+        if (!mainCam)
+            mainCam = Camera.main;
+
+        if (!mainCam)
+            return new Vector3(input.x, 0f, input.y);
+
+        Vector3 camForward = mainCam.transform.forward;
+        camForward.y = 0f;
+        camForward.Normalize();
+
+        Vector3 camRight = mainCam.transform.right;
+        camRight.y = 0f;
+        camRight.Normalize();
+
+        return camForward * input.y + camRight * input.x;
+    }
+
+    static Vector2 SnapTo8(Vector2 v)
+    {
+        float angle = Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg;
+        float snapped = Mathf.Round(angle / 45f) * 45f;
+        float rad = snapped * Mathf.Deg2Rad;
+
+        return new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+    }
+
+    // ===== API simple para animaciones =====
+
+    public Vector2 GetMoveInput2D()
+    {
+        return moveInput;
+    }
+
+    public Vector2 GetFacing2D()
+    {
+        return lastNonZeroFacing;
+    }
+
+    public float GetRealSpeed()
+    {
+        if (!controller)
+            return 0f;
+
+        Vector3 v = controller.velocity;
+        v.y = 0f;
+        return v.magnitude;
+    }
+
+    public CharacterController GetCharacterController()
+    {
+        return controller;
+    }
+
+    public bool IsGrounded()
+    {
+        return controller != null && controller.isGrounded;
+    }
+
+    public float GetVerticalVelocity()
+    {
+        return verticalVelocity.y;
+    }
+
+    public void SetVerticalVelocity(float y)
+    {
+        verticalVelocity.y = y;
+    }
+
+    void UpdateInput()
+    {
+        if (movementLocked)
+        {
+            moveInput = Vector2.zero;
+            return;
+        }
+
+        float mag = rawInput.magnitude;
+
         if (mag < deadZone)
         {
             moveInput = Vector2.zero;
             return;
         }
 
-        Vector2 dir = raw.normalized;
+        Vector2 dir = rawInput.normalized;
 
         if (snapTo8Directions)
             dir = SnapTo8(dir);
@@ -90,272 +254,68 @@ public class PlayerMotor : MonoBehaviour
             moveInput = dir;
         }
 
-        // Only update facing when not locked
-        if (!facingLocked && dir.sqrMagnitude > 0.0001f)
-            lastNonZeroFacing = dir;
+        if (moveInput.sqrMagnitude > 0.0001f)
+            lastNonZeroFacing = moveInput;
     }
 
-    void FixedUpdate()
-    {
-        // Roll overrides everything
-        if (rollActive)
-        {
-            ApplyRollVelocity();
-            return;
-        }
-
-        // Lunge overrides normal movement
-        if (lungeActive)
-        {
-            ApplyLungeVelocity();
-            return;
-        }
-
-        // If movement locked (attacking / landing), hold still
-        if (movementLocked)
-        {
-            HoldStill();
-            return;
-        }
-
-        // Normal movement
-        Vector3 move = GetMoveWorld(moveInput);
-
-        if (move.sqrMagnitude > 1f)
-            move.Normalize();
-
-        // IMPORTANT:
-        // Use PlayerJump's grounded state as the source of truth.
-        bool grounded = jump != null && jump.IsGrounded;
-
-        // Only use raycast here to get ground normal for slope projection.
-        if (grounded && Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, groundRayLength))
-        {
-            move = Vector3.ProjectOnPlane(move, hit.normal);
-        }
-
-        // Full target speed in world space
-        Vector3 targetMove = move * moveSpeed;
-
-        Vector3 vel = rb.linearVelocity;
-
-        if (grounded)
-        {
-            // Ground = direct, responsive control
-            vel.x = targetMove.x;
-            vel.z = targetMove.z;
-        }
-        else
-        {
-            // Air = only slight correction toward desired horizontal velocity
-            vel.x = Mathf.Lerp(vel.x, targetMove.x, airControlMultiplier);
-            vel.z = Mathf.Lerp(vel.z, targetMove.z, airControlMultiplier);
-        }
-
-        if (grounded && vel.y <= 0f)
-        {
-            vel.y = -stickToGroundForce;
-        }
-
-        rb.linearVelocity = vel;
-    }
-
-    // ===== Public API =====
-
-    public Vector2 GetFacing2D() => facingLocked ? lockedFacing : lastNonZeroFacing;
-
-    public Vector2 GetMoveInput2D() => moveInput;
+    // ===== compatibilidad temporal =====
 
     public void LockMovement(bool locked)
     {
         movementLocked = locked;
-        if (locked) HoldStill();
     }
+    public void LockFacing(Vector2 dir) { }
+    public void UnlockFacing() { }
 
-    public void LockFacing(Vector2 dir)
-    {
-        if (dir.sqrMagnitude < 0.0001f)
-            dir = lastNonZeroFacing;
 
-        dir.Normalize();
-        lockedFacing = dir;
-        facingLocked = true;
-    }
-
-    public void UnlockFacing()
-    {
-        facingLocked = false;
-
-        // If already holding direction, immediately restore facing from move input
-        if (moveInput.sqrMagnitude > 0.0001f)
-        {
-            Vector2 dir = moveInput.normalized;
-
-            if (snapTo8Directions)
-                dir = SnapTo8(dir);
-
-            lastNonZeroFacing = dir;
-        }
-    }
-
-    // =======================
-    // ROLL API
-    // =======================
-
+    // ROLL
     public void BeginRoll(Vector2 rollDir2D, float speed, float duration)
     {
+        // ❌ no rodar si está en el aire
+        if (jump != null && !jump.IsGrounded)
+            return;
+        
+        // ❌ no rodar si ya está rodando
+        if (rollActive)
+            return;
+
+
         movementLocked = true;
-
-        currentRollSpeed = speed;
-        currentRollDuration = Mathf.Max(0.01f, duration);
-
-        LockFacing(rollDir2D);
-
-        Vector3 world = GetMoveWorld(rollDir2D);
-        world.y = 0f;
-
-        if (world.sqrMagnitude < 0.0001f)
-            world = GetMoveWorld(lastNonZeroFacing);
-
-        world.y = 0f;
-        world.Normalize();
-        rollWorldDir = world;
-
-        rollElapsed = 0f;
         rollActive = true;
 
-        HoldStill();
-    }
+        rollDuration = duration;
+        rollTimer = duration;
 
+        Vector2 dir2D = rollDir2D;
+
+        if (dir2D.sqrMagnitude < 0.01f)
+            dir2D = lastNonZeroFacing;
+
+        dir2D.Normalize();
+
+        rollDirection = GetMoveWorld(dir2D);
+        rollDirection.y = 0f;
+        rollDirection.Normalize();
+    }
     public void EndRoll()
     {
         rollActive = false;
-        rollElapsed = 0f;
-        HoldStill();
-        // UnlockFacing() should be handled externally when roll ends
+        movementLocked = false;
     }
-
-    private void ApplyRollVelocity()
-    {
-        rollElapsed += Time.fixedDeltaTime;
-
-        Vector3 vel = rb.linearVelocity;
-        vel.x = rollWorldDir.x * currentRollSpeed;
-        vel.z = rollWorldDir.z * currentRollSpeed;
-
-        bool grounded = jump != null && jump.IsGrounded;
-        if (grounded && vel.y <= 0f)
-            vel.y = -stickToGroundForce;
-
-        rb.linearVelocity = vel;
-
-        if (rollElapsed >= currentRollDuration)
-        {
-            rollActive = false;
-            HoldStill();
-        }
-    }
-
-    // =======================
-    // LUNGE API
-    // =======================
-
     public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float preStop, float postStop)
     {
-        movementLocked = true;
+        if (attackDir2D.sqrMagnitude < 0.01f)
+            attackDir2D = lastNonZeroFacing;
 
-        LockFacing(attackDir2D);
+        attackDir2D.Normalize();
 
-        Vector3 world = GetMoveWorld(attackDir2D);
-        world.y = 0f;
+        attackLungeDir = GetMoveWorld(attackDir2D);
+        attackLungeDir.y = 0f;
+        attackLungeDir.Normalize();
 
-        if (world.sqrMagnitude < 0.0001f)
-            world = GetMoveWorld(lastNonZeroFacing);
+        attackLungeSpeed = speed;
+        attackLungeTimer = duration;
 
-        world.y = 0f;
-        world.Normalize();
-        lungeWorldDir = world;
-
-        currentLungeSpeed = speed;
-        currentLungeDuration = duration;
-        currentPreStopTime = preStop;
-        currentPostStopTime = postStop;
-
-        lungeElapsed = 0f;
-        lungeActive = true;
-
-        HoldStill();
-    }
-
-    private void ApplyLungeVelocity()
-    {
-        lungeElapsed += Time.fixedDeltaTime;
-
-        float total = currentPreStopTime + currentLungeDuration + currentPostStopTime;
-
-        if (lungeElapsed < currentPreStopTime)
-        {
-            HoldStill();
-        }
-        else if (lungeElapsed < currentPreStopTime + currentLungeDuration)
-        {
-            Vector3 vel = rb.linearVelocity;
-            vel.x = lungeWorldDir.x * currentLungeSpeed;
-            vel.z = lungeWorldDir.z * currentLungeSpeed;
-
-            bool grounded = jump != null && jump.IsGrounded;
-            if (grounded && vel.y <= 0f)
-                vel.y = -stickToGroundForce;
-
-            rb.linearVelocity = vel;
-        }
-        else
-        {
-            HoldStill();
-        }
-
-        if (lungeElapsed >= total)
-        {
-            lungeActive = false;
-            HoldStill();
-        }
-    }
-
-    private void HoldStill()
-    {
-        Vector3 vel = rb.linearVelocity;
-        vel.x = 0f;
-        vel.z = 0f;
-
-        bool grounded = jump != null && jump.IsGrounded;
-        if (grounded && vel.y <= 0f)
-            vel.y = -stickToGroundForce;
-
-        rb.linearVelocity = vel;
-        rb.angularVelocity = Vector3.zero;
-    }
-
-    private Vector3 GetMoveWorld(Vector2 input)
-    {
-        if (mainCam == null)
-            mainCam = Camera.main;
-
-        Vector3 camForward = mainCam.transform.forward;
-        camForward.y = 0f;
-        camForward.Normalize();
-
-        Vector3 camRight = mainCam.transform.right;
-        camRight.y = 0f;
-        camRight.Normalize();
-
-        return (camForward * input.y + camRight * input.x);
-    }
-
-    private static Vector2 SnapTo8(Vector2 v)
-    {
-        float angle = Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg;
-        float snapped = Mathf.Round(angle / 45f) * 45f;
-        float rad = snapped * Mathf.Deg2Rad;
-        return new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+        attackLungeActive = true;
     }
 }
