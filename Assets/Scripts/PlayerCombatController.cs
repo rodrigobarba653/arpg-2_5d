@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class PlayerCombatController : MonoBehaviour
@@ -8,6 +8,7 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private GameObject meleeHitbox;
     [SerializeField] private Transform meleeHitboxTransform;
     [SerializeField] private PlayerMotor motor;
+    [SerializeField] private PlayerJump jump;
 
     [Header("Combo")]
     [SerializeField] private int maxCombo = 3;
@@ -84,6 +85,8 @@ public class PlayerCombatController : MonoBehaviour
     {
         if (!motor) motor = GetComponent<PlayerMotor>();
 
+        if (!jump) jump = GetComponent<PlayerJump>();
+
         if (!spriteAnimator) Debug.LogError("Assign SpriteBody Animator", this);
         if (!meleeHitbox) Debug.LogError("Assign MeleeHitbox GameObject", this);
 
@@ -127,6 +130,9 @@ public class PlayerCombatController : MonoBehaviour
     {
         if (!ctx.performed) return;
 
+        if (jump != null && !jump.IsGrounded)
+            return;
+
         if (isRolling) return;
 
         if (!isAttacking && Time.time < lockoutUntil)
@@ -151,6 +157,10 @@ public class PlayerCombatController : MonoBehaviour
 
         if (isAttacking) return;
 
+        // ❌ NO ROLL SI ESTA EN EL AIRE
+        if (jump != null && !jump.IsGrounded)
+            return;
+
         if (Time.time < rollCooldownUntil) return;
 
         StartRoll();
@@ -162,6 +172,9 @@ public class PlayerCombatController : MonoBehaviour
 
     private void StartAttack1()
     {
+        if (jump != null && !jump.IsGrounded)
+            return;
+
         isAttacking = true;
         comboIndex = 1;
         buffered = false;
@@ -297,6 +310,9 @@ public class PlayerCombatController : MonoBehaviour
 
     private void StartRoll()
     {
+        if (jump != null && !jump.IsGrounded)
+            return;
+
         isRolling = true;
 
         rollEndTime = Time.time + rollDuration;
