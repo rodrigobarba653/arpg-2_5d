@@ -1,114 +1,97 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Rigidbody))]
 public class PlayerJump : MonoBehaviour
 {
     [Header("References")]
     public PlayerMotor motor;
-    private Rigidbody rb;
+    public Animator animator;
 
     [Header("Jump")]
     public float jumpForce = 7f;
 
-    [Header("Air Physics")]
-    public float fallMultiplier = 2.5f;
-    public float lowJumpMultiplier = 2f;
-
-    [Header("Ground Check")]
-    public float groundRayLength = 0.25f;
-    public LayerMask groundMask;
-
     [Header("Landing")]
     public float landingLockTime = 0.12f;
-    public float minFallSpeedForLandingImpact = 2f;
 
     [Header("Debug")]
     public bool debugLog = false;
 
+    [Header("Air")]
+    public float airJumpDelay = 0.08f; // tiempo antes de activar jump idle
+
+    private float airTimer;
+    private bool inAir;
+
     private bool isGrounded;
-    private bool jumpHeld;
     private bool wasGrounded;
+    private bool jumpHeld;
+
     private bool landingLock;
     private float landingTimer;
 
-    private float lastFrameYVelocity;
-
     public bool IsGrounded => isGrounded;
-    public bool IsLandingLocked => landingLock;
 
     void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-
         if (!motor)
             motor = GetComponent<PlayerMotor>();
+
+        if (!animator)
+            animator = GetComponentInChildren<Animator>();
     }
 
     void Update()
     {
         CheckGround();
-        HandleBetterGravity();
+
+        HandleAirState();
         HandleLanding();
 
-        lastFrameYVelocity = rb.linearVelocity.y;
+        UpdateAnimator();
     }
 
     void CheckGround()
     {
-        Vector3 origin = transform.position + Vector3.up * 0.1f;
+        bool ccGrounded = motor.IsGrounded();
 
-        if (Physics.Raycast(origin, Vector3.down, groundRayLength, groundMask))
-        {
+        // grounded estable (evita falso grounded en el aire)
+        if (ccGrounded && motor.GetVerticalVelocity() <= 0f)
             isGrounded = true;
-        }
         else
-        {
             isGrounded = false;
-        }
-    }
-
-    void HandleBetterGravity()
-    {
-        if (isGrounded && rb.linearVelocity.y <= 0f)
-            return;
-
-        if (rb.linearVelocity.y < 0f)
-        {
-            rb.linearVelocity += Vector3.up * Physics.gravity.y * (fallMultiplier - 1f) * Time.deltaTime;
-        }
-        else if (rb.linearVelocity.y > 0f && !jumpHeld)
-        {
-            rb.linearVelocity += Vector3.up * Physics.gravity.y * (lowJumpMultiplier - 1f) * Time.deltaTime;
-        }
     }
 
     public void OnJump(InputAction.CallbackContext ctx)
     {
         if (ctx.started)
         {
-            jumpHeld = true;
+            if (!isGrounded)
+                return;
 
-            if (!isGrounded || landingLock)
+            if (landingLock)
                 return;
 
             Jump();
-        }
-
-        if (ctx.canceled)
-        {
-            jumpHeld = false;
         }
     }
 
     void Jump()
     {
         if (debugLog)
-            Debug.Log("Jump!");
+            Debug.Log("Jump");
 
-        Vector3 vel = rb.linearVelocity;
-        vel.y = jumpForce;
-        rb.linearVelocity = vel;
+        motor.SetVerticalVelocity(jumpForce);
+
+        if (animator)
+        {
+            // ✅ usar dirección actual aunque no haya input
+            Vector2 dir = motor.GetFacing2D();
+
+            animator.SetFloat("MoveX", dir.x);
+            animator.SetFloat("MoveY", dir.y);
+
+            animator.SetTrigger("Jump");
+        }
 
         isGrounded = false;
         wasGrounded = false;
@@ -117,9 +100,9 @@ public class PlayerJump : MonoBehaviour
     void HandleLanding()
     {
         bool landedThisFrame = !wasGrounded && isGrounded;
-        bool wasActuallyFalling = lastFrameYVelocity < -minFallSpeedForLandingImpact;
 
-        if (landedThisFrame && wasActuallyFalling)
+        // Solo hacer landing real si antes SI entro a estado de aire
+        if (landedThisFrame && inAir)
         {
             landingLock = true;
             landingTimer = landingLockTime;
@@ -127,8 +110,18 @@ public class PlayerJump : MonoBehaviour
             if (motor != null)
                 motor.LockMovement(true);
 
-            if (debugLog)
-                Debug.Log($"Landing impact! fallSpeed={lastFrameYVelocity}");
+            if (animator)
+                animator.SetTrigger("Land");
+
+            inAir = false;
+            airTimer = 0f;
+        }
+        else if (landedThisFrame)
+        {
+            // Cayó muy poquito / escalón / no alcanzó airJumpDelay
+            // No bloquear, no hacer landing anim
+            inAir = false;
+            airTimer = 0f;
         }
 
         if (landingLock)
@@ -141,12 +134,44 @@ public class PlayerJump : MonoBehaviour
 
                 if (motor != null)
                     motor.LockMovement(false);
-
-                if (debugLog)
-                    Debug.Log("Landing lock ended");
             }
         }
 
         wasGrounded = isGrounded;
+    }
+
+    void HandleAirState()
+    {
+        if (!isGrounded)
+        {
+            airTimer += Time.deltaTime;
+
+            // esperar un poco antes de activar animación de aire
+            if (!inAir && airTimer > airJumpDelay)
+            {
+                inAir = true;
+
+                if (animator)
+                {
+                    animator.SetTrigger("Jump");
+
+                    if (debugLog)
+                        Debug.Log("Air jump trigger");
+                }
+            }
+        }
+        else
+        {
+            airTimer = 0f;
+            inAir = false;
+        }
+    }
+
+    void UpdateAnimator()
+    {
+        if (!animator)
+            return;
+
+        animator.SetBool("IsGrounded", isGrounded);
     }
 }
