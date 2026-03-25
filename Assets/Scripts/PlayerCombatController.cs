@@ -27,6 +27,8 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private bool lungeStep2 = true;
     [SerializeField] private bool lungeStep3 = true;
 
+
+
     [System.Serializable]
     private struct LungeParams
     {
@@ -280,13 +282,20 @@ public class PlayerCombatController : MonoBehaviour
 
     public void EnableHitboxInt(int step)
     {
-        if (!meleeHitbox || !meleeHitboxTransform || motor == null) return;
+        if (!meleeHitbox || !meleeHitboxTransform || motor == null)
+            return;
 
         PositionHitboxInFront();
-        meleeHitbox.SetActive(true);
 
         var hb = meleeHitbox.GetComponent<MeleeHitbox>();
-        if (hb) hb.SetAttackStep(step);
+
+        if (hb)
+        {
+            hb.SetOwner(transform);
+            hb.SetAttackStep(step);
+        }
+
+        meleeHitbox.SetActive(true); // ← FALTABA ESTO
     }
 
     public void DisableHitbox()

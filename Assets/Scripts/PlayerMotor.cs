@@ -30,6 +30,14 @@ public class PlayerMotor : MonoBehaviour
     public float airControl = 0.4f;
     Vector3 airMoveDirection;
 
+    [Header("Slope")]
+    public float slopeSlideSpeed = 6f;
+    public float wallPushForce = 4f;
+    public float slopeCheckDistance = 0.6f;
+
+    bool onSteepSlope;
+    Vector3 slopeNormal;
+
     // ATTACK LUNGE
     bool attackLungeActive;
     float attackLungeTimer;
@@ -142,7 +150,9 @@ public class PlayerMotor : MonoBehaviour
         }
 
         // ---------- GRAVITY ----------
-        if (controller.isGrounded && verticalVelocity.y < 0f)
+        CheckSlope();
+
+        if (controller.isGrounded && !onSteepSlope && verticalVelocity.y < 0f)
             verticalVelocity.y = -2f;
 
         verticalVelocity.y += gravity * Time.deltaTime;
@@ -150,8 +160,45 @@ public class PlayerMotor : MonoBehaviour
         Vector3 finalMove = moveWorld * speed;
         finalMove.y = verticalVelocity.y;
 
+        if (onSteepSlope)
+        {
+            // 1. quitar movimiento hacia la pendiente
+            Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
+
+            horizontal = Vector3.ProjectOnPlane(
+                horizontal,
+                slopeNormal
+            );
+
+            finalMove.x = horizontal.x;
+            finalMove.z = horizontal.z;
+
+            // 2. dirección correcta cuesta abajo
+            Vector3 slideDir = Vector3.ProjectOnPlane(
+                Vector3.down,
+                slopeNormal
+            ).normalized;
+
+            finalMove += slideDir * slopeSlideSpeed;
+        }
+
+        if (onSteepSlope && !controller.isGrounded)
+        {
+            // empujar solo horizontalmente
+            Vector3 push = Vector3.ProjectOnPlane(
+                slopeNormal,
+                Vector3.up
+            ).normalized;
+
+            finalMove += push * wallPushForce;
+        }
+
         controller.Move(finalMove * Time.deltaTime);
+
+
     }
+
+
 
     Vector3 GetMoveWorld(Vector2 input)
     {
@@ -317,5 +364,39 @@ public class PlayerMotor : MonoBehaviour
         attackLungeTimer = duration;
 
         attackLungeActive = true;
+    }
+
+    void CheckSlope()
+    {
+        onSteepSlope = false;
+        slopeNormal = Vector3.up;
+
+        if (!controller)
+            return;
+
+        float radius = Mathf.Max(0.05f, controller.radius * 0.9f);
+        float castDistance = (controller.height * 0.5f) - controller.radius + slopeCheckDistance;
+
+        Vector3 origin = transform.position
+                       + controller.center
+                       + Vector3.up * 0.1f;
+
+        if (Physics.SphereCast(
+            origin,
+            radius,
+            Vector3.down,
+            out RaycastHit hit,
+            castDistance,
+            ~0,
+            QueryTriggerInteraction.Ignore))
+        {
+            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+
+            if (slopeAngle > controller.slopeLimit)
+            {
+                onSteepSlope = true;
+                slopeNormal = hit.normal;
+            }
+        }
     }
 }

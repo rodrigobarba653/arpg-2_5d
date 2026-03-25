@@ -12,12 +12,18 @@ public class PlayerJump : MonoBehaviour
 
     [Header("Landing")]
     public float landingLockTime = 0.12f;
+    public float minAirTimeForLanding = 0.5f;
 
     [Header("Debug")]
     public bool debugLog = false;
 
     [Header("Air")]
-    public float airJumpDelay = 0.08f; // tiempo antes de activar jump idle
+    public float airJumpDelay = 0.08f;
+
+    [Header("Jump Lock")]
+    public float jumpCooldown = 0.15f;
+
+    float jumpLockTimer;
 
     private float airTimer;
     private bool inAir;
@@ -42,20 +48,55 @@ public class PlayerJump : MonoBehaviour
 
     void Update()
     {
-        CheckGround();
+        if (jumpLockTimer > 0f)
+            jumpLockTimer -= Time.deltaTime;
 
+        CheckGround();
         HandleAirState();
         HandleLanding();
-
         UpdateAnimator();
     }
 
     void CheckGround()
     {
-        bool ccGrounded = motor.IsGrounded();
+        CharacterController cc = motor != null ? motor.GetCharacterController() : null;
 
-        // grounded estable (evita falso grounded en el aire)
-        if (ccGrounded && motor.GetVerticalVelocity() <= 0f)
+        if (cc == null)
+        {
+            isGrounded = false;
+            return;
+        }
+
+        bool ccGrounded = cc.isGrounded;
+
+        float probeDistance = 0.35f;
+        float radius = Mathf.Max(0.05f, cc.radius * 0.9f);
+
+        Vector3 worldCenter = transform.position + cc.center;
+        Vector3 sphereOrigin = worldCenter + Vector3.up * 0.05f;
+
+        bool foundGround = Physics.SphereCast(
+            sphereOrigin,
+            radius,
+            Vector3.down,
+            out RaycastHit hit,
+            probeDistance,
+            ~0,
+            QueryTriggerInteraction.Ignore
+        );
+
+        bool slopeWalkable = false;
+
+        if (foundGround)
+        {
+            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+            slopeWalkable = slopeAngle <= cc.slopeLimit + 0.5f;
+
+            if (debugLog)
+                Debug.Log($"Ground hit: {hit.collider.name} | slope: {slopeAngle:F2} | walkable: {slopeWalkable}");
+        }
+
+        if ((ccGrounded || slopeWalkable) && motor.GetVerticalVelocity() <= 0.5f)
             isGrounded = true;
         else
             isGrounded = false;
@@ -66,6 +107,9 @@ public class PlayerJump : MonoBehaviour
         if (ctx.started)
         {
             if (!isGrounded)
+                return;
+
+            if (jumpLockTimer > 0f)
                 return;
 
             if (landingLock)
@@ -81,15 +125,14 @@ public class PlayerJump : MonoBehaviour
             Debug.Log("Jump");
 
         motor.SetVerticalVelocity(jumpForce);
+        jumpLockTimer = jumpCooldown;
 
         if (animator)
         {
-            // ✅ usar dirección actual aunque no haya input
             Vector2 dir = motor.GetFacing2D();
 
             animator.SetFloat("MoveX", dir.x);
             animator.SetFloat("MoveY", dir.y);
-
             animator.SetTrigger("Jump");
         }
 
@@ -101,25 +144,28 @@ public class PlayerJump : MonoBehaviour
     {
         bool landedThisFrame = !wasGrounded && isGrounded;
 
-        // Solo hacer landing real si antes SI entro a estado de aire
-        if (landedThisFrame && inAir)
+        if (landedThisFrame)
         {
-            landingLock = true;
-            landingTimer = landingLockTime;
+            if (airTimer >= minAirTimeForLanding)
+            {
+                landingLock = true;
+                landingTimer = landingLockTime;
 
-            if (motor != null)
-                motor.LockMovement(true);
+                if (motor != null)
+                    motor.LockMovement(true);
 
-            if (animator)
-                animator.SetTrigger("Land");
+                if (animator)
+                    animator.SetTrigger("Land");
 
-            inAir = false;
-            airTimer = 0f;
-        }
-        else if (landedThisFrame)
-        {
-            // Cayó muy poquito / escalón / no alcanzó airJumpDelay
-            // No bloquear, no hacer landing anim
+                if (debugLog)
+                    Debug.Log("Landing (valid)");
+            }
+            else
+            {
+                if (debugLog)
+                    Debug.Log("Landing ignored (too short)");
+            }
+
             inAir = false;
             airTimer = 0f;
         }
@@ -146,8 +192,7 @@ public class PlayerJump : MonoBehaviour
         {
             airTimer += Time.deltaTime;
 
-            // esperar un poco antes de activar animación de aire
-            if (!inAir && airTimer > airJumpDelay)
+            if (!inAir && (airTimer > airJumpDelay || motor.GetVerticalVelocity() < -2f))
             {
                 inAir = true;
 
@@ -156,14 +201,14 @@ public class PlayerJump : MonoBehaviour
                     animator.SetTrigger("Jump");
 
                     if (debugLog)
-                        Debug.Log("Air jump trigger");
+                        Debug.Log("Air state");
                 }
             }
         }
         else
         {
-            airTimer = 0f;
             inAir = false;
+            airTimer = 0f;
         }
     }
 

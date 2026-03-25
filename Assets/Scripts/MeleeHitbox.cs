@@ -14,19 +14,18 @@ public class MeleeHitbox : MonoBehaviour
     [SerializeField] private float hitStopStep3 = 0.08f;
 
     [Header("Safety")]
-    [Tooltip("Auto-disable collider after X seconds (failsafe). 0 = off")]
     [SerializeField] private float autoDisableAfter = 0.20f;
 
     [Header("Debug")]
-    [Tooltip("Print debug logs to Console")]
-    [SerializeField] private bool logDebug = false;
-
-    [Tooltip("Always show hitbox visually in Game view")]
+    [SerializeField] private bool logDebug = true;
     [SerializeField] private bool alwaysShowDebug = true;
-
     [SerializeField] private Color debugColor = new Color(1f, 0f, 1f, 0.25f);
 
+    Transform owner;
+
     private readonly HashSet<EnemyHealth> hitEnemies = new HashSet<EnemyHealth>();
+    private readonly HashSet<PlayerHealth> hitPlayers = new HashSet<PlayerHealth>();
+
     private float disableAtTime = -1f;
 
     private GameObject debugCube;
@@ -37,6 +36,11 @@ public class MeleeHitbox : MonoBehaviour
     public void SetAttackStep(int step)
     {
         attackStep = Mathf.Clamp(step, 1, 99);
+    }
+
+    public void SetOwner(Transform t)
+    {
+        owner = t;
     }
 
     void Awake()
@@ -52,9 +56,11 @@ public class MeleeHitbox : MonoBehaviour
 
     void OnEnable()
     {
-        if (logDebug) Debug.Log($"[Hitbox] ENABLED (step {attackStep})", this);
+        if (logDebug)
+            Debug.Log($"[Hitbox] ENABLED on {name} | owner={(owner ? owner.name : "NULL")} | step={attackStep}", this);
 
         hitEnemies.Clear();
+        hitPlayers.Clear();
 
         box.enabled = true;
 
@@ -78,7 +84,9 @@ public class MeleeHitbox : MonoBehaviour
             box.enabled = false;
             disableAtTime = -1f;
 
-            if (logDebug) Debug.Log("[Hitbox] AUTO DISABLED collider (failsafe)", this);
+            if (logDebug)
+                Debug.Log("[Hitbox] AUTO DISABLED collider (failsafe)", this);
+
             UpdateDebugCubeActive();
         }
 
@@ -91,25 +99,75 @@ public class MeleeHitbox : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (logDebug) Debug.Log($"[Hitbox] TRIGGER with: {other.name} | step {attackStep}", this);
+        if (logDebug)
+            Debug.Log($"[Hitbox] TRIGGER with: {other.name}", this);
 
-        var enemy = other.GetComponentInParent<EnemyHealth>();
-        if (!enemy) return;
+        if (owner == null)
+            return;
 
-        // Only hit each enemy once per swing
-        if (!hitEnemies.Add(enemy)) return;
+        // ignorar al propio dueño
+        if (other.transform == owner || other.transform.IsChildOf(owner))
+            return;
 
-        if (enableHitStop)
+        bool ownerIsEnemy = owner.GetComponent<EnemyHealth>() != null;
+        bool ownerIsPlayer = owner.GetComponent<PlayerHealth>() != null;
+
+        // ======================
+        // OWNER = ENEMY
+        // ======================
+        if (ownerIsEnemy)
         {
-            float dur =
-                attackStep == 3 ? hitStopStep3 :
-                attackStep == 2 ? hitStopStep2 :
-                                  hitStopStep1;
+            PlayerHealth player = other.GetComponentInParent<PlayerHealth>();
 
-            HitStopperManager.Instance?.DoHitStop(dur);
+            if (player == null)
+                return;
+
+            if (!hitPlayers.Add(player))
+                return;
+
+            if (logDebug)
+                Debug.Log($"[Hitbox] Enemy hit player {player.name}", this);
+
+            DoHitStop();
+            player.TakeDamage(baseDamage);
+            return;
         }
 
-        enemy.TakeDamage(baseDamage);
+        // ======================
+        // OWNER = PLAYER
+        // ======================
+        if (ownerIsPlayer)
+        {
+            EnemyHealth enemy = other.GetComponentInParent<EnemyHealth>();
+
+            if (enemy == null)
+                return;
+
+            if (!hitEnemies.Add(enemy))
+                return;
+
+            if (logDebug)
+                Debug.Log($"[Hitbox] Player hit enemy {enemy.name}", this);
+
+            DoHitStop();
+            Vector3 dir = (enemy.transform.position - owner.position).normalized;
+
+            enemy.TakeDamage(baseDamage, dir, attackStep);
+            return;
+        }
+    }
+
+    void DoHitStop()
+    {
+        if (!enableHitStop)
+            return;
+
+        float dur =
+            attackStep == 3 ? hitStopStep3 :
+            attackStep == 2 ? hitStopStep2 :
+                              hitStopStep1;
+
+        HitStopperManager.Instance?.DoHitStop(dur);
     }
 
     private void CreateDebugCube()
@@ -117,7 +175,6 @@ public class MeleeHitbox : MonoBehaviour
         debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         debugCube.name = "Hitbox_Debug";
 
-        // Remove collider from debug cube
         var c = debugCube.GetComponent<Collider>();
         if (c) Destroy(c);
 
@@ -141,8 +198,6 @@ public class MeleeHitbox : MonoBehaviour
     private void UpdateDebugCubeActive()
     {
         if (!debugCube) return;
-
-        // Show always OR only when this object is active
         debugCube.SetActive(alwaysShowDebug || gameObject.activeSelf);
     }
 
