@@ -13,8 +13,8 @@ public class SpriteSheetClipGenerator
     "Up", "UpRight", "Right", "DownRight"
 };
 
-    [MenuItem("Tools/Sprites/Generate 8x3 Hurt Clips (from selected texture)")]
-    public static void Generate8x3()
+    [MenuItem("Tools/Sprites/Generate 8x6 SwimIdle Clips (from selected texture)")]
+    public static void Generate8x6()
     {
         const int directions = 8;
         const int framesPerDir = 3;
@@ -26,7 +26,7 @@ public class SpriteSheetClipGenerator
         {
             EditorUtility.DisplayDialog(
                 "Select spritesheet texture",
-                "In the Project window, click your spritesheet Texture2D (the image), then run:\nTools > Sprites > Generate 8x3 Hurt Clips",
+                "In the Project window, click your spritesheet Texture2D (the image), then run:\nTools > Sprites > Generate 8x6 SwimIdle Clips",
                 "OK"
             );
             return;
@@ -75,7 +75,7 @@ public class SpriteSheetClipGenerator
         for (int d = 0; d < directions; d++)
         {
             string dirName = (d < DirectionNames8.Length) ? DirectionNames8[d] : $"Dir{d}";
-            string clipPath = $"{outFolder}/Hurt_{dirName}.anim";
+            string clipPath = $"{outFolder}/SwimIdle_{dirName}.anim";
 
             var clip = new AnimationClip
             {
@@ -120,7 +120,7 @@ public class SpriteSheetClipGenerator
 
         EditorUtility.DisplayDialog(
             "Done ✅",
-            $"Created 8 Hurt clips (3 frames each) in:\n{outFolder}\n\nIf the directions are in the wrong order, tell me how your sheet is laid out and I’ll adjust the direction mapping.",
+            $"Created 8 SwimIdle clips (6 frames each) in:\n{outFolder}\n\nIf the directions are in the wrong order, tell me how your sheet is laid out and I’ll adjust the direction mapping.",
             "OK"
         );
     }
