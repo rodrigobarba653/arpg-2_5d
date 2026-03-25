@@ -17,7 +17,7 @@ public class SpriteSheetClipGenerator
     public static void Generate8x6()
     {
         const int directions = 8;
-        const int framesPerDir = 6;
+        const int framesPerDir = 3;
         const float fps = 12f;
 
         // 1) You must select the spritesheet TEXTURE in the Project window
@@ -43,7 +43,7 @@ public class SpriteSheetClipGenerator
         {
             EditorUtility.DisplayDialog(
                 "Not enough sprites",
-                $"Found {sprites.Count} sprites, but need at least {directions * framesPerDir} (8 directions × 6 frames).\n\nCheck that Sprite Mode = Multiple and slicing is correct.",
+                $"Found {sprites.Count} sprites, but need at least {directions * framesPerDir} (8 directions × 3 frames).\n\nCheck that Sprite Mode = Multiple and slicing is correct.",
                 "OK"
             );
             return;
