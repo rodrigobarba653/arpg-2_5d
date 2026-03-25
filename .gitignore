@@ -20,6 +20,7 @@
 *.svd
 *.pdb
 *.mdb
+*.unitypackage
 
 # OS
 .DS_Store
