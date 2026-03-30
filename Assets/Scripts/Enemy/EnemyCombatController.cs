@@ -1,10 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class EnemyCombatController : MonoBehaviour
 {
     [Header("Refs")]
     public Animator animator;
     public EnemyMotor motor;
+    EnemyAI ai;
 
     public GameObject meleeHitbox;
     public Transform meleeHitboxTransform;
@@ -19,6 +20,11 @@ public class EnemyCombatController : MonoBehaviour
     public float hitboxForwardDistance = 0.6f;
     public Vector3 hitboxLocalOffset;
 
+    [Header("Damage Reaction")]
+    public float hitStunTime = 0.3f;
+
+    float hitStunUntil;
+
     float nextAttackTime;
 
     bool isAttacking;
@@ -31,6 +37,8 @@ public class EnemyCombatController : MonoBehaviour
         if (!motor)
             motor = GetComponent<EnemyMotor>();
 
+        ai = GetComponent<EnemyAI>();
+
         if (!animator)
             animator = GetComponentInChildren<Animator>();
 
@@ -42,7 +50,13 @@ public class EnemyCombatController : MonoBehaviour
         if (!player)
             return;
 
+        if (ai != null && ai.isDefending)
+            return;
+
         if (isAttacking)
+            return;
+
+        if (Time.time < hitStunUntil)
             return;
 
         float dist =
@@ -123,5 +137,21 @@ public class EnemyCombatController : MonoBehaviour
         meleeHitboxTransform.localPosition =
             forward * hitboxForwardDistance +
             hitboxLocalOffset;
+    }
+
+    public void OnTakeDamage()
+    {
+        // 🔥 aplicar stun
+        hitStunUntil = Time.time + hitStunTime;
+
+        // 🔥 cancelar ataque si estaba atacando
+        if (isAttacking)
+        {
+            isAttacking = false;
+            animator.SetBool(IsAttackingHash, false);
+        }
+
+        // 🔥 detener movimiento
+        motor.Stop();
     }
 }

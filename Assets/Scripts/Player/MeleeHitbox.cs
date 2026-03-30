@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(BoxCollider))]
@@ -105,7 +105,7 @@ public class MeleeHitbox : MonoBehaviour
         if (owner == null)
             return;
 
-        // ignorar al propio due�o
+        // ignorar al propio dueño
         if (other.transform == owner || other.transform.IsChildOf(owner))
             return;
 
@@ -129,7 +129,8 @@ public class MeleeHitbox : MonoBehaviour
                 Debug.Log($"[Hitbox] Enemy hit player {player.name}", this);
 
             DoHitStop();
-            player.TakeDamage(baseDamage);
+            Vector3 dir = (player.transform.position - owner.position).normalized;
+            player.TakeDamage(baseDamage, dir);
             return;
         }
 
@@ -149,11 +150,39 @@ public class MeleeHitbox : MonoBehaviour
             if (logDebug)
                 Debug.Log($"[Hitbox] Player hit enemy {enemy.name}", this);
 
-            DoHitStop();
+            // 🔥 OBTENER AI
+            EnemyAI ai = enemy.GetComponent<EnemyAI>();
+
             Vector3 dir = (enemy.transform.position - owner.position).normalized;
 
+            // ======================
+            // 🛡️ DEFENSE SYSTEM
+            // ======================
+            if (ai != null && ai.isDefending)
+            {
+                if (logDebug)
+                    Debug.Log("🛡️ BLOCK!", this);
+
+                // 🔥 reducir daño
+                int reducedDamage = Mathf.RoundToInt(baseDamage * 0.2f);
+
+                // 🔥 knockback ligero (feedback)
+                var motor = enemy.GetComponent<EnemyMotor>();
+                if (motor)
+                    motor.DoKnockback(dir, 0.5f, 0.1f);
+
+                DoHitStop();
+
+                enemy.TakeDamage(reducedDamage, dir, attackStep);
+
+                return;
+            }
+
+            // ======================
+            // ⚔️ NORMAL DAMAGE
+            // ======================
+            DoHitStop();
             enemy.TakeDamage(baseDamage, dir, attackStep);
-            return;
         }
     }
 
