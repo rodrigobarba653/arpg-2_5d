@@ -3,6 +3,9 @@ using System.Collections;
 
 public class EnemyHealth : MonoBehaviour
 {
+    EnemyAI ai;
+    EnemyCombatController combat;
+
     [Header("Health")]
     public int maxHealth = 30;
     public int currentHealth;
@@ -11,6 +14,7 @@ public class EnemyHealth : MonoBehaviour
     public float knockbackForce = 6f;
     public float knockbackUp = 1.5f;
 
+
     SpriteRenderer sr;
     Color originalColor;
     Rigidbody rb;
@@ -18,6 +22,9 @@ public class EnemyHealth : MonoBehaviour
     void Awake()
     {
         currentHealth = maxHealth;
+
+        ai = GetComponent<EnemyAI>();
+        combat = GetComponent<EnemyCombatController>();
 
         sr = GetComponentInChildren<SpriteRenderer>();
 
@@ -29,13 +36,33 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
     {
+        if (ai != null && ai.isDefending)
+        {
+            Vector3 dirToPlayer = (ai.player.position - transform.position).normalized;
+            dirToPlayer.y = 0f;
+
+            float dot = Vector3.Dot(transform.forward, dirToPlayer);
+
+            if (dot > 0.5f) // 👈 solo bloquea si viene de frente
+            {
+                Debug.Log("🛡️ BLOCK FRONT!");
+
+                if (sr != null)
+                    StartCoroutine(BlockFlash());
+
+                return;
+            }
+        }
+
         currentHealth -= amount;
         currentHealth = Mathf.Max(currentHealth, 0);
+
+        if (combat != null)
+            combat.OnTakeDamage();
 
         if (sr != null)
             StartCoroutine(FlashRed());
 
-        // ✅ solo tercer golpe empuja
         if (step == 3)
         {
             DoKnockback(hitDir);
@@ -70,6 +97,13 @@ public class EnemyHealth : MonoBehaviour
     {
         sr.color = Color.red;
         yield return new WaitForSeconds(0.08f);
+        sr.color = originalColor;
+    }
+
+    IEnumerator BlockFlash()
+    {
+        sr.color = Color.gray; // o azul
+        yield return new WaitForSeconds(0.05f);
         sr.color = originalColor;
     }
 }

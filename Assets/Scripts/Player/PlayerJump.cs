@@ -6,6 +6,7 @@ public class PlayerJump : MonoBehaviour
     [Header("References")]
     public PlayerMotor motor;
     public Animator animator;
+    PlayerSwimming swim;
 
     [Header("Jump")]
     public float jumpForce = 7f;
@@ -44,6 +45,8 @@ public class PlayerJump : MonoBehaviour
 
         if (!animator)
             animator = GetComponentInChildren<Animator>();
+
+        swim = GetComponent<PlayerSwimming>();
     }
 
     void Update()
@@ -104,6 +107,9 @@ public class PlayerJump : MonoBehaviour
 
     public void OnJump(InputAction.CallbackContext ctx)
     {
+        if (swim != null && swim.IsSwimming())
+            return;
+
         if (ctx.started)
         {
             if (!isGrounded)
@@ -121,6 +127,9 @@ public class PlayerJump : MonoBehaviour
 
     void Jump()
     {
+        if (swim != null && swim.IsSwimming())
+            return;
+
         if (debugLog)
             Debug.Log("Jump");
 
@@ -218,5 +227,24 @@ public class PlayerJump : MonoBehaviour
             return;
 
         animator.SetBool("IsGrounded", isGrounded);
+    }
+
+    public void ForceExitAirState()
+    {
+        inAir = false;
+        airTimer = 0f;
+
+        landingLock = false;
+        jumpLockTimer = 0f;
+
+        isGrounded = true;
+        wasGrounded = true;
+
+        if (animator)
+        {
+            animator.ResetTrigger("Jump");
+            animator.ResetTrigger("Land");
+            animator.SetBool("IsGrounded", true);
+        }
     }
 }

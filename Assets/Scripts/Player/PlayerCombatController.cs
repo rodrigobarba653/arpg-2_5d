@@ -9,6 +9,8 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private Transform meleeHitboxTransform;
     [SerializeField] private PlayerMotor motor;
     [SerializeField] private PlayerJump jump;
+    PlayerSwimming swim;
+    PlayerHealth health;
 
     [Header("Combo")]
     [SerializeField] private int maxCombo = 3;
@@ -95,6 +97,10 @@ public class PlayerCombatController : MonoBehaviour
         if (!meleeHitboxTransform && meleeHitbox)
             meleeHitboxTransform = meleeHitbox.transform;
 
+        swim = GetComponent<PlayerSwimming>();
+
+        health = GetComponent<PlayerHealth>();
+
         if (spriteAnimator)
         {
             spriteAnimator.SetBool(IsAttackingHash, false);
@@ -107,6 +113,9 @@ public class PlayerCombatController : MonoBehaviour
 
     void Update()
     {
+        if (health != null && health.isTakingDamage)
+            return;
+
         // buffer expiration
         if (buffered && Time.time > comboBufferUntil)
             buffered = false;
@@ -130,6 +139,12 @@ public class PlayerCombatController : MonoBehaviour
 
     public void OnAttack(InputAction.CallbackContext ctx)
     {
+        if (health != null && health.isTakingDamage)
+            return;
+
+        if (swim != null && swim.IsSwimming())
+            return;
+
         if (!ctx.performed) return;
 
         if (jump != null && !jump.IsGrounded)
@@ -154,6 +169,12 @@ public class PlayerCombatController : MonoBehaviour
 
     public void OnRoll(InputAction.CallbackContext ctx)
     {
+        if (health != null && health.isTakingDamage)
+            return;
+
+        if (swim != null && swim.IsSwimming())
+            return;
+
         if (!ctx.performed) return;
         if (!enableRoll) return;
 
@@ -380,5 +401,25 @@ public class PlayerCombatController : MonoBehaviour
     {
         inCombat = false;
         spriteAnimator?.SetBool(InCombatHash, false);
+    }
+
+    public void CancelCombatImmediate()
+    {
+        isAttacking = false;
+        isRolling = false;
+
+        comboIndex = 0;
+        buffered = false;
+
+        spriteAnimator?.SetBool(IsAttackingHash, false);
+        spriteAnimator?.SetBool(IsRollingHash, false);
+        spriteAnimator?.SetInteger(ComboIndexHash, 0);
+
+        motor?.LockMovement(false);
+        motor?.UnlockFacing();
+
+        DisableHitbox();
+
+        ExitCombat();
     }
 }
