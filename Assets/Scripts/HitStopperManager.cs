@@ -1,16 +1,18 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class HitStopperManager : MonoBehaviour
 {
     public static HitStopperManager Instance { get; private set; }
 
-    [Tooltip("If true, another HitStopper can extend the current one (keeps the longest remaining).")]
     [SerializeField] private bool allowExtend = true;
 
-    private float savedTimeScale = 1f;
     private bool isStopping = false;
     private float stopEndRealtime = 0f;
+
+    private List<Animator> anims = new List<Animator>();
+    private List<float> savedSpeeds = new List<float>();
 
     private void Awake()
     {
@@ -21,8 +23,6 @@ public class HitStopperManager : MonoBehaviour
         }
 
         Instance = this;
-        // Optional across scenes:
-        // DontDestroyOnLoad(gameObject);
     }
 
     public void DoHitStop(float duration)
@@ -49,28 +49,42 @@ public class HitStopperManager : MonoBehaviour
     {
         isStopping = true;
 
-        savedTimeScale = Time.timeScale;
         stopEndRealtime = Time.unscaledTime + duration;
 
-        Time.timeScale = 0f;
+        FreezeAnimators();
 
         while (Time.unscaledTime < stopEndRealtime)
             yield return null;
 
-        Time.timeScale = savedTimeScale;
+        UnfreezeAnimators();
 
         isStopping = false;
     }
 
-    private void OnDisable()
+    void FreezeAnimators()
     {
-        if (isStopping)
-            Time.timeScale = savedTimeScale;
+        anims.Clear();
+        savedSpeeds.Clear();
+
+        Animator[] found = FindObjectsOfType<Animator>();
+
+        foreach (var a in found)
+        {
+            anims.Add(a);
+            savedSpeeds.Add(a.speed);
+            a.speed = 0f;
+        }
     }
 
-    private void OnDestroy()
+    void UnfreezeAnimators()
     {
-        if (isStopping)
-            Time.timeScale = savedTimeScale;
+        for (int i = 0; i < anims.Count; i++)
+        {
+            if (anims[i])
+                anims[i].speed = savedSpeeds[i];
+        }
+
+        anims.Clear();
+        savedSpeeds.Clear();
     }
 }

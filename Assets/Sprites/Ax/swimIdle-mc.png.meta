@@ -1,0 +1,1236 @@
+fileFormatVersion: 2
+guid: 15dd6554c62b543e4b78dd81272a3c07
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 104
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: swimIdle-mc_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8051f4610256d43a0bbbcd9e799f1348
+      internalID: 692275375
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_1
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 26cc7c67959774d7da375de3ed9b8955
+      internalID: 338359484
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_2
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1379edbc9beb84d789564d97a2e71d21
+      internalID: -207835178
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_3
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9cd3f9cee8ccb4c4abe3c79a667fee28
+      internalID: -1508793881
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_4
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9d8ed13bb5df14ae7a8d8dc21aaedc6e
+      internalID: -1751129268
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_5
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1303eaf79682f48eda9628a43e882f00
+      internalID: 2007726198
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_6
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 624
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a19906c5dd73f48d8b358ab99d1713bd
+      internalID: -1146963098
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_7
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4c340f8b224d14f699e63c26ab281343
+      internalID: -526106719
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_8
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c16c94304d712413fb469990e1ee57a3
+      internalID: -2104885467
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_9
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8586a2903812f4866add6c692dc469fe
+      internalID: -1386296169
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_10
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3aa8146c540d641ce8caf17d5a03b208
+      internalID: -1439136095
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_11
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 41abef2321c264b82b19b732d7e94a70
+      internalID: 1663709889
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_12
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 337122f8d0c864c1baeb52810094c63b
+      internalID: -613911771
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_13
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 520
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5aa58855d3794410c875ccbf03803839
+      internalID: 943346704
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_14
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f37903878d54f4c39a6e17ce87c79288
+      internalID: 1582466294
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_15
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2ab5dcb8af4a94b04bfa7c9572f7ccf8
+      internalID: 459009219
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_16
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3ea62f4f96dd144a6ae8cc1dd881089e
+      internalID: 538016253
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_17
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1b7b2c0608f634143bf6b9386adb1aec
+      internalID: 1097039428
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_18
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fe5c0cb9d5fe04f5b96af1dbca70463c
+      internalID: 7503733
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_19
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5901561d2b7fd4cbc8f4a458b58f3b67
+      internalID: -845139180
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_20
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 416
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7b97003d92a724b48ae6c72c77a69011
+      internalID: 1106215389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_21
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 75467b3bc79d240d9b952fd549fc03b9
+      internalID: 561579518
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_22
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 163c93455f653469fb41f989e670c194
+      internalID: 13289397
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_23
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 73c5d36be805e49d4aac3b92a365d95d
+      internalID: 2055486299
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_24
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ad92bd859f52f44848abaad4ede84c99
+      internalID: 965260977
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_25
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a550870ef72f2448784e7e6ee27a2652
+      internalID: -225151592
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_26
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fd068cf8869954d92903ee4abaac91f0
+      internalID: 2106862754
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_27
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 312
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 13466f476281f4bdebcdeaf691ff59fe
+      internalID: -1274101196
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_28
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4040962e9de7d468481d1f46dad7497d
+      internalID: -2098797692
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_29
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 060bdc7fa764646beac07b68544b9be3
+      internalID: 1298071561
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_30
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6ae406e354de4499a8f3ea36f36016b5
+      internalID: -911380898
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_31
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2f70a5124fd8148f88088cc7a0502289
+      internalID: 117369180
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_32
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 013974eb8cdc449cb96f92d2ee808ac7
+      internalID: -1132398295
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_33
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 688a0d4bedf02408aab6e799481dd4e3
+      internalID: 123940278
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_34
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 208
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b8dc2f565386c45af8bef25c70185757
+      internalID: -2077036962
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_35
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d15685127689d418f846c19d08dc06de
+      internalID: 1768801269
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_36
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a028c11397164477c8e8883e8720f183
+      internalID: -1608753425
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_37
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7f9b6e4bff2454cbf90c2f30a2183bfc
+      internalID: -1478980587
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_38
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 05d86c5d02b344e32b855431d72a4a53
+      internalID: 1660597927
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_39
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ae3b1e506032a45bf92f7a9e17616ff9
+      internalID: -1123127170
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_40
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9c76ab45e92cb4242993bae2065a61fb
+      internalID: -1367521031
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_41
+      rect:
+        serializedVersion: 2
+        x: 624
+        y: 104
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7b0063f3ec12f4a6494e966451a7f6ec
+      internalID: 1474430660
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_42
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 54a81826762fa4150971b3165d66751d
+      internalID: 969962099
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_43
+      rect:
+        serializedVersion: 2
+        x: 104
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 85688cc4fbbd7469e827bf9a5a60d6a5
+      internalID: 997033268
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_44
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 134c48b24ec68461596d9e0aba9cb672
+      internalID: 336151227
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_45
+      rect:
+        serializedVersion: 2
+        x: 312
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0ab724878e42f4fa3bf5fb48c706f30e
+      internalID: 289593891
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_46
+      rect:
+        serializedVersion: 2
+        x: 416
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f1031b5ec93304dc68daf41363c7b11c
+      internalID: -495489993
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: swimIdle-mc_47
+      rect:
+        serializedVersion: 2
+        x: 520
+        y: 0
+        width: 104
+        height: 104
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7b946eb8725854d908d8bb47106930aa
+      internalID: 2134458701
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 2423e6fad65e84fc38f9b509aefe1353
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":104.0,"y":104.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.0},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":7,"pivotUnitMode":0,"slicingType":1,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      swimIdle-mc_0: 692275375
+      swimIdle-mc_1: 338359484
+      swimIdle-mc_10: -1439136095
+      swimIdle-mc_11: 1663709889
+      swimIdle-mc_12: -613911771
+      swimIdle-mc_13: 943346704
+      swimIdle-mc_14: 1582466294
+      swimIdle-mc_15: 459009219
+      swimIdle-mc_16: 538016253
+      swimIdle-mc_17: 1097039428
+      swimIdle-mc_18: 7503733
+      swimIdle-mc_19: -845139180
+      swimIdle-mc_2: -207835178
+      swimIdle-mc_20: 1106215389
+      swimIdle-mc_21: 561579518
+      swimIdle-mc_22: 13289397
+      swimIdle-mc_23: 2055486299
+      swimIdle-mc_24: 965260977
+      swimIdle-mc_25: -225151592
+      swimIdle-mc_26: 2106862754
+      swimIdle-mc_27: -1274101196
+      swimIdle-mc_28: -2098797692
+      swimIdle-mc_29: 1298071561
+      swimIdle-mc_3: -1508793881
+      swimIdle-mc_30: -911380898
+      swimIdle-mc_31: 117369180
+      swimIdle-mc_32: -1132398295
+      swimIdle-mc_33: 123940278
+      swimIdle-mc_34: -2077036962
+      swimIdle-mc_35: 1768801269
+      swimIdle-mc_36: -1608753425
+      swimIdle-mc_37: -1478980587
+      swimIdle-mc_38: 1660597927
+      swimIdle-mc_39: -1123127170
+      swimIdle-mc_4: -1751129268
+      swimIdle-mc_40: -1367521031
+      swimIdle-mc_41: 1474430660
+      swimIdle-mc_42: 969962099
+      swimIdle-mc_43: 997033268
+      swimIdle-mc_44: 336151227
+      swimIdle-mc_45: 289593891
+      swimIdle-mc_46: -495489993
+      swimIdle-mc_47: 2134458701
+      swimIdle-mc_5: 2007726198
+      swimIdle-mc_6: -1146963098
+      swimIdle-mc_7: -526106719
+      swimIdle-mc_8: -2104885467
+      swimIdle-mc_9: -1386296169
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
