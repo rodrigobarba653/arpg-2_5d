@@ -422,4 +422,19 @@ public class PlayerCombatController : MonoBehaviour
 
         ExitCombat();
     }
+
+    public bool IsInCombat()
+{
+    return inCombat;
+}
+
+public bool IsAttacking()
+{
+    return isAttacking;
+}
+
+public bool IsRolling()
+{
+    return isRolling;
+}
 }

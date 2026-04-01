@@ -45,14 +45,16 @@ public class PlayerMotor : MonoBehaviour
     Vector3 attackLungeDir;
 
     Vector3 rollDirection;
-    
+
     private Vector2 moveInput;
     private Vector2 lastNonZeroFacing = Vector2.down;
     private Vector3 verticalVelocity;
     private Vector2 rawInput;
     public bool movementLocked = false;
-    
 
+    // FACING LOCK
+    private bool facingLocked = false;
+    private Vector2 lockedFacing = Vector2.down;
 
     void Awake()
     {
@@ -86,7 +88,6 @@ public class PlayerMotor : MonoBehaviour
             return;
 
         UpdateInput();
-
         Move();
     }
 
@@ -162,7 +163,6 @@ public class PlayerMotor : MonoBehaviour
 
         if (onSteepSlope)
         {
-            // 1. quitar movimiento hacia la pendiente
             Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
 
             horizontal = Vector3.ProjectOnPlane(
@@ -173,7 +173,6 @@ public class PlayerMotor : MonoBehaviour
             finalMove.x = horizontal.x;
             finalMove.z = horizontal.z;
 
-            // 2. dirección correcta cuesta abajo
             Vector3 slideDir = Vector3.ProjectOnPlane(
                 Vector3.down,
                 slopeNormal
@@ -184,7 +183,6 @@ public class PlayerMotor : MonoBehaviour
 
         if (onSteepSlope && !controller.isGrounded)
         {
-            // empujar solo horizontalmente
             Vector3 push = Vector3.ProjectOnPlane(
                 slopeNormal,
                 Vector3.up
@@ -194,11 +192,7 @@ public class PlayerMotor : MonoBehaviour
         }
 
         controller.Move(finalMove * Time.deltaTime);
-
-
     }
-
-
 
     Vector3 GetMoveWorld(Vector2 input)
     {
@@ -237,7 +231,7 @@ public class PlayerMotor : MonoBehaviour
 
     public Vector2 GetFacing2D()
     {
-        return lastNonZeroFacing;
+        return facingLocked ? lockedFacing : lastNonZeroFacing;
     }
 
     public float GetRealSpeed()
@@ -301,7 +295,7 @@ public class PlayerMotor : MonoBehaviour
             moveInput = dir;
         }
 
-        if (moveInput.sqrMagnitude > 0.0001f)
+        if (!facingLocked && moveInput.sqrMagnitude > 0.0001f)
             lastNonZeroFacing = moveInput;
     }
 
@@ -311,21 +305,29 @@ public class PlayerMotor : MonoBehaviour
     {
         movementLocked = locked;
     }
-    public void LockFacing(Vector2 dir) { }
-    public void UnlockFacing() { }
 
+    public void LockFacing(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = lastNonZeroFacing;
+
+        lockedFacing = dir.normalized;
+        facingLocked = true;
+    }
+
+    public void UnlockFacing()
+    {
+        facingLocked = false;
+    }
 
     // ROLL
     public void BeginRoll(Vector2 rollDir2D, float speed, float duration)
     {
-        // ❌ no rodar si está en el aire
         if (jump != null && !jump.IsGrounded)
             return;
-        
-        // ❌ no rodar si ya está rodando
+
         if (rollActive)
             return;
-
 
         movementLocked = true;
         rollActive = true;
@@ -344,11 +346,13 @@ public class PlayerMotor : MonoBehaviour
         rollDirection.y = 0f;
         rollDirection.Normalize();
     }
+
     public void EndRoll()
     {
         rollActive = false;
         movementLocked = false;
     }
+
     public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float preStop, float postStop)
     {
         if (attackDir2D.sqrMagnitude < 0.01f)
