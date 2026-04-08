@@ -31,10 +31,13 @@ public class PlayerJump : MonoBehaviour
 
     private bool isGrounded;
     private bool wasGrounded;
-    private bool jumpHeld;
 
     private bool landingLock;
     private float landingTimer;
+
+    // this tells us whether the player actually pressed jump,
+    // so walking off a ledge does NOT play the Jump trigger
+    private bool jumpStartedFromGround;
 
     public bool IsGrounded => isGrounded;
 
@@ -50,15 +53,15 @@ public class PlayerJump : MonoBehaviour
     }
 
     void Update()
-    {
-        if (jumpLockTimer > 0f)
-            jumpLockTimer -= Time.deltaTime;
+{
+    if (jumpLockTimer > 0f)
+        jumpLockTimer -= Time.deltaTime;
 
-        CheckGround();
-        HandleAirState();
-        HandleLanding();
-        UpdateAnimator();
-    }
+    CheckGround();
+    HandleLanding();
+    HandleAirState();
+    UpdateAnimator();
+}
 
     void CheckGround()
     {
@@ -110,19 +113,19 @@ public class PlayerJump : MonoBehaviour
         if (swim != null && swim.IsSwimming())
             return;
 
-        if (ctx.started)
-        {
-            if (!isGrounded)
-                return;
+        if (!ctx.started)
+            return;
 
-            if (jumpLockTimer > 0f)
-                return;
+        if (!isGrounded)
+            return;
 
-            if (landingLock)
-                return;
+        if (jumpLockTimer > 0f)
+            return;
 
-            Jump();
-        }
+        if (landingLock)
+            return;
+
+        Jump();
     }
 
     void Jump()
@@ -135,6 +138,7 @@ public class PlayerJump : MonoBehaviour
 
         motor.SetVerticalVelocity(jumpForce);
         jumpLockTimer = jumpCooldown;
+        jumpStartedFromGround = true;
 
         if (animator)
         {
@@ -142,6 +146,8 @@ public class PlayerJump : MonoBehaviour
 
             animator.SetFloat("MoveX", dir.x);
             animator.SetFloat("MoveY", dir.y);
+
+            animator.ResetTrigger("Land");
             animator.SetTrigger("Jump");
         }
 
@@ -164,19 +170,27 @@ public class PlayerJump : MonoBehaviour
                     motor.LockMovement(true);
 
                 if (animator)
+                {
+                    animator.SetBool("InAir", false);
+                    animator.ResetTrigger("Jump");
                     animator.SetTrigger("Land");
+                }
 
                 if (debugLog)
                     Debug.Log("Landing (valid)");
             }
             else
             {
+                if (animator)
+                    animator.SetBool("InAir", false);
+
                 if (debugLog)
                     Debug.Log("Landing ignored (too short)");
             }
 
             inAir = false;
             airTimer = 0f;
+            jumpStartedFromGround = false;
         }
 
         if (landingLock)
@@ -201,23 +215,34 @@ public class PlayerJump : MonoBehaviour
         {
             airTimer += Time.deltaTime;
 
-            if (!inAir && (airTimer > airJumpDelay || motor.GetVerticalVelocity() < -2f))
+            // Only enter InAir after enough real airtime.
+            // This removes animation changes for super tiny drops.
+            if (!inAir && airTimer >= airJumpDelay)
             {
                 inAir = true;
 
                 if (animator)
                 {
-                    animator.SetTrigger("Jump");
+                    animator.SetBool("InAir", true);
 
                     if (debugLog)
-                        Debug.Log("Air state");
+                    {
+                        if (jumpStartedFromGround)
+                            Debug.Log("Entered InAir after jump");
+                        else
+                            Debug.Log("Entered InAir from ledge fall");
+                    }
                 }
             }
         }
         else
         {
+            if (inAir && animator)
+                animator.SetBool("InAir", false);
+
             inAir = false;
             airTimer = 0f;
+            jumpStartedFromGround = false;
         }
     }
 
@@ -236,6 +261,7 @@ public class PlayerJump : MonoBehaviour
 
         landingLock = false;
         jumpLockTimer = 0f;
+        jumpStartedFromGround = false;
 
         isGrounded = true;
         wasGrounded = true;
@@ -244,6 +270,7 @@ public class PlayerJump : MonoBehaviour
         {
             animator.ResetTrigger("Jump");
             animator.ResetTrigger("Land");
+            animator.SetBool("InAir", false);
             animator.SetBool("IsGrounded", true);
         }
     }
