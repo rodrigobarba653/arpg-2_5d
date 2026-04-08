@@ -10,14 +10,28 @@ public class PlayerHealth : MonoBehaviour
     [Header("State")]
     public bool isTakingDamage;
 
+    [Header("Damage Lock")]
+    [SerializeField] private float damageLockTime = 0.3f;
+
+    [Header("Knockback")]
+    [SerializeField] private float knockbackForce = 6f;
+    [SerializeField] private float knockbackDuration = 0.15f;
+
+    [Header("Flicker")]
+    [SerializeField] private float flickerDuration = 0.3f;
+    [SerializeField] private float flickerInterval = 0.05f;
+
     Renderer rend;
     Material mat;
     Color originalColor;
+
+    SpriteRenderer[] spriteRenderers;
 
     Animator animator;
     PlayerMotor motor;
 
     Coroutine damageRoutine;
+    Coroutine flickerRoutine;
 
     static readonly int TintColorID = Shader.PropertyToID("_TintColor");
 
@@ -26,6 +40,7 @@ public class PlayerHealth : MonoBehaviour
         currentHealth = maxHealth;
 
         rend = GetComponentInChildren<Renderer>();
+        spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         animator = GetComponentInChildren<Animator>();
         motor = GetComponent<PlayerMotor>();
 
@@ -38,10 +53,8 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
-    // 🔥 DAÑO CON DIRECCIÓN
     public void TakeDamage(int amount, Vector3 hitDirection)
     {
-
         PlayerCombatController combat = GetComponent<PlayerCombatController>();
 
         if (combat != null)
@@ -56,53 +69,66 @@ public class PlayerHealth : MonoBehaviour
         Debug.Log($"[PlayerHealth] {name} took {amount} damage. Current Health = {currentHealth}", this);
 
         // =========================
-        // 🎯 HIT BASED ON FACING (FIX REAL)
+        // 🎯 HIT ANIMATION (FACE ATTACKER)
         // =========================
         if (animator != null && motor != null)
         {
-            Vector2 facing = motor.GetFacing2D();
+            Vector3 flatHitDir = hitDirection;
+            flatHitDir.y = 0f;
 
-            if (facing.sqrMagnitude < 0.001f)
-                facing = Vector2.down; // fallback
+            if (flatHitDir.sqrMagnitude < 0.001f)
+                flatHitDir = transform.forward;
 
-            facing.Normalize();
+            flatHitDir.Normalize();
 
-            float x = facing.x;
-            float y = facing.y;
+            Vector2 hitDir2D = new Vector2(flatHitDir.x, flatHitDir.z);
 
-            // 🔥 decidir dirección dominante
-            if (Mathf.Abs(y) > Mathf.Abs(x))
-            {
-                if (y > 0f)
-                    animator.SetTrigger("HitUp");
-                else
-                    animator.SetTrigger("HitDown");
-            }
-            else
-            {
-                if (x > 0f)
-                    animator.SetTrigger("HitRight");
-                else
-                    animator.SetTrigger("HitLeft");
-            }
+            // 🔥 FORCE facing toward attacker
+            motor.LockFacing(hitDir2D);
+
+            animator.SetFloat("HitX", hitDir2D.x);
+            animator.SetFloat("HitY", hitDir2D.y);
+
+            animator.ResetTrigger("Hit");
+            animator.SetTrigger("Hit");
         }
 
         // =========================
-        // 🧍 DAMAGE LOCK (FIX REAL)
+        // 💥 KNOCKBACK (OPPOSITE DIRECTION)
+        // =========================
+        if (motor != null)
+        {
+            Vector3 knockbackDir = hitDirection;
+            knockbackDir.y = 0f;
+
+            if (knockbackDir.sqrMagnitude < 0.001f)
+                knockbackDir = -transform.forward;
+
+            motor.BeginKnockback(knockbackDir, knockbackForce, knockbackDuration);
+        }
+
+        // =========================
+        // 🧍 DAMAGE LOCK
         // =========================
         if (motor != null)
         {
             if (damageRoutine != null)
                 StopCoroutine(damageRoutine);
 
-            damageRoutine = StartCoroutine(DamageLockRoutine(0.3f));
+            damageRoutine = StartCoroutine(DamageLockRoutine(damageLockTime));
         }
 
         // =========================
-        // 🔴 FLASH DAMAGE
+        // ✨ FLICKER
         // =========================
-        if (mat != null)
-            StartCoroutine(FlashRed());
+        if (spriteRenderers != null && spriteRenderers.Length > 0)
+        {
+            if (flickerRoutine != null)
+                StopCoroutine(flickerRoutine);
+
+            SetRenderersVisible(true);
+            flickerRoutine = StartCoroutine(FlickerRoutine());
+        }
 
         // =========================
         // 💀 DEATH
@@ -112,10 +138,50 @@ public class PlayerHealth : MonoBehaviour
             if (damageRoutine != null)
                 StopCoroutine(damageRoutine);
 
+            if (flickerRoutine != null)
+                StopCoroutine(flickerRoutine);
+
+            SetRenderersVisible(true);
+
             if (motor != null)
+            {
+                motor.CancelKnockback();
                 motor.LockMovement(true);
+            }
 
             Die();
+        }
+    }
+
+    IEnumerator FlickerRoutine()
+    {
+        float timer = 0f;
+        bool visible = true;
+
+        while (timer < flickerDuration)
+        {
+            visible = !visible;
+            SetRenderersVisible(visible);
+
+            yield return new WaitForSeconds(flickerInterval);
+            timer += flickerInterval;
+        }
+
+        SetRenderersVisible(true);
+        flickerRoutine = null;
+    }
+
+    void SetRenderersVisible(bool visible)
+    {
+        if (spriteRenderers == null || spriteRenderers.Length == 0)
+            return;
+
+        for (int i = 0; i < spriteRenderers.Length; i++)
+        {
+            if (spriteRenderers[i] == null)
+                continue;
+
+            spriteRenderers[i].enabled = visible;
         }
     }
 
@@ -123,22 +189,32 @@ public class PlayerHealth : MonoBehaviour
     {
         isTakingDamage = true;
 
-        motor.LockMovement(true);
+        if (motor != null)
+            motor.LockMovement(true);
 
         yield return new WaitForSeconds(time);
 
-        motor.LockMovement(false);
+        if (motor != null)
+        {
+            motor.LockMovement(false);
+
+            // 🔥 RELEASE forced facing
+            motor.UnlockFacing();
+        }
 
         isTakingDamage = false;
     }
 
     IEnumerator FlashRed()
     {
-        mat.SetColor(TintColorID, Color.red);
+        if (mat != null)
+        {
+            mat.SetColor(TintColorID, Color.red);
 
-        yield return new WaitForSeconds(0.08f);
+            yield return new WaitForSeconds(0.08f);
 
-        mat.SetColor(TintColorID, originalColor);
+            mat.SetColor(TintColorID, originalColor);
+        }
     }
 
     void Die()

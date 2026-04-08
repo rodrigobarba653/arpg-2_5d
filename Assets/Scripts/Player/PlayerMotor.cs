@@ -44,6 +44,12 @@ public class PlayerMotor : MonoBehaviour
     float attackLungeSpeed;
     Vector3 attackLungeDir;
 
+    // KNOCKBACK
+    bool knockbackActive;
+    float knockbackTimer;
+    float knockbackSpeed;
+    Vector3 knockbackDir;
+
     Vector3 rollDirection;
 
     private Vector2 moveInput;
@@ -108,6 +114,20 @@ public class PlayerMotor : MonoBehaviour
             {
                 rollActive = false;
                 movementLocked = false;
+            }
+        }
+
+        // ---------- KNOCKBACK ----------
+        else if (knockbackActive)
+        {
+            knockbackTimer -= Time.deltaTime;
+
+            moveWorld = knockbackDir;
+            speed = knockbackSpeed;
+
+            if (knockbackTimer <= 0f)
+            {
+                knockbackActive = false;
             }
         }
 
@@ -222,8 +242,6 @@ public class PlayerMotor : MonoBehaviour
         return new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
     }
 
-    // ===== API simple para animaciones =====
-
     public Vector2 GetMoveInput2D()
     {
         return moveInput;
@@ -299,8 +317,6 @@ public class PlayerMotor : MonoBehaviour
             lastNonZeroFacing = moveInput;
     }
 
-    // ===== compatibilidad temporal =====
-
     public void LockMovement(bool locked)
     {
         movementLocked = locked;
@@ -320,7 +336,6 @@ public class PlayerMotor : MonoBehaviour
         facingLocked = false;
     }
 
-    // ROLL
     public void BeginRoll(Vector2 rollDir2D, float speed, float duration)
     {
         if (jump != null && !jump.IsGrounded)
@@ -368,6 +383,35 @@ public class PlayerMotor : MonoBehaviour
         attackLungeTimer = duration;
 
         attackLungeActive = true;
+    }
+
+    public void BeginKnockback(Vector3 worldDirection, float speed, float duration)
+    {
+        Vector3 flatDir = new Vector3(worldDirection.x, 0f, worldDirection.z);
+
+        if (flatDir.sqrMagnitude < 0.0001f)
+        {
+            Vector2 fallback2D = -GetFacing2D();
+            flatDir = GetMoveWorld(fallback2D);
+        }
+
+        flatDir.y = 0f;
+        flatDir.Normalize();
+
+        knockbackDir = flatDir;
+        knockbackSpeed = speed;
+        knockbackTimer = duration;
+        knockbackActive = true;
+    }
+
+    public void CancelKnockback()
+    {
+        knockbackActive = false;
+    }
+
+    public bool IsKnockbackActive()
+    {
+        return knockbackActive;
     }
 
     void CheckSlope()
