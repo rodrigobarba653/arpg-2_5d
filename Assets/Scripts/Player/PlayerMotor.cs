@@ -44,6 +44,12 @@ public class PlayerMotor : MonoBehaviour
     float attackLungeSpeed;
     Vector3 attackLungeDir;
 
+    bool attackLungePending;
+    float attackLungeDelayTimer;
+    float pendingAttackLungeSpeed;
+    float pendingAttackLungeDuration;
+    Vector3 pendingAttackLungeDir;
+
     // KNOCKBACK
     bool knockbackActive;
     float knockbackTimer;
@@ -131,6 +137,21 @@ public class PlayerMotor : MonoBehaviour
             }
         }
 
+        // ---------- ATTACK LUNGE DELAY ----------
+        else if (attackLungePending)
+        {
+            attackLungeDelayTimer -= Time.deltaTime;
+
+            if (attackLungeDelayTimer <= 0f)
+            {
+                attackLungePending = false;
+                attackLungeActive = true;
+                attackLungeSpeed = pendingAttackLungeSpeed;
+                attackLungeTimer = pendingAttackLungeDuration;
+                attackLungeDir = pendingAttackLungeDir;
+            }
+        }
+
         // ---------- ATTACK LUNGE ----------
         else if (attackLungeActive)
         {
@@ -185,10 +206,7 @@ public class PlayerMotor : MonoBehaviour
         {
             Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
 
-            horizontal = Vector3.ProjectOnPlane(
-                horizontal,
-                slopeNormal
-            );
+            horizontal = Vector3.ProjectOnPlane(horizontal, slopeNormal);
 
             finalMove.x = horizontal.x;
             finalMove.z = horizontal.z;
@@ -368,21 +386,42 @@ public class PlayerMotor : MonoBehaviour
         movementLocked = false;
     }
 
-    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float preStop, float postStop)
+    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float delay)
     {
         if (attackDir2D.sqrMagnitude < 0.01f)
             attackDir2D = lastNonZeroFacing;
 
         attackDir2D.Normalize();
 
-        attackLungeDir = GetMoveWorld(attackDir2D);
-        attackLungeDir.y = 0f;
-        attackLungeDir.Normalize();
+        Vector3 worldDir = GetMoveWorld(attackDir2D);
+        worldDir.y = 0f;
+        worldDir.Normalize();
 
-        attackLungeSpeed = speed;
-        attackLungeTimer = duration;
+        attackLungeActive = false;
+        attackLungePending = false;
 
-        attackLungeActive = true;
+        if (delay <= 0f)
+        {
+            attackLungeDir = worldDir;
+            attackLungeSpeed = speed;
+            attackLungeTimer = duration;
+            attackLungeActive = true;
+            return;
+        }
+
+        pendingAttackLungeDir = worldDir;
+        pendingAttackLungeSpeed = speed;
+        pendingAttackLungeDuration = duration;
+        attackLungeDelayTimer = delay;
+        attackLungePending = true;
+    }
+
+    public void CancelAttackLunge()
+    {
+        attackLungeActive = false;
+        attackLungePending = false;
+        attackLungeTimer = 0f;
+        attackLungeDelayTimer = 0f;
     }
 
     public void BeginKnockback(Vector3 worldDirection, float speed, float duration)

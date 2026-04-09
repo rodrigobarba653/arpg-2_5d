@@ -21,6 +21,11 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float flickerDuration = 0.3f;
     [SerializeField] private float flickerInterval = 0.05f;
 
+    [Header("Camera Shake")]
+    [SerializeField] private CameraShakeCinemachine cameraShake;
+    [SerializeField] private float hitShakeDuration = 0.10f;
+    [SerializeField] private float hitShakeMagnitude = 0.06f;
+
     Renderer rend;
     Material mat;
     Color originalColor;
@@ -43,6 +48,9 @@ public class PlayerHealth : MonoBehaviour
         spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         animator = GetComponentInChildren<Animator>();
         motor = GetComponent<PlayerMotor>();
+
+        if (cameraShake == null)
+            cameraShake = FindFirstObjectByType<CameraShakeCinemachine>();
 
         if (rend != null)
         {
@@ -69,6 +77,12 @@ public class PlayerHealth : MonoBehaviour
         Debug.Log($"[PlayerHealth] {name} took {amount} damage. Current Health = {currentHealth}", this);
 
         // =========================
+        // 📸 CAMERA SHAKE
+        // =========================
+        if (cameraShake != null)
+            cameraShake.Shake(hitShakeDuration, hitShakeMagnitude);
+
+        // =========================
         // 🎯 HIT ANIMATION (FACE ATTACKER)
         // =========================
         if (animator != null && motor != null)
@@ -83,7 +97,6 @@ public class PlayerHealth : MonoBehaviour
 
             Vector2 hitDir2D = new Vector2(flatHitDir.x, flatHitDir.z);
 
-            // 🔥 FORCE facing toward attacker
             motor.LockFacing(hitDir2D);
 
             animator.SetFloat("HitX", hitDir2D.x);
@@ -197,8 +210,6 @@ public class PlayerHealth : MonoBehaviour
         if (motor != null)
         {
             motor.LockMovement(false);
-
-            // 🔥 RELEASE forced facing
             motor.UnlockFacing();
         }
 
