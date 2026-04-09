@@ -44,15 +44,29 @@ public class PlayerMotor : MonoBehaviour
     float attackLungeSpeed;
     Vector3 attackLungeDir;
 
+    bool attackLungePending;
+    float attackLungeDelayTimer;
+    float pendingAttackLungeSpeed;
+    float pendingAttackLungeDuration;
+    Vector3 pendingAttackLungeDir;
+
+    // KNOCKBACK
+    bool knockbackActive;
+    float knockbackTimer;
+    float knockbackSpeed;
+    Vector3 knockbackDir;
+
     Vector3 rollDirection;
-    
+
     private Vector2 moveInput;
     private Vector2 lastNonZeroFacing = Vector2.down;
     private Vector3 verticalVelocity;
     private Vector2 rawInput;
     public bool movementLocked = false;
-    
 
+    // FACING LOCK
+    private bool facingLocked = false;
+    private Vector2 lockedFacing = Vector2.down;
 
     void Awake()
     {
@@ -86,7 +100,6 @@ public class PlayerMotor : MonoBehaviour
             return;
 
         UpdateInput();
-
         Move();
     }
 
@@ -107,6 +120,35 @@ public class PlayerMotor : MonoBehaviour
             {
                 rollActive = false;
                 movementLocked = false;
+            }
+        }
+
+        // ---------- KNOCKBACK ----------
+        else if (knockbackActive)
+        {
+            knockbackTimer -= Time.deltaTime;
+
+            moveWorld = knockbackDir;
+            speed = knockbackSpeed;
+
+            if (knockbackTimer <= 0f)
+            {
+                knockbackActive = false;
+            }
+        }
+
+        // ---------- ATTACK LUNGE DELAY ----------
+        else if (attackLungePending)
+        {
+            attackLungeDelayTimer -= Time.deltaTime;
+
+            if (attackLungeDelayTimer <= 0f)
+            {
+                attackLungePending = false;
+                attackLungeActive = true;
+                attackLungeSpeed = pendingAttackLungeSpeed;
+                attackLungeTimer = pendingAttackLungeDuration;
+                attackLungeDir = pendingAttackLungeDir;
             }
         }
 
@@ -162,18 +204,13 @@ public class PlayerMotor : MonoBehaviour
 
         if (onSteepSlope)
         {
-            // 1. quitar movimiento hacia la pendiente
             Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
 
-            horizontal = Vector3.ProjectOnPlane(
-                horizontal,
-                slopeNormal
-            );
+            horizontal = Vector3.ProjectOnPlane(horizontal, slopeNormal);
 
             finalMove.x = horizontal.x;
             finalMove.z = horizontal.z;
 
-            // 2. dirección correcta cuesta abajo
             Vector3 slideDir = Vector3.ProjectOnPlane(
                 Vector3.down,
                 slopeNormal
@@ -184,7 +221,6 @@ public class PlayerMotor : MonoBehaviour
 
         if (onSteepSlope && !controller.isGrounded)
         {
-            // empujar solo horizontalmente
             Vector3 push = Vector3.ProjectOnPlane(
                 slopeNormal,
                 Vector3.up
@@ -194,11 +230,7 @@ public class PlayerMotor : MonoBehaviour
         }
 
         controller.Move(finalMove * Time.deltaTime);
-
-
     }
-
-
 
     Vector3 GetMoveWorld(Vector2 input)
     {
@@ -228,8 +260,6 @@ public class PlayerMotor : MonoBehaviour
         return new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
     }
 
-    // ===== API simple para animaciones =====
-
     public Vector2 GetMoveInput2D()
     {
         return moveInput;
@@ -237,7 +267,7 @@ public class PlayerMotor : MonoBehaviour
 
     public Vector2 GetFacing2D()
     {
-        return lastNonZeroFacing;
+        return facingLocked ? lockedFacing : lastNonZeroFacing;
     }
 
     public float GetRealSpeed()
@@ -301,31 +331,36 @@ public class PlayerMotor : MonoBehaviour
             moveInput = dir;
         }
 
-        if (moveInput.sqrMagnitude > 0.0001f)
+        if (!facingLocked && moveInput.sqrMagnitude > 0.0001f)
             lastNonZeroFacing = moveInput;
     }
-
-    // ===== compatibilidad temporal =====
 
     public void LockMovement(bool locked)
     {
         movementLocked = locked;
     }
-    public void LockFacing(Vector2 dir) { }
-    public void UnlockFacing() { }
 
+    public void LockFacing(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = lastNonZeroFacing;
 
-    // ROLL
+        lockedFacing = dir.normalized;
+        facingLocked = true;
+    }
+
+    public void UnlockFacing()
+    {
+        facingLocked = false;
+    }
+
     public void BeginRoll(Vector2 rollDir2D, float speed, float duration)
     {
-        // ❌ no rodar si está en el aire
         if (jump != null && !jump.IsGrounded)
             return;
-        
-        // ❌ no rodar si ya está rodando
+
         if (rollActive)
             return;
-
 
         movementLocked = true;
         rollActive = true;
@@ -344,26 +379,78 @@ public class PlayerMotor : MonoBehaviour
         rollDirection.y = 0f;
         rollDirection.Normalize();
     }
+
     public void EndRoll()
     {
         rollActive = false;
         movementLocked = false;
     }
-    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float preStop, float postStop)
+
+    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float delay)
     {
         if (attackDir2D.sqrMagnitude < 0.01f)
             attackDir2D = lastNonZeroFacing;
 
         attackDir2D.Normalize();
 
-        attackLungeDir = GetMoveWorld(attackDir2D);
-        attackLungeDir.y = 0f;
-        attackLungeDir.Normalize();
+        Vector3 worldDir = GetMoveWorld(attackDir2D);
+        worldDir.y = 0f;
+        worldDir.Normalize();
 
-        attackLungeSpeed = speed;
-        attackLungeTimer = duration;
+        attackLungeActive = false;
+        attackLungePending = false;
 
-        attackLungeActive = true;
+        if (delay <= 0f)
+        {
+            attackLungeDir = worldDir;
+            attackLungeSpeed = speed;
+            attackLungeTimer = duration;
+            attackLungeActive = true;
+            return;
+        }
+
+        pendingAttackLungeDir = worldDir;
+        pendingAttackLungeSpeed = speed;
+        pendingAttackLungeDuration = duration;
+        attackLungeDelayTimer = delay;
+        attackLungePending = true;
+    }
+
+    public void CancelAttackLunge()
+    {
+        attackLungeActive = false;
+        attackLungePending = false;
+        attackLungeTimer = 0f;
+        attackLungeDelayTimer = 0f;
+    }
+
+    public void BeginKnockback(Vector3 worldDirection, float speed, float duration)
+    {
+        Vector3 flatDir = new Vector3(worldDirection.x, 0f, worldDirection.z);
+
+        if (flatDir.sqrMagnitude < 0.0001f)
+        {
+            Vector2 fallback2D = -GetFacing2D();
+            flatDir = GetMoveWorld(fallback2D);
+        }
+
+        flatDir.y = 0f;
+        flatDir.Normalize();
+
+        knockbackDir = flatDir;
+        knockbackSpeed = speed;
+        knockbackTimer = duration;
+        knockbackActive = true;
+    }
+
+    public void CancelKnockback()
+    {
+        knockbackActive = false;
+    }
+
+    public bool IsKnockbackActive()
+    {
+        return knockbackActive;
     }
 
     void CheckSlope()

@@ -23,13 +23,15 @@ public class EnemyCombatController : MonoBehaviour
     [Header("Damage Reaction")]
     public float hitStunTime = 0.3f;
 
+    [Tooltip("Extra time before the enemy can attack again after being hit")]
+    public float attackDelayAfterHit = 0.45f;
+
     float hitStunUntil;
-
     float nextAttackTime;
-
     bool isAttacking;
 
     static readonly int AttackTrigger = Animator.StringToHash("Attack");
+    static readonly int HurtTrigger = Animator.StringToHash("Hurt");
     static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
 
     void Awake()
@@ -59,11 +61,10 @@ public class EnemyCombatController : MonoBehaviour
         if (Time.time < hitStunUntil)
             return;
 
-        float dist =
-            Vector3.Distance(
-                transform.position,
-                player.position
-            );
+        if (motor != null && motor.IsMovementLocked())
+            return;
+
+        float dist = Vector3.Distance(transform.position, player.position);
 
         if (dist > attackDistance)
             return;
@@ -78,9 +79,11 @@ public class EnemyCombatController : MonoBehaviour
     {
         isAttacking = true;
 
-        motor.Stop();
+        if (motor != null)
+            motor.Stop();
 
         animator.SetBool(IsAttackingHash, true);
+        animator.ResetTrigger(HurtTrigger);
         animator.ResetTrigger(AttackTrigger);
         animator.SetTrigger(AttackTrigger);
 
@@ -114,7 +117,6 @@ public class EnemyCombatController : MonoBehaviour
     public void EndAttack()
     {
         isAttacking = false;
-
         animator.SetBool(IsAttackingHash, false);
     }
 
@@ -124,34 +126,41 @@ public class EnemyCombatController : MonoBehaviour
             return;
 
         Vector3 dir = player.position - transform.position;
-
         dir.y = 0f;
         dir.Normalize();
 
-        // convertir a espacio local del enemigo
         Vector3 localDir = transform.InverseTransformDirection(dir);
-
-        Vector3 forward =
-            new Vector3(localDir.x, 0f, localDir.z).normalized;
+        Vector3 forward = new Vector3(localDir.x, 0f, localDir.z).normalized;
 
         meleeHitboxTransform.localPosition =
-            forward * hitboxForwardDistance +
-            hitboxLocalOffset;
+            forward * hitboxForwardDistance + hitboxLocalOffset;
     }
 
     public void OnTakeDamage()
     {
-        // 🔥 aplicar stun
         hitStunUntil = Time.time + hitStunTime;
 
-        // 🔥 cancelar ataque si estaba atacando
+        // prevent immediate re-attack after damage
+        nextAttackTime = Mathf.Max(nextAttackTime, Time.time + attackDelayAfterHit);
+
+        // cancel attack if needed
         if (isAttacking)
         {
             isAttacking = false;
             animator.SetBool(IsAttackingHash, false);
         }
 
-        // 🔥 detener movimiento
-        motor.Stop();
+        DisableHitbox();
+
+        if (motor != null)
+            motor.Stop();
+
+        // trigger hurt animation
+        if (animator != null)
+        {
+            animator.ResetTrigger(AttackTrigger);
+            animator.ResetTrigger(HurtTrigger);
+            animator.SetTrigger(HurtTrigger);
+        }
     }
 }
