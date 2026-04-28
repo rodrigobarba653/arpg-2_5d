@@ -34,6 +34,10 @@ public class EnemyCombatController : MonoBehaviour
     static readonly int HurtTrigger = Animator.StringToHash("Hurt");
     static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
 
+    // IMPORTANT: these must match your animator parameter names
+    static readonly int HitXHash = Animator.StringToHash("HitX");
+    static readonly int HitYHash = Animator.StringToHash("HitY");
+
     void Awake()
     {
         if (!motor)
@@ -136,8 +140,10 @@ public class EnemyCombatController : MonoBehaviour
             forward * hitboxForwardDistance + hitboxLocalOffset;
     }
 
-    public void OnTakeDamage()
+    public void OnTakeDamage(Vector3 hitDir)
     {
+        hitDir.y = 0f;
+
         hitStunUntil = Time.time + hitStunTime;
 
         // prevent immediate re-attack after damage
@@ -155,9 +161,16 @@ public class EnemyCombatController : MonoBehaviour
         if (motor != null)
             motor.Stop();
 
-        // trigger hurt animation
         if (animator != null)
         {
+            // Convert world hit direction into animator 2D values
+            // hitDir = direction enemy is pushed toward
+            // we want the hurt source direction, so use -hitDir
+            Vector3 sourceDir = -hitDir.normalized;
+
+            animator.SetFloat(HitXHash, sourceDir.x);
+            animator.SetFloat(HitYHash, sourceDir.z);
+
             animator.ResetTrigger(AttackTrigger);
             animator.ResetTrigger(HurtTrigger);
             animator.SetTrigger(HurtTrigger);

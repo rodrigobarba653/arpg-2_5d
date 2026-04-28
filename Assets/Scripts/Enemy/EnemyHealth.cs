@@ -90,7 +90,7 @@ public class EnemyHealth : MonoBehaviour
         currentHealth = Mathf.Max(currentHealth, 0);
 
         if (combat != null)
-            combat.OnTakeDamage();
+            combat.OnTakeDamage(hitDir);
 
         if (sr != null)
         {
