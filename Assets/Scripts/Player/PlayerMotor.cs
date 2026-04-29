@@ -453,6 +453,10 @@ public class PlayerMotor : MonoBehaviour
         return knockbackActive;
     }
 
+    public Vector2 GetRawInput()
+    {
+        return rawInput;
+    }
     void CheckSlope()
     {
         onSteepSlope = false;
