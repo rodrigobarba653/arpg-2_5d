@@ -1,13 +1,15 @@
-Shader "Custom/URP_DitherFade_Normal"
+Shader "Custom/URP_DitherFade_Lit"
 {
     Properties
     {
         _BaseMap ("Base Map", 2D) = "white" {}
         _BaseColor ("Base Color", Color) = (1,1,1,1)
 
-        // 🔥 NORMAL MAP
         _NormalMap ("Normal Map", 2D) = "bump" {}
         _NormalStrength ("Normal Strength", Range(0,2)) = 1
+
+        _Smoothness ("Smoothness", Range(0,1)) = 0.2
+        _Metallic ("Metallic", Range(0,1)) = 0
 
         _DitherFade ("Dither Fade", Range(0,1)) = 0
         _DitherScale ("Dither Scale", Float) = 1
@@ -15,16 +17,13 @@ Shader "Custom/URP_DitherFade_Normal"
 
     SubShader
     {
-        Tags 
-        { 
+        Tags
+        {
+            "RenderPipeline"="UniversalPipeline"
             "RenderType"="Opaque"
             "Queue"="Geometry"
-            "RenderPipeline"="UniversalPipeline"
         }
 
-        // =========================
-        // MAIN PASS
-        // =========================
         Pass
         {
             Name "ForwardLit"
@@ -35,17 +34,25 @@ Shader "Custom/URP_DitherFade_Normal"
             Blend One Zero
 
             HLSLPROGRAM
+
             #pragma vertex vert
             #pragma fragment frag
 
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile _ _SHADOWS_SOFT
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
-                float2 uv : TEXCOORD0;
                 float3 normalOS : NORMAL;
                 float4 tangentOS : TANGENT;
+                float2 uv : TEXCOORD0;
             };
 
             struct Varyings
@@ -54,9 +61,10 @@ Shader "Custom/URP_DitherFade_Normal"
                 float2 uv : TEXCOORD0;
                 float4 screenPos : TEXCOORD1;
 
-                float3 normalWS : TEXCOORD2;
-                float3 tangentWS : TEXCOORD3;
-                float3 bitangentWS : TEXCOORD4;
+                float3 positionWS : TEXCOORD2;
+                float3 normalWS : TEXCOORD3;
+                float3 tangentWS : TEXCOORD4;
+                float3 bitangentWS : TEXCOORD5;
             };
 
             TEXTURE2D(_BaseMap);
@@ -67,13 +75,12 @@ Shader "Custom/URP_DitherFade_Normal"
 
             float4 _BaseColor;
             float _NormalStrength;
+            float _Smoothness;
+            float _Metallic;
 
             float _DitherFade;
             float _DitherScale;
 
-            // =========================
-            // DITHER
-            // =========================
             float Dither4x4(float2 pixelPos)
             {
                 int x = (int)pixelPos.x & 3;
@@ -96,48 +103,29 @@ Shader "Custom/URP_DitherFade_Normal"
             {
                 Varyings o;
 
-                o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
+                VertexPositionInputs posInputs = GetVertexPositionInputs(v.positionOS.xyz);
+                VertexNormalInputs normalInputs = GetVertexNormalInputs(v.normalOS, v.tangentOS);
+
+                o.positionCS = posInputs.positionCS;
+                o.positionWS = posInputs.positionWS;
+
+                o.normalWS = normalize(normalInputs.normalWS);
+                o.tangentWS = normalize(normalInputs.tangentWS);
+
+                float tangentSign = v.tangentOS.w * GetOddNegativeScale();
+                o.bitangentWS = normalize(cross(o.normalWS, o.tangentWS) * tangentSign);
+
                 o.uv = v.uv;
                 o.screenPos = ComputeScreenPos(o.positionCS);
-
-                // 🔥 BASE VECTORS
-                o.normalWS = TransformObjectToWorldNormal(v.normalOS);
-                o.tangentWS = TransformObjectToWorldDir(v.tangentOS.xyz);
-
-                float tangentSign = v.tangentOS.w;
-                o.bitangentWS = cross(o.normalWS, o.tangentWS) * tangentSign;
 
                 return o;
             }
 
             half4 frag (Varyings i) : SV_Target
             {
-                float4 col = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
+                float4 baseCol = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv) * _BaseColor;
 
-                // =========================
-                // NORMAL MAP
-                // =========================
-                float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, i.uv));
-                normalTS.xy *= _NormalStrength;
-
-                float3 normalWS = normalize(
-                    normalTS.x * i.tangentWS +
-                    normalTS.y * i.bitangentWS +
-                    normalTS.z * i.normalWS
-                );
-
-                // =========================
-                // SIMPLE LIGHTING
-                // =========================
-                float3 lightDir = normalize(float3(0.3, 1, 0.2));
-
-                float NdotL = saturate(dot(normalWS, lightDir));
-
-                col.rgb *= lerp(0.5, 1.0, NdotL);
-
-                // =========================
                 // DITHER
-                // =========================
                 float2 pixelPos = i.screenPos.xy / i.screenPos.w;
                 pixelPos *= _ScreenParams.xy * _DitherScale;
 
@@ -146,51 +134,77 @@ Shader "Custom/URP_DitherFade_Normal"
                 if (noise < _DitherFade)
                     discard;
 
-                return col;
+                // NORMAL MAP
+                float3 normalTS = UnpackNormal(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, i.uv));
+                normalTS.xy *= _NormalStrength;
+                normalTS = normalize(normalTS);
+
+                float3 normalWS = normalize(
+                    normalTS.x * i.tangentWS +
+                    normalTS.y * i.bitangentWS +
+                    normalTS.z * i.normalWS
+                );
+
+                float3 viewDirWS = normalize(GetWorldSpaceViewDir(i.positionWS));
+
+                // BRDF SETUP - URP LIT STYLE
+                BRDFData brdfData;
+                half alpha = baseCol.a;
+                half3 specular = half3(0.04, 0.04, 0.04);
+
+                InitializeBRDFData(
+                    baseCol.rgb,
+                    _Metallic,
+                    specular,
+                    _Smoothness,
+                    alpha,
+                    brdfData
+                );
+
+                // AMBIENT / ENVIRONMENT
+                half3 bakedGI = SampleSH(normalWS);
+                half3 color = GlobalIllumination(
+                    brdfData,
+                    bakedGI,
+                    1.0,
+                    normalWS,
+                    viewDirWS
+                );
+
+                // MAIN DIRECTIONAL LIGHT
+                float4 shadowCoord = TransformWorldToShadowCoord(i.positionWS);
+                Light mainLight = GetMainLight(shadowCoord);
+
+                color += LightingPhysicallyBased(
+                    brdfData,
+                    mainLight,
+                    normalWS,
+                    viewDirWS
+                );
+
+                // ADDITIONAL LIGHTS - POINT / SPOT
+                #ifdef _ADDITIONAL_LIGHTS
+                uint additionalLightsCount = GetAdditionalLightsCount();
+
+                for (uint lightIndex = 0; lightIndex < additionalLightsCount; lightIndex++)
+                {
+                    Light light = GetAdditionalLight(lightIndex, i.positionWS);
+
+                    color += LightingPhysicallyBased(
+                        brdfData,
+                        light,
+                        normalWS,
+                        viewDirWS
+                    );
+                }
+                #endif
+
+                return half4(color, alpha);
             }
-            ENDHLSL
-        }
 
-        // =========================
-        // SHADOW PASS (igual)
-        // =========================
-        Pass
-        {
-            Name "ShadowCaster"
-            Tags { "LightMode"="ShadowCaster" }
-
-            ZWrite On
-            ZTest LEqual
-            Cull Back
-
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-            };
-
-            Varyings vert (Attributes v)
-            {
-                Varyings o;
-                o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
-                return o;
-            }
-
-            half4 frag (Varyings i) : SV_Target
-            {
-                return 0;
-            }
             ENDHLSL
         }
     }
+
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }

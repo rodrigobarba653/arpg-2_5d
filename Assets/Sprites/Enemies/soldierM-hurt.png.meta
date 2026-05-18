@@ -263,6 +263,28 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: soldierM-hurt_7
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 128
+        height: 128
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 268bda97271a04300ba3f0630d697893
+      internalID: -516406104
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
@@ -286,6 +308,7 @@ TextureImporter:
       soldierM-hurt_4: 1020478640
       soldierM-hurt_5: -8115457
       soldierM-hurt_6: -878803543
+      soldierM-hurt_7: -516406104
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
