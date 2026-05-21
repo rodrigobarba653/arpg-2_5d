@@ -28,8 +28,11 @@ public class EnemyHealth : MonoBehaviour
     [Tooltip("Index 0 = step 1, index 1 = step 2, index 2 = step 3")]
     public float[] knockbackTimePerStep = new float[] { 0.08f, 0.12f, 0.22f };
 
-    SpriteRenderer sr;
-    Color originalColor;
+    [Header("Flash")]
+    [SerializeField] private float flashDuration = 0.08f;
+    [SerializeField] private float flashIntensity = 4f;
+
+    SpriteRenderer[] srs;
     Coroutine flashRoutine;
 
     void Awake()
@@ -40,10 +43,8 @@ public class EnemyHealth : MonoBehaviour
         combat = GetComponent<EnemyCombatController>();
         motor = GetComponent<EnemyMotor>();
 
-        sr = GetComponentInChildren<SpriteRenderer>();
-
-        if (sr != null)
-            originalColor = sr.color;
+        // 🔥 get ALL renderers (important)
+        srs = GetComponentsInChildren<SpriteRenderer>();
     }
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
@@ -63,6 +64,7 @@ public class EnemyHealth : MonoBehaviour
             }
         }
 
+        // 🛡️ BLOCK
         if (ai != null && ai.isDefending)
         {
             Vector3 dirToPlayer = (ai.player.position - transform.position).normalized;
@@ -72,40 +74,31 @@ public class EnemyHealth : MonoBehaviour
 
             if (dot > 0.5f)
             {
-                Debug.Log("BLOCK FRONT!");
+                if (flashRoutine != null)
+                    StopCoroutine(flashRoutine);
 
-                if (sr != null)
-                {
-                    if (flashRoutine != null)
-                        StopCoroutine(flashRoutine);
-
-                    flashRoutine = StartCoroutine(BlockFlash());
-                }
-
+                flashRoutine = StartCoroutine(BlockFlash());
                 return;
             }
         }
 
+        // 💔 DAMAGE
         currentHealth -= amount;
         currentHealth = Mathf.Max(currentHealth, 0);
 
         if (combat != null)
-            combat.OnTakeDamage();
+            combat.OnTakeDamage(hitDir);
 
-        if (sr != null)
-        {
-            if (flashRoutine != null)
-                StopCoroutine(flashRoutine);
+        // 💥 FLASH (NEW SYSTEM)
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
 
-            flashRoutine = StartCoroutine(FlashWhite());
-        }
+        flashRoutine = StartCoroutine(FlashWhite());
 
+        // 🎯 HIT REACTION
         if (motor != null)
         {
-            // face the source of damage
             motor.FaceDirection(-hitDir);
-
-            // small initial full stop
             motor.ApplyHitStun(hitStunTime);
         }
 
@@ -117,17 +110,13 @@ public class EnemyHealth : MonoBehaviour
 
     void ApplyStepKnockback(Vector3 hitDir, int step)
     {
-        if (motor == null)
-            return;
+        if (motor == null) return;
 
         int index = step - 1;
-
-        if (index < 0)
-            return;
+        if (index < 0) return;
 
         bool enabled = GetStepBool(knockbackEnabledPerStep, index, false);
-        if (!enabled)
-            return;
+        if (!enabled) return;
 
         float force = GetStepFloat(knockbackForcePerStep, index, defaultKnockbackForce);
         float time = GetStepFloat(knockbackTimePerStep, index, defaultKnockbackTime);
@@ -137,23 +126,15 @@ public class EnemyHealth : MonoBehaviour
 
     bool GetStepBool(bool[] arr, int index, bool fallback)
     {
-        if (arr == null)
-            return fallback;
-
-        if (index < 0 || index >= arr.Length)
-            return fallback;
-
+        if (arr == null) return fallback;
+        if (index < 0 || index >= arr.Length) return fallback;
         return arr[index];
     }
 
     float GetStepFloat(float[] arr, int index, float fallback)
     {
-        if (arr == null)
-            return fallback;
-
-        if (index < 0 || index >= arr.Length)
-            return fallback;
-
+        if (arr == null) return fallback;
+        if (index < 0 || index >= arr.Length) return fallback;
         return arr[index];
     }
 
@@ -168,23 +149,63 @@ public class EnemyHealth : MonoBehaviour
         Destroy(gameObject);
     }
 
+    // 🔥 WHITE FLASH (uses Shader Graph _FlashColor)
     IEnumerator FlashWhite()
     {
-        if (sr == null) yield break;
+        if (srs == null || srs.Length == 0) yield break;
 
-        sr.color = new Color(2f, 2f, 2f, 1f);
-        yield return new WaitForSeconds(0.12f);
-        sr.color = originalColor;
+        foreach (var r in srs)
+        {
+            if (r == null) continue;
+
+            var mat = r.material;
+
+            if (mat.HasProperty("_FlashColor"))
+                mat.SetColor("_FlashColor", Color.white * flashIntensity);
+        }
+
+        yield return new WaitForSeconds(flashDuration);
+
+        foreach (var r in srs)
+        {
+            if (r == null) continue;
+
+            var mat = r.material;
+
+            if (mat.HasProperty("_FlashColor"))
+                mat.SetColor("_FlashColor", Color.black);
+        }
+
         flashRoutine = null;
     }
 
+    // 🛡️ BLOCK FLASH
     IEnumerator BlockFlash()
     {
-        if (sr == null) yield break;
+        if (srs == null || srs.Length == 0) yield break;
 
-        sr.color = Color.gray;
+        foreach (var r in srs)
+        {
+            if (r == null) continue;
+
+            var mat = r.material;
+
+            if (mat.HasProperty("_FlashColor"))
+                mat.SetColor("_FlashColor", Color.gray * 2f);
+        }
+
         yield return new WaitForSeconds(0.05f);
-        sr.color = originalColor;
+
+        foreach (var r in srs)
+        {
+            if (r == null) continue;
+
+            var mat = r.material;
+
+            if (mat.HasProperty("_FlashColor"))
+                mat.SetColor("_FlashColor", Color.black);
+        }
+
         flashRoutine = null;
     }
 }
