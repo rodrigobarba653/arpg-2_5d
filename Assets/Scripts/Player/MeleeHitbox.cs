@@ -7,11 +7,26 @@ public class MeleeHitbox : MonoBehaviour
     [Header("Damage")]
     [SerializeField] private int baseDamage = 10;
 
+    [Tooltip("If true and the owner has PlayerEquipment with a weapon equipped, " +
+             "use that weapon's damage instead of baseDamage.")]
+    [SerializeField] private bool useEquippedWeaponDamage = true;
+
     [Header("Hit Stop")]
     [SerializeField] private bool enableHitStop = true;
     [SerializeField] private float hitStopStep1 = 0.04f;
     [SerializeField] private float hitStopStep2 = 0.06f;
     [SerializeField] private float hitStopStep3 = 0.08f;
+
+    [Header("Hit SFX")]
+    [Tooltip("Played at the enemy's position when the hit lands. " +
+             "One per combo step if you want variation (otherwise it falls back to index 0).")]
+    [SerializeField] private AudioClip[] hitSounds = new AudioClip[3];
+
+    [Tooltip("Optional separate sound played when the hit is blocked by an enemy's guard.")]
+    [SerializeField] private AudioClip blockSound;
+
+    [Range(0f, 1f)]
+    [SerializeField] private float hitVolume = 1f;
 
     [Header("Safety")]
     [SerializeField] private float autoDisableAfter = 0.20f;
@@ -156,34 +171,88 @@ public class MeleeHitbox : MonoBehaviour
             Vector3 dir = (enemy.transform.position - owner.position).normalized;
 
             // ======================
-            // 🛡️ DEFENSE SYSTEM
+            // 🛡️ DIRECTIONAL DEFENSE
             // ======================
+            // Block only if the hit comes from the enemy's front arc.
+            // Hits from behind bypass the block entirely.
             if (ai != null && ai.isDefending)
             {
+                Vector3 enemyForward = enemy.transform.forward;
+                enemyForward.y = 0f;
+                enemyForward.Normalize();
+
+                Vector3 attackFromDir = (owner.position - enemy.transform.position);
+                attackFromDir.y = 0f;
+                attackFromDir.Normalize();
+
+                float facingDot = Vector3.Dot(enemyForward, attackFromDir);
+
+                bool hitFromFront = facingDot > 0f;
+
+                if (hitFromFront)
+                {
+                    if (logDebug)
+                        Debug.Log("🛡️ BLOCK (front)!", this);
+
+                    // light pushback for feedback, no damage
+                    var motor = enemy.GetComponent<EnemyMotor>();
+                    if (motor)
+                        motor.DoKnockback(dir, 0.5f, 0.1f);
+
+                    DoHitStop();
+                    PlayBlockOrHitSfx(enemy.transform.position, blocked: true);
+                    return;
+                }
+
                 if (logDebug)
-                    Debug.Log("🛡️ BLOCK!", this);
-
-                // 🔥 reducir daño
-                int reducedDamage = Mathf.RoundToInt(baseDamage * 0.2f);
-
-                // 🔥 knockback ligero (feedback)
-                var motor = enemy.GetComponent<EnemyMotor>();
-                if (motor)
-                    motor.DoKnockback(dir, 0.5f, 0.1f);
-
-                DoHitStop();
-
-                enemy.TakeDamage(reducedDamage, dir, attackStep);
-
-                return;
+                    Debug.Log("⚔️ BACKSTAB through defense!", this);
+                // back hit: fall through to normal damage
             }
 
             // ======================
             // ⚔️ NORMAL DAMAGE
             // ======================
             DoHitStop();
-            enemy.TakeDamage(baseDamage, dir, attackStep);
+            PlayBlockOrHitSfx(enemy.transform.position, blocked: false);
+            enemy.TakeDamage(ResolveDamage(), dir, attackStep);
         }
+    }
+
+    int ResolveDamage()
+    {
+        if (!useEquippedWeaponDamage || owner == null)
+            return baseDamage;
+
+        var eq = owner.GetComponentInParent<PlayerEquipment>();
+        if (eq != null && eq.HasWeapon)
+            return eq.CurrentWeapon.damage;
+
+        return baseDamage;
+    }
+
+    void PlayBlockOrHitSfx(Vector3 worldPos, bool blocked)
+    {
+        if (AudioManager.Instance == null) return;
+
+        AudioClip clip;
+
+        if (blocked && blockSound != null)
+        {
+            clip = blockSound;
+        }
+        else
+        {
+            if (hitSounds == null || hitSounds.Length == 0) return;
+
+            int idx = Mathf.Clamp(attackStep - 1, 0, hitSounds.Length - 1);
+            clip = hitSounds[idx];
+
+            if (clip == null) clip = hitSounds[0];
+        }
+
+        if (clip == null) return;
+
+        AudioManager.Instance.PlaySFXAt(clip, worldPos, hitVolume);
     }
 
     void DoHitStop()

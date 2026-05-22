@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: M_SpriteShadow
+  m_Name: M_SpriteShadow_Player
   m_Shader: {fileID: -6465566751694194690, guid: 29f65e74a84eb47d5867f56700ea4df9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0

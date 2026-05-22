@@ -11,6 +11,7 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private PlayerJump jump;
     PlayerSwimming swim;
     PlayerHealth health;
+    PlayerEquipment equipment;
 
     [Header("Combo")]
     [SerializeField] private int maxCombo = 3;
@@ -55,6 +56,20 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private float hitboxForwardDistance = 0.60f;
     [SerializeField] private Vector3 hitboxLocalOffset = Vector3.zero;
 
+    [Header("Attack Swing SFX")]
+    [Tooltip("One swing clip per combo step (index 0 = step 1, etc). " +
+             "If a slot is empty, no sound is played for that step.")]
+    [SerializeField] private AudioClip[] swingSounds = new AudioClip[3];
+
+    [Range(0f, 1f)]
+    [SerializeField] private float swingVolume = 1f;
+
+    [Header("Roll SFX")]
+    [SerializeField] private AudioClip rollSound;
+
+    [Range(0f, 1f)]
+    [SerializeField] private float rollVolume = 0.8f;
+
     private static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
     private static readonly int ComboIndexHash  = Animator.StringToHash("ComboIndex");
     private static readonly int InCombatHash    = Animator.StringToHash("InCombat");
@@ -90,6 +105,7 @@ public class PlayerCombatController : MonoBehaviour
 
         swim = GetComponent<PlayerSwimming>();
         health = GetComponent<PlayerHealth>();
+        equipment = GetComponent<PlayerEquipment>();
 
         if (spriteAnimator)
         {
@@ -134,6 +150,10 @@ public class PlayerCombatController : MonoBehaviour
             return;
 
         if (isRolling) return;
+
+        // No weapon equipped → can't attack.
+        if (equipment != null && !equipment.HasWeapon)
+            return;
 
         if (!isAttacking && Time.time < lockoutUntil)
             return;
@@ -182,6 +202,7 @@ public class PlayerCombatController : MonoBehaviour
         motor?.LockFacing(motor.GetFacing2D());
         motor?.LockMovement(true);
         DoStepLunge(1);
+        PlaySwingSfx(1);
 
         spriteAnimator?.SetBool(IsAttackingHash, true);
         spriteAnimator?.SetInteger(ComboIndexHash, comboIndex);
@@ -200,6 +221,7 @@ public class PlayerCombatController : MonoBehaviour
         buffered = false;
 
         DoStepLunge(comboIndex);
+        PlaySwingSfx(comboIndex);
 
         spriteAnimator?.SetInteger(ComboIndexHash, comboIndex);
 
@@ -310,6 +332,9 @@ public class PlayerCombatController : MonoBehaviour
 
         isRolling = true;
 
+        if (rollSound != null)
+            AudioManager.PlaySfxOrFallback(rollSound, transform.position, rollVolume);
+
         rollEndTime = Time.time + rollDuration;
         rollCooldownUntil = rollEndTime + rollCooldown;
 
@@ -398,5 +423,17 @@ public class PlayerCombatController : MonoBehaviour
     public bool IsRolling()
     {
         return isRolling;
+    }
+
+    private void PlaySwingSfx(int step)
+    {
+        if (swingSounds == null || swingSounds.Length == 0) return;
+
+        int idx = Mathf.Clamp(step - 1, 0, swingSounds.Length - 1);
+        var clip = swingSounds[idx];
+        if (clip == null) return;
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX(clip, swingVolume);
     }
 }

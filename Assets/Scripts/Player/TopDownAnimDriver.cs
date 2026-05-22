@@ -7,6 +7,7 @@ public class TopDownAnimDriver : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private PlayerMotor motor;
     [SerializeField] private PlayerJump jump;
+    PlayerClimbing climbing;
 
     [Header("Tuning")]
     [SerializeField] private float moveDeadzone = 0.01f;
@@ -22,6 +23,7 @@ public class TopDownAnimDriver : MonoBehaviour
         if (!animator) animator = GetComponent<Animator>();
         if (!motor) motor = GetComponentInParent<PlayerMotor>();
         if (!jump) jump = GetComponentInParent<PlayerJump>();
+        if (!climbing) climbing = GetComponentInParent<PlayerClimbing>();
 
         moveDeadzoneSqr = moveDeadzone * moveDeadzone;
     }
@@ -29,6 +31,12 @@ public class TopDownAnimDriver : MonoBehaviour
     void Update()
     {
         if (!animator || !motor)
+            return;
+
+        // While climbing, PlayerClimbing owns the animator (IsClimbing + ClimbSpeed).
+        // Don't touch IsMoving / MoveX / MoveY here, or Any State transitions tied
+        // to those parameters can yank the state out of ClimbIdle.
+        if (climbing != null && climbing.IsClimbing())
             return;
 
         bool rolling = motor.rollActive;
