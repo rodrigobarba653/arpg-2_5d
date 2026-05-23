@@ -32,8 +32,32 @@ public class EnemyHealth : MonoBehaviour
     [SerializeField] private float flashDuration = 0.08f;
     [SerializeField] private float flashIntensity = 4f;
 
+    [Header("Hurt SFX")]
+    [Tooltip("Grunt / pain clips. One picked at random per damage taken. If empty, no sound is played.")]
+    [SerializeField] private AudioClip[] hurtSounds;
+
+    [Tooltip("Optional: clip played when the enemy dies. Falls back to hurtSounds if empty.")]
+    [SerializeField] private AudioClip deathSound;
+
+    [Range(0f, 1f)]
+    [SerializeField] private float hurtVolume = 1f;
+
+    [Tooltip("Random pitch variation range (e.g. 0.1 → pitch * 0.9..1.1). Set 0 to disable.")]
+    [Range(0f, 0.5f)]
+    [SerializeField] private float hurtPitchVariation = 0.1f;
+
+    [Header("Death")]
+    [Tooltip("How long the hit animation plays before freezing on the current frame.")]
+    [SerializeField] private float deathHurtPlayTime = 0.4f;
+
+    [Tooltip("Duration of the alpha fade-out before the GameObject is destroyed.")]
+    [SerializeField] private float deathFadeTime = 0.8f;
+
     SpriteRenderer[] srs;
     Coroutine flashRoutine;
+
+    bool isDead;
+    public bool IsDead => isDead;
 
     void Awake()
     {
@@ -49,6 +73,8 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
     {
+        if (isDead) return;
+
         hitDir.y = 0f;
 
         if (hitDir.sqrMagnitude < 0.0001f)
@@ -89,11 +115,18 @@ public class EnemyHealth : MonoBehaviour
         if (combat != null)
             combat.OnTakeDamage(hitDir);
 
+        var ranged = GetComponent<EnemyRangedCombatController>();
+        if (ranged != null)
+            ranged.OnTakeDamage(hitDir);
+
         // 💥 FLASH (NEW SYSTEM)
         if (flashRoutine != null)
             StopCoroutine(flashRoutine);
 
         flashRoutine = StartCoroutine(FlashWhite());
+
+        // 🔊 GRUNT
+        PlayHurtSfx();
 
         // 🎯 HIT REACTION
         if (motor != null)
@@ -140,12 +173,126 @@ public class EnemyHealth : MonoBehaviour
 
     void Die()
     {
+        if (isDead) return;
+        isDead = true;
+
+        PlayDeathSfx();
         StartCoroutine(DieRoutine());
+    }
+
+    void PlayHurtSfx()
+    {
+        if (AudioManager.Instance == null) return;
+        if (hurtSounds == null || hurtSounds.Length == 0) return;
+
+        var clip = hurtSounds[Random.Range(0, hurtSounds.Length)];
+        if (clip == null) return;
+
+        var src = AudioManager.Instance.PlaySFXAt(clip, transform.position, hurtVolume);
+
+        if (src != null && hurtPitchVariation > 0f)
+            src.pitch = 1f + Random.Range(-hurtPitchVariation, hurtPitchVariation);
+    }
+
+    void PlayDeathSfx()
+    {
+        if (AudioManager.Instance == null) return;
+
+        AudioClip clip = deathSound;
+        if (clip == null && hurtSounds != null && hurtSounds.Length > 0)
+            clip = hurtSounds[Random.Range(0, hurtSounds.Length)];
+
+        if (clip == null) return;
+
+        var src = AudioManager.Instance.PlaySFXAt(clip, transform.position, hurtVolume);
+
+        if (src != null && hurtPitchVariation > 0f)
+            src.pitch = 1f + Random.Range(-hurtPitchVariation, hurtPitchVariation);
     }
 
     IEnumerator DieRoutine()
     {
-        yield return new WaitForSeconds(2f);
+        var animator = GetComponentInChildren<Animator>();
+
+        // Force hurt animation and clear conflicting params so nothing transitions out.
+        if (animator != null)
+        {
+            animator.ResetTrigger("Attack");
+            animator.SetBool("IsAttacking", false);
+            animator.SetBool("isDefending", false);
+            animator.ResetTrigger("Hurt");
+            animator.SetTrigger("Hurt");
+        }
+
+        // Stop AI + combat so the enemy can't take any further action.
+        if (ai != null) ai.enabled = false;
+
+        if (combat != null)
+        {
+            EnemyAttackScheduler.ReleaseIfExists(combat);
+            combat.enabled = false;
+        }
+
+        var ranged = GetComponent<EnemyRangedCombatController>();
+        if (ranged != null)
+        {
+            EnemyAttackScheduler.ReleaseIfExists(ranged);
+            ranged.enabled = false;
+        }
+
+        // Stop motor entirely.
+        if (motor != null)
+        {
+            motor.Stop();
+            motor.enabled = false;
+        }
+
+        // Remove from push-apart system so the corpse doesn't shove anything.
+        var push = GetComponent<CharacterPushApart>();
+        if (push != null) push.enabled = false;
+
+        // Disable colliders so hitboxes don't keep hitting the corpse and so
+        // other characters can walk through.
+        var cc = GetComponent<CharacterController>();
+        if (cc != null) cc.enabled = false;
+
+        var cols = GetComponentsInChildren<Collider>();
+        foreach (var c in cols)
+            if (c != null) c.enabled = false;
+
+        // Stop any active flash so it doesn't fight the fade.
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        // Let the hit animation play a moment, then freeze on its current frame.
+        if (deathHurtPlayTime > 0f)
+            yield return new WaitForSeconds(deathHurtPlayTime);
+
+        if (animator != null) animator.speed = 0f;
+
+        // Fade alpha to 0.
+        float dur = Mathf.Max(0.01f, deathFadeTime);
+        float t = 0f;
+
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float alpha = Mathf.Clamp01(1f - t / dur);
+
+            for (int i = 0; i < srs.Length; i++)
+            {
+                if (srs[i] == null) continue;
+                var col = srs[i].color;
+                col.a = alpha;
+                srs[i].color = col;
+            }
+
+            yield return null;
+        }
+
         Destroy(gameObject);
     }
 

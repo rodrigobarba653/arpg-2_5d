@@ -5,6 +5,7 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
     [Header("Refs")]
     public Animator animator;
     public EnemyMotor motor;
+    public EnemyAI ai;
 
     [Header("Tuning")]
     public float moveDeadzone = 0.01f;
@@ -13,6 +14,11 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
     Vector3 lastMoveDir = Vector3.forward;
 
+    static readonly int IsMovingHash   = Animator.StringToHash("IsMoving");
+    static readonly int IsInCombatHash = Animator.StringToHash("IsInCombat");
+    static readonly int MoveXHash      = Animator.StringToHash("MoveX");
+    static readonly int MoveYHash      = Animator.StringToHash("MoveY");
+
     void Awake()
     {
         if (!animator)
@@ -20,6 +26,9 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
         if (!motor)
             motor = GetComponentInParent<EnemyMotor>();
+
+        if (!ai)
+            ai = GetComponentInParent<EnemyAI>();
 
         moveDeadzoneSqr = moveDeadzone * moveDeadzone;
     }
@@ -38,15 +47,34 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
         if (dir.sqrMagnitude > 0.0001f)
             lastMoveDir = dir;
 
-        Vector3 finalDir =
-            isMoving ? dir : lastMoveDir;
+        // When moving, use velocity for instant directional response.
+        // When idle, read transform.forward from the motor — for Mobile this
+        // is the last facing the motor rotated to; for Fixed enemies this
+        // tracks the player in real time (rotated by EnemyAI/motor.RotateToward).
+        Vector3 finalDir;
+
+        if (isMoving)
+        {
+            finalDir = dir;
+        }
+        else
+        {
+            Vector3 fwd = motor.transform.forward;
+            fwd.y = 0f;
+
+            if (fwd.sqrMagnitude > 0.0001f)
+                finalDir = fwd.normalized;
+            else
+                finalDir = lastMoveDir;
+        }
 
         Vector2 dir2D =
             new Vector2(finalDir.x, finalDir.z).normalized;
 
-        animator.SetBool("IsMoving", isMoving);
-        animator.SetFloat("MoveX", dir2D.x);
-        animator.SetFloat("MoveY", dir2D.y);
+        animator.SetBool(IsMovingHash, isMoving);
+        animator.SetBool(IsInCombatHash, ai != null && ai.isInCombat);
+        animator.SetFloat(MoveXHash, dir2D.x);
+        animator.SetFloat(MoveYHash, dir2D.y);
     }
 
     Vector3 GetMoveDirection()

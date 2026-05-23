@@ -26,6 +26,12 @@ public class PlayerJump : MonoBehaviour
 
     float jumpLockTimer;
 
+    // External lock counter — triggers (switches, doors, dialogs, cutscenes…)
+    // can add/remove a lock so jumping is disabled while the player is inside
+    // their zone. Multiple overlapping locks supported.
+    int externalLockCount;
+    public bool IsExternallyLocked => externalLockCount > 0;
+
     private float airTimer;
     private bool inAir;
 
@@ -125,7 +131,24 @@ public class PlayerJump : MonoBehaviour
         if (landingLock)
             return;
 
+        if (externalLockCount > 0)
+            return;
+
         Jump();
+    }
+
+    /// <summary>
+    /// Increment external jump lock. Pair with RemoveExternalLock when the
+    /// trigger / cutscene / dialog ends.
+    /// </summary>
+    public void AddExternalLock()
+    {
+        externalLockCount++;
+    }
+
+    public void RemoveExternalLock()
+    {
+        externalLockCount = Mathf.Max(0, externalLockCount - 1);
     }
 
     void Jump()

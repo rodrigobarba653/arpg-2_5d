@@ -37,6 +37,7 @@ public class PlayerMotor : MonoBehaviour
 
     bool onSteepSlope;
     Vector3 slopeNormal;
+    Vector3 groundNormal = Vector3.up;
 
     // ATTACK LUNGE
     bool attackLungeActive;
@@ -200,7 +201,20 @@ public class PlayerMotor : MonoBehaviour
         verticalVelocity.y += gravity * Time.deltaTime;
 
         Vector3 finalMove = moveWorld * speed;
-        finalMove.y = verticalVelocity.y;
+
+        float groundAngle = Vector3.Angle(groundNormal, Vector3.up);
+        if (controller.isGrounded && !onSteepSlope && groundAngle > 3f && moveWorld.sqrMagnitude > 0.001f)
+        {
+            // Project movement along slope surface so player follows it down instead of floating/stuttering
+            Vector3 slopedMove = Vector3.ProjectOnPlane(finalMove, groundNormal);
+            finalMove = slopedMove;
+            if (verticalVelocity.y < 0f)
+                finalMove.y += verticalVelocity.y;
+        }
+        else
+        {
+            finalMove.y = verticalVelocity.y;
+        }
 
         if (onSteepSlope)
         {
@@ -461,6 +475,7 @@ public class PlayerMotor : MonoBehaviour
     {
         onSteepSlope = false;
         slopeNormal = Vector3.up;
+        groundNormal = Vector3.up;
 
         if (!controller)
             return;
@@ -481,6 +496,7 @@ public class PlayerMotor : MonoBehaviour
             ~0,
             QueryTriggerInteraction.Ignore))
         {
+            groundNormal = hit.normal;
             float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
 
             if (slopeAngle > controller.slopeLimit)

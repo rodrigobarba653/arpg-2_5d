@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.AI;
 
 [RequireComponent(typeof(CharacterController))]
 public class EnemyMotor : MonoBehaviour
@@ -16,10 +17,25 @@ public class EnemyMotor : MonoBehaviour
     public CharacterController controller;
     public Transform target;
 
+    [Tooltip("Optional. If present, AI scripts will read agent.desiredVelocity for " +
+             "pathfinding around obstacles and terrain. Auto-fetched in Awake.")]
+    public NavMeshAgent agent;
+
     [Header("Movement")]
     public float moveSpeed = 3f;
     public float gravity = -20f;
     public float rotationSpeed = 10f;
+
+    [HideInInspector]
+    [Tooltip("If > 0, overrides moveSpeed for this frame. AI scripts set this " +
+             "to switch between patrol and chase speeds. Reset every frame by " +
+             "the motor itself.")]
+    public float activeSpeedOverride = -1f;
+
+    public float GetActiveSpeed()
+    {
+        return activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
+    }
 
     [Header("Knockback")]
     [SerializeField] private bool faceHitSourceDuringKnockback = true;
@@ -44,15 +60,35 @@ public class EnemyMotor : MonoBehaviour
         if (!controller)
             controller = GetComponent<CharacterController>();
 
-        var player = GameObject.FindWithTag("Player");
+        if (!agent)
+            agent = GetComponent<NavMeshAgent>();
 
-        if (player)
+        // Decouple the agent from transform motion — we move the
+        // CharacterController ourselves and feed back the position to the agent.
+        if (agent != null)
         {
-            var pc = player.GetComponent<CharacterController>();
-
-            if (pc)
-                Physics.IgnoreCollision(controller, pc, true);
+            agent.updatePosition = false;
+            agent.updateRotation = false;
         }
+    }
+
+    void LateUpdate()
+    {
+        if (agent != null && agent.enabled)
+        {
+            // Sync the agent's speed to whatever the AI chose this frame so its
+            // path / desiredVelocity match what the CharacterController will do.
+            agent.speed = GetActiveSpeed();
+
+            // Keep the NavMeshAgent in sync with where the CharacterController
+            // actually ended up after physics + collisions.
+            if (agent.isOnNavMesh)
+                agent.nextPosition = transform.position;
+        }
+
+        // Reset the per-frame speed override so the next frame falls back to
+        // moveSpeed unless an AI script sets it again.
+        activeSpeedOverride = -1f;
     }
 
     void Update()
@@ -73,15 +109,12 @@ public class EnemyMotor : MonoBehaviour
         if (moveType == EnemyMoveType.Fixed)
         {
             if (hitStunTimer > 0f)
-            {
                 hitStunTimer -= Time.deltaTime;
 
-                Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-                controller.Move(gravityOnly * Time.deltaTime);
-                return;
-            }
-
-            ApplyKnockbackAndGravityOnly();
+            // Fixed enemies never receive knockback or any horizontal motion,
+            // only gravity to keep them grounded.
+            Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
+            controller.Move(gravityOnly * Time.deltaTime);
             return;
         }
 
@@ -125,7 +158,7 @@ public class EnemyMotor : MonoBehaviour
             return;
         }
 
-        Vector3 finalMove = moveDirection * moveSpeed;
+        Vector3 finalMove = moveDirection * GetActiveSpeed();
         finalMove.y = verticalVelocity.y;
 
         controller.Move(finalMove * Time.deltaTime);
@@ -149,7 +182,7 @@ public class EnemyMotor : MonoBehaviour
         RotateToward(moveDirection);
     }
 
-    void RotateToward(Vector3 dir)
+    public void RotateToward(Vector3 dir)
     {
         dir.y = 0f;
 
@@ -221,6 +254,9 @@ public class EnemyMotor : MonoBehaviour
 
     public void DoKnockback(Vector3 dir, float force, float time)
     {
+        if (moveType == EnemyMoveType.Fixed)
+            return;
+
         dir.y = 0f;
 
         if (dir.sqrMagnitude < 0.001f)
