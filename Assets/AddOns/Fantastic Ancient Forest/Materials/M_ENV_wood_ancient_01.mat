@@ -100,7 +100,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _AlphaClip: 0
-    - _AlphaCutoff: 0.5
+    - _AlphaCutoff: 1
     - _Blend: 0
     - _BumpScale: 2
     - _ClearCoatMask: 0

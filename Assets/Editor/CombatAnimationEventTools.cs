@@ -7,35 +7,20 @@ using UnityEngine;
 
 public static class CombatAttackEventsTool
 {
-    // ============================================================
-    // CONFIG
-    // ============================================================
+    private const int ENABLE_HITBOX_FRAME  = 6;
+    private const int DISABLE_HITBOX_FRAME = 10;
+    private const int TRY_ADVANCE_FRAME    = 11;
 
-    // You asked: EnableHitboxInt on 6th frame, DisableHitbox on 10th frame
-    private const int ENABLE_HITBOX_FRAME  = 7;
-    private const int DISABLE_HITBOX_FRAME = 11;
-
-    // IMPORTANT: "6th frame" is ambiguous (1-based vs 0-based).
-    // Most artists mean 1-based (frame 1 = first frame at time 0).
-    // We'll default to 1-based to match that mental model.
-    private const bool FRAMES_ARE_1_BASED = true;
-
-    // Safety: clamp events inside clip range
-    private const float TIME_EPSILON = 0.0001f;
-
-    // Auto step by name ("Attack1", "Attack2", "Attack3")
-    // If not found, fallback to 1.
     private const int DEFAULT_STEP = 1;
 
-    // Functions we manage
-    private const string FN_ENABLE_INT = "EnableHitboxInt";
-    private const string FN_ENABLE_OLD = "EnableHitbox";
-    private const string FN_DISABLE    = "DisableHitbox";
+    private const string FN_ENABLE_INT  = "EnableHitboxInt";
+    private const string FN_ENABLE_OLD  = "EnableHitbox";
+    private const string FN_DISABLE     = "DisableHitbox";
+    private const string FN_TRY_ADVANCE = "TryAdvanceCombo";
+    private const string FN_END_ATTACK  = "EndAttack";
 
-    // ============================================================
-
-    [MenuItem("Tools/Combat/Attack Clips - Set Hitbox Events (Enable f6, Disable f10)")]
-    public static void ApplyHitboxEventsToSelectedClips()
+    [MenuItem("Tools/Combat/Attack Clips - Set Combat Events")]
+    public static void ApplyCombatEventsToSelectedClips()
     {
         var clips = GetSelectedClips();
         if (clips.Count == 0)
@@ -52,69 +37,88 @@ public static class CombatAttackEventsTool
         }
 
         AssetDatabase.SaveAssets();
-        Debug.Log($"[CombatAttackEventsTool] Updated {changed} clip(s). (EnableHitboxInt @ frame {ENABLE_HITBOX_FRAME}, DisableHitbox @ frame {DISABLE_HITBOX_FRAME})");
+        AssetDatabase.Refresh();
+
+        Debug.Log($"[CombatAttackEventsTool] Updated {changed} clip(s).");
     }
 
     private static bool ApplyToClip(AnimationClip clip)
     {
-        // Step inferred from name
         int step = InferStepFromName(clip.name);
-
-        // Convert "frame" -> time, using the clip's frameRate
         float fps = clip.frameRate > 0f ? clip.frameRate : 24f;
 
-        float tEnable  = FrameToTime(ENABLE_HITBOX_FRAME, fps);
-        float tDisable = FrameToTime(DISABLE_HITBOX_FRAME, fps);
+        int totalFrames = GetTotalFrames(clip, fps);
+        int lastFrameIndex = Mathf.Max(0, totalFrames - 1);
 
-        // Clamp inside clip safely
-        float safeMax = GetSafeEndTime(clip, fps);
-        tEnable  = Mathf.Clamp(tEnable,  0f, safeMax);
-        tDisable = Mathf.Clamp(tDisable, 0f, safeMax);
+        // IMPORTANT:
+        // These go to Unity timeline frame numbers directly.
+        // Frame 6 means time = 6 / fps, not 5 / fps.
+        float tEnable     = FrameNumberToUnityTime(ENABLE_HITBOX_FRAME, fps, lastFrameIndex);
+        float tDisable    = FrameNumberToUnityTime(DISABLE_HITBOX_FRAME, fps, lastFrameIndex);
+        float tTryAdvance = FrameNumberToUnityTime(TRY_ADVANCE_FRAME, fps, lastFrameIndex);
+        float tEndAttack  = lastFrameIndex / fps;
 
-        // Ensure enable < disable (in case the clip is super short)
-        if (tDisable <= tEnable)
-            tDisable = Mathf.Clamp(tEnable + TIME_EPSILON, 0f, safeMax);
-
-        // Load existing events
         var events = AnimationUtility.GetAnimationEvents(clip).ToList();
 
-        // Remove ONLY hitbox-related events (keep TryAdvanceCombo + EndAttack as-is)
-        int before = events.Count;
         events.RemoveAll(e =>
             e != null &&
             (e.functionName == FN_ENABLE_INT ||
              e.functionName == FN_ENABLE_OLD ||
-             e.functionName == FN_DISABLE)
+             e.functionName == FN_DISABLE ||
+             e.functionName == FN_TRY_ADVANCE ||
+             e.functionName == FN_END_ATTACK)
         );
 
-        // Add our two events
-        var evEnable = new AnimationEvent
+        events.Add(new AnimationEvent
         {
             functionName = FN_ENABLE_INT,
             time = tEnable,
             intParameter = step
-        };
+        });
 
-        var evDisable = new AnimationEvent
+        events.Add(new AnimationEvent
         {
             functionName = FN_DISABLE,
             time = tDisable
-        };
+        });
 
-        events.Add(evEnable);
-        events.Add(evDisable);
+        events.Add(new AnimationEvent
+        {
+            functionName = FN_TRY_ADVANCE,
+            time = tTryAdvance
+        });
 
-        // Sort by time
+        events.Add(new AnimationEvent
+        {
+            functionName = FN_END_ATTACK,
+            time = tEndAttack
+        });
+
         events = events.OrderBy(e => e.time).ToList();
 
-        // Apply
         AnimationUtility.SetAnimationEvents(clip, events.ToArray());
         EditorUtility.SetDirty(clip);
 
-        // Log useful info
-        Debug.Log($"[{clip.name}] step={step} | EnableHitboxInt@{tEnable:0.000}s (frame {ENABLE_HITBOX_FRAME}) | DisableHitbox@{tDisable:0.000}s (frame {DISABLE_HITBOX_FRAME}) | kept other events={before - (before - events.Count + 2)}");
+        Debug.Log(
+            $"[{clip.name}] " +
+            $"EnableHitboxInt -> frame {ENABLE_HITBOX_FRAME} ({tEnable:0.###}s) | " +
+            $"DisableHitbox -> frame {DISABLE_HITBOX_FRAME} ({tDisable:0.###}s) | " +
+            $"TryAdvanceCombo -> frame {TRY_ADVANCE_FRAME} ({tTryAdvance:0.###}s) | " +
+            $"EndAttack -> last frame {lastFrameIndex} ({tEndAttack:0.###}s)"
+        );
 
         return true;
+    }
+
+    private static float FrameNumberToUnityTime(int frameNumber, float fps, int lastFrameIndex)
+    {
+        int clampedFrame = Mathf.Clamp(frameNumber, 0, lastFrameIndex);
+        return clampedFrame / fps;
+    }
+
+    private static int GetTotalFrames(AnimationClip clip, float fps)
+    {
+        return Mathf.Max(1, Mathf.RoundToInt(clip.length * fps));
     }
 
     private static List<AnimationClip> GetSelectedClips()
@@ -131,7 +135,6 @@ public static class CombatAttackEventsTool
 
         string n = clipName.ToLowerInvariant();
 
-        // Common patterns: "Attack1", "Attack_1", "attack-1", etc.
         if (ContainsAttackStep(n, 1)) return 1;
         if (ContainsAttackStep(n, 2)) return 2;
         if (ContainsAttackStep(n, 3)) return 3;
@@ -141,28 +144,12 @@ public static class CombatAttackEventsTool
 
     private static bool ContainsAttackStep(string lowerName, int step)
     {
-        // Try many common naming variations
         return lowerName.Contains($"attack{step}") ||
                lowerName.Contains($"attack_{step}") ||
                lowerName.Contains($"attack-{step}") ||
                lowerName.Contains($"atk{step}") ||
                lowerName.Contains($"atk_{step}") ||
                lowerName.Contains($"atk-{step}");
-    }
-
-    private static float FrameToTime(int frameNumber, float fps)
-    {
-        // If 1-based: frame 1 should be time 0
-        // If 0-based: frame 0 should be time 0
-        int index = FRAMES_ARE_1_BASED ? Mathf.Max(0, frameNumber - 1) : Mathf.Max(0, frameNumber);
-        return index / fps;
-    }
-
-    private static float GetSafeEndTime(AnimationClip clip, float fps)
-    {
-        // Avoid placing exactly at clip.length (Unity can drop it outside last sample)
-        float epsilon = 1f / Mathf.Max(1f, fps);
-        return Mathf.Max(0f, clip.length - epsilon * 0.5f);
     }
 }
 #endif

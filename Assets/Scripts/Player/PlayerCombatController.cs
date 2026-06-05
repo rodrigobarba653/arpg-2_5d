@@ -11,6 +11,7 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private PlayerJump jump;
     PlayerSwimming swim;
     PlayerHealth health;
+    PlayerEquipment equipment;
 
     [Header("Combo")]
     [SerializeField] private int maxCombo = 3;
@@ -29,21 +30,18 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private bool lungeStep2 = true;
     [SerializeField] private bool lungeStep3 = true;
 
-
-
     [System.Serializable]
     private struct LungeParams
     {
         public float speed;
         public float duration;
-        public float preStop;
-        public float postStop;
+        public float delay;
     }
 
     [Header("Lunge Params Per Step")]
-    [SerializeField] private LungeParams step1 = new LungeParams { speed = 6.5f, duration = 0.08f, preStop = 0.03f, postStop = 0.04f };
-    [SerializeField] private LungeParams step2 = new LungeParams { speed = 6.5f, duration = 0.06f, preStop = 0.02f, postStop = 0.03f };
-    [SerializeField] private LungeParams step3 = new LungeParams { speed = 7.5f, duration = 0.08f, preStop = 0.02f, postStop = 0.05f };
+    [SerializeField] private LungeParams step1 = new LungeParams { speed = 6.5f, duration = 0.08f, delay = 0f };
+    [SerializeField] private LungeParams step2 = new LungeParams { speed = 6.5f, duration = 0.06f, delay = 0.02f };
+    [SerializeField] private LungeParams step3 = new LungeParams { speed = 7.5f, duration = 0.08f, delay = 0.04f };
 
     [Header("Roll")]
     [SerializeField] private bool enableRoll = true;
@@ -58,7 +56,20 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private float hitboxForwardDistance = 0.60f;
     [SerializeField] private Vector3 hitboxLocalOffset = Vector3.zero;
 
-    // Animator hashes
+    [Header("Attack Swing SFX")]
+    [Tooltip("One swing clip per combo step (index 0 = step 1, etc). " +
+             "If a slot is empty, no sound is played for that step.")]
+    [SerializeField] private AudioClip[] swingSounds = new AudioClip[3];
+
+    [Range(0f, 1f)]
+    [SerializeField] private float swingVolume = 1f;
+
+    [Header("Roll SFX")]
+    [SerializeField] private AudioClip rollSound;
+
+    [Range(0f, 1f)]
+    [SerializeField] private float rollVolume = 0.8f;
+
     private static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
     private static readonly int ComboIndexHash  = Animator.StringToHash("ComboIndex");
     private static readonly int InCombatHash    = Animator.StringToHash("InCombat");
@@ -69,18 +80,14 @@ public class PlayerCombatController : MonoBehaviour
     private int comboIndex = 0;
     private bool isAttacking = false;
 
-    // buffer window
     private float comboBufferUntil = 0f;
     private bool buffered = false;
 
-    // lockout window
     private float lockoutUntil = 0f;
 
-    // combat mode timer
     private float combatTimer = 0f;
     private bool inCombat = false;
 
-    // roll state
     private bool isRolling = false;
     private float rollEndTime = 0f;
     private float rollCooldownUntil = 0f;
@@ -88,7 +95,6 @@ public class PlayerCombatController : MonoBehaviour
     void Awake()
     {
         if (!motor) motor = GetComponent<PlayerMotor>();
-
         if (!jump) jump = GetComponent<PlayerJump>();
 
         if (!spriteAnimator) Debug.LogError("Assign SpriteBody Animator", this);
@@ -98,8 +104,8 @@ public class PlayerCombatController : MonoBehaviour
             meleeHitboxTransform = meleeHitbox.transform;
 
         swim = GetComponent<PlayerSwimming>();
-
         health = GetComponent<PlayerHealth>();
+        equipment = GetComponent<PlayerEquipment>();
 
         if (spriteAnimator)
         {
@@ -116,15 +122,12 @@ public class PlayerCombatController : MonoBehaviour
         if (health != null && health.isTakingDamage)
             return;
 
-        // buffer expiration
         if (buffered && Time.time > comboBufferUntil)
             buffered = false;
 
-        // roll auto-end
         if (isRolling && Time.time >= rollEndTime)
             EndRoll();
 
-        // combat mode timeout
         if (inCombat)
         {
             combatTimer -= Time.deltaTime;
@@ -132,10 +135,6 @@ public class PlayerCombatController : MonoBehaviour
                 ExitCombat();
         }
     }
-
-    // =========================
-    // INPUT
-    // =========================
 
     public void OnAttack(InputAction.CallbackContext ctx)
     {
@@ -151,6 +150,10 @@ public class PlayerCombatController : MonoBehaviour
             return;
 
         if (isRolling) return;
+
+        // No weapon equipped → can't attack.
+        if (equipment != null && !equipment.HasWeapon)
+            return;
 
         if (!isAttacking && Time.time < lockoutUntil)
             return;
@@ -177,10 +180,8 @@ public class PlayerCombatController : MonoBehaviour
 
         if (!ctx.performed) return;
         if (!enableRoll) return;
-
         if (isAttacking) return;
 
-        // ❌ NO ROLL SI ESTA EN EL AIRE
         if (jump != null && !jump.IsGrounded)
             return;
 
@@ -188,10 +189,6 @@ public class PlayerCombatController : MonoBehaviour
 
         StartRoll();
     }
-
-    // =========================
-    // ATTACKS
-    // =========================
 
     private void StartAttack1()
     {
@@ -202,11 +199,10 @@ public class PlayerCombatController : MonoBehaviour
         comboIndex = 1;
         buffered = false;
 
-        // Lock facing for the whole combo (prevents SpriteBody flipping mid-attack)
         motor?.LockFacing(motor.GetFacing2D());
-
         motor?.LockMovement(true);
         DoStepLunge(1);
+        PlaySwingSfx(1);
 
         spriteAnimator?.SetBool(IsAttackingHash, true);
         spriteAnimator?.SetInteger(ComboIndexHash, comboIndex);
@@ -225,6 +221,7 @@ public class PlayerCombatController : MonoBehaviour
         buffered = false;
 
         DoStepLunge(comboIndex);
+        PlaySwingSfx(comboIndex);
 
         spriteAnimator?.SetInteger(ComboIndexHash, comboIndex);
 
@@ -250,11 +247,9 @@ public class PlayerCombatController : MonoBehaviour
             step == 2 ? step2 :
                         step3;
 
-        // Facing is locked already, so GetFacing2D returns the locked value
-        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.preStop, p.postStop);
+        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.delay);
     }
 
-    // Animation Event placed near the end of Attack1 and Attack2
     public void TryAdvanceCombo()
     {
         if (!isAttacking) return;
@@ -269,7 +264,6 @@ public class PlayerCombatController : MonoBehaviour
         buffered = false;
     }
 
-    // Animation Event at the end of Attack1/2/3
     public void EndAttack()
     {
         if (!isAttacking) return;
@@ -289,6 +283,7 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
 
+        motor?.CancelAttackLunge();
         motor?.LockMovement(false);
         motor?.UnlockFacing();
 
@@ -296,10 +291,6 @@ public class PlayerCombatController : MonoBehaviour
 
         combatTimer = combatTimeout;
     }
-
-    // =========================
-    // HITBOX EVENTS
-    // =========================
 
     public void EnableHitboxInt(int step)
     {
@@ -316,7 +307,7 @@ public class PlayerCombatController : MonoBehaviour
             hb.SetAttackStep(step);
         }
 
-        meleeHitbox.SetActive(true); // ← FALTABA ESTO
+        meleeHitbox.SetActive(true);
     }
 
     public void DisableHitbox()
@@ -334,16 +325,15 @@ public class PlayerCombatController : MonoBehaviour
         meleeHitboxTransform.localPosition = forward * hitboxForwardDistance + hitboxLocalOffset;
     }
 
-    // =========================
-    // ROLL
-    // =========================
-
     private void StartRoll()
     {
         if (jump != null && !jump.IsGrounded)
             return;
 
         isRolling = true;
+
+        if (rollSound != null)
+            AudioManager.PlaySfxOrFallback(rollSound, transform.position, rollVolume);
 
         rollEndTime = Time.time + rollDuration;
         rollCooldownUntil = rollEndTime + rollCooldown;
@@ -384,10 +374,6 @@ public class PlayerCombatController : MonoBehaviour
         combatTimer = combatTimeout;
     }
 
-    // =========================
-    // COMBAT MODE
-    // =========================
-
     private void EnterCombat()
     {
         combatTimer = combatTimeout;
@@ -415,11 +401,39 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetBool(IsRollingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
 
+        motor?.CancelAttackLunge();
         motor?.LockMovement(false);
         motor?.UnlockFacing();
 
         DisableHitbox();
 
         ExitCombat();
+    }
+
+    public bool IsInCombat()
+    {
+        return inCombat;
+    }
+
+    public bool IsAttacking()
+    {
+        return isAttacking;
+    }
+
+    public bool IsRolling()
+    {
+        return isRolling;
+    }
+
+    private void PlaySwingSfx(int step)
+    {
+        if (swingSounds == null || swingSounds.Length == 0) return;
+
+        int idx = Mathf.Clamp(step - 1, 0, swingSounds.Length - 1);
+        var clip = swingSounds[idx];
+        if (clip == null) return;
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX(clip, swingVolume);
     }
 }

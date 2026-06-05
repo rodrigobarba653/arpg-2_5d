@@ -1,5 +1,13 @@
 fileFormatVersion: 2
+<<<<<<< HEAD:Assets/AddOns/EnviromentAssets/Idyllic Fantasy Nature.meta
+<<<<<<<< HEAD:Assets/AddOns/Idyllic Fantasy Nature.meta
+guid: 63e6ea2f3d323448bafd477d58b2fe21
+========
+guid: ad4007f6fd0bb9e41a9575fd114a156c
+>>>>>>>> origin/dev:Assets/AddOns/BK_JUNGLE.meta
+=======
 guid: 7a87028a78e76d041a9eb191e5acaab8
+>>>>>>> origin/dev:Assets/AddOns/Idyllic Fantasy Nature.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

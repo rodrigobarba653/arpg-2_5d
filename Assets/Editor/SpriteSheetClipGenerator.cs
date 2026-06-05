@@ -1,106 +1,148 @@
-using System;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-public class SpriteSheetClipGenerator
+public class SpriteSheetClipGeneratorWindow : EditorWindow
 {
-    // Change these if you want different names
-    static readonly string[] DirectionNames8 =
-{
-    "Down", "DownLeft", "Left", "UpLeft",
-    "Up", "UpRight", "Right", "DownRight"
-};
-
-    [MenuItem("Tools/Sprites/Generate 8x3 Hurt Clips (from selected texture)")]
-    public static void Generate8x3()
+    private static readonly string[] DefaultDirectionNames8 =
     {
-        const int directions = 8;
-        const int framesPerDir = 3;
-        const float fps = 12f;
+        "Down", "DownLeft", "Left", "UpLeft",
+        "Up", "UpRight", "Right", "DownRight"
+    };
 
-        // 1) You must select the spritesheet TEXTURE in the Project window
-        var tex = Selection.activeObject as Texture2D;
-        if (!tex)
+    private Texture2D selectedTexture;
+    private string clipBaseName = "Weapon2-Attack3";
+    private int directions = 8;
+    private int framesPerDirection = 6;
+    private float fps = 12f;
+    private bool loop = true;
+
+    [MenuItem("Tools/Sprites/Clip Generator")]
+    public static void OpenWindow()
+    {
+        GetWindow<SpriteSheetClipGeneratorWindow>("Clip Generator");
+    }
+
+    private void OnGUI()
+    {
+        GUILayout.Label("Sprite Sheet Clip Generator", EditorStyles.boldLabel);
+        EditorGUILayout.Space();
+
+        selectedTexture = (Texture2D)EditorGUILayout.ObjectField(
+            "Spritesheet Texture",
+            selectedTexture,
+            typeof(Texture2D),
+            false
+        );
+
+        clipBaseName = EditorGUILayout.TextField("Clip Base Name", clipBaseName);
+        directions = EditorGUILayout.IntField("Directions", directions);
+        framesPerDirection = EditorGUILayout.IntField("Frames Per Direction", framesPerDirection);
+        fps = EditorGUILayout.FloatField("FPS", fps);
+        loop = EditorGUILayout.Toggle("Loop", loop);
+
+        EditorGUILayout.Space();
+
+        if (GUILayout.Button("Use Currently Selected Texture"))
+        {
+            selectedTexture = Selection.activeObject as Texture2D;
+        }
+
+        EditorGUILayout.Space();
+
+        if (GUILayout.Button("Generate Clips"))
+        {
+            GenerateClips();
+        }
+    }
+
+    private void GenerateClips()
+    {
+        if (!selectedTexture)
         {
             EditorUtility.DisplayDialog(
-                "Select spritesheet texture",
-                "In the Project window, click your spritesheet Texture2D (the image), then run:\nTools > Sprites > Generate 8x3 Hurt Clips",
+                "Missing texture",
+                "Please assign a spritesheet Texture2D or select one in the Project window.",
                 "OK"
             );
             return;
         }
 
-        string texPath = AssetDatabase.GetAssetPath(tex);
+        if (directions <= 0 || framesPerDirection <= 0 || fps <= 0f)
+        {
+            EditorUtility.DisplayDialog(
+                "Invalid values",
+                "Directions, Frames Per Direction, and FPS must be greater than 0.",
+                "OK"
+            );
+            return;
+        }
 
-        // 2) Load all sprites sliced from that texture
-        var sprites = AssetDatabase.LoadAllAssetsAtPath(texPath)
+        string texPath = AssetDatabase.GetAssetPath(selectedTexture);
+
+        List<Sprite> sprites = AssetDatabase.LoadAllAssetsAtPath(texPath)
             .OfType<Sprite>()
             .ToList();
 
-        if (sprites.Count < directions * framesPerDir)
+        int requiredCount = directions * framesPerDirection;
+
+        if (sprites.Count < requiredCount)
         {
             EditorUtility.DisplayDialog(
                 "Not enough sprites",
-                $"Found {sprites.Count} sprites, but need at least {directions * framesPerDir} (8 directions × 3 frames).\n\nCheck that Sprite Mode = Multiple and slicing is correct.",
+                $"Found {sprites.Count} sprites, but need at least {requiredCount}.\n\nCheck Sprite Mode = Multiple and slicing.",
                 "OK"
             );
             return;
         }
 
-        // 3) Sort by texture position:
-        // - Higher Y first (top rows first)
-        // - Lower X first (left to right)
         sprites.Sort((a, b) =>
         {
-            var ar = a.rect;
-            var br = b.rect;
+            Rect ar = a.rect;
+            Rect br = b.rect;
 
-            int y = br.y.CompareTo(ar.y); // descending Y
-            if (y != 0) return y;
+            int yCompare = br.y.CompareTo(ar.y);
+            if (yCompare != 0) return yCompare;
 
-            return ar.x.CompareTo(br.x);  // ascending X
+            return ar.x.CompareTo(br.x);
         });
 
-        // 4) Make output folder next to the texture (or inside Animations)
         string baseDir = System.IO.Path.GetDirectoryName(texPath)?.Replace("\\", "/") ?? "Assets";
         string outFolder = $"{baseDir}/Animations_Generated";
+
         if (!AssetDatabase.IsValidFolder(outFolder))
         {
             AssetDatabase.CreateFolder(baseDir, "Animations_Generated");
         }
 
-        // 5) Create clips
         for (int d = 0; d < directions; d++)
         {
-            string dirName = (d < DirectionNames8.Length) ? DirectionNames8[d] : $"Dir{d}";
-            string clipPath = $"{outFolder}/Hurt_{dirName}.anim";
+            string dirName = GetDirectionName(d, directions);
+            string clipPath = $"{outFolder}/{clipBaseName}_{dirName}.anim";
 
-            var clip = new AnimationClip
+            AnimationClip clip = new AnimationClip
             {
                 frameRate = fps
             };
 
-            // Turn on looping
             var clipSettings = AnimationUtility.GetAnimationClipSettings(clip);
-            clipSettings.loopTime = true;
+            clipSettings.loopTime = loop;
             AnimationUtility.SetAnimationClipSettings(clip, clipSettings);
 
-            // Frames for this direction
-            int start = d * framesPerDir;
-            var frames = sprites.Skip(start).Take(framesPerDir).ToArray();
+            int start = d * framesPerDirection;
+            Sprite[] frames = sprites.Skip(start).Take(framesPerDirection).ToArray();
 
-            // Build keyframes for SpriteRenderer.sprite
-            var binding = new EditorCurveBinding
+            EditorCurveBinding binding = new EditorCurveBinding
             {
                 type = typeof(SpriteRenderer),
-                path = "", // same GameObject
+                path = "",
                 propertyName = "m_Sprite"
             };
 
-            var keys = new ObjectReferenceKeyframe[framesPerDir];
-            for (int i = 0; i < framesPerDir; i++)
+            ObjectReferenceKeyframe[] keys = new ObjectReferenceKeyframe[framesPerDirection];
+
+            for (int i = 0; i < framesPerDirection; i++)
             {
                 keys[i] = new ObjectReferenceKeyframe
                 {
@@ -111,8 +153,7 @@ public class SpriteSheetClipGenerator
 
             AnimationUtility.SetObjectReferenceCurve(clip, binding, keys);
 
-            // Save asset
-            AssetDatabase.CreateAsset(clip, clipPath);
+            AssetDatabase.CreateAsset(clip, AssetDatabase.GenerateUniqueAssetPath(clipPath));
         }
 
         AssetDatabase.SaveAssets();
@@ -120,8 +161,16 @@ public class SpriteSheetClipGenerator
 
         EditorUtility.DisplayDialog(
             "Done ✅",
-            $"Created 8 Hurt clips (3 frames each) in:\n{outFolder}\n\nIf the directions are in the wrong order, tell me how your sheet is laid out and I’ll adjust the direction mapping.",
+            $"Created {directions} clips in:\n{outFolder}",
             "OK"
         );
+    }
+
+    private string GetDirectionName(int index, int totalDirections)
+    {
+        if (totalDirections == 8 && index < DefaultDirectionNames8.Length)
+            return DefaultDirectionNames8[index];
+
+        return $"Dir{index}";
     }
 }
