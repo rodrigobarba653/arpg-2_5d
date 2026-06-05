@@ -1,15 +1,7 @@
 fileFormatVersion: 2
-guid: e8cf1d29775c7e24f9dd35148a6437c0
-timeCreated: 1487163440
-licenseType: Store
+guid: 38689ac03b308479c83c43e82b664eee
 DefaultImporter:
+  externalObjects: {}
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 82913
-  packageName: Sci-Fi Styled Modular Pack
-  packageVersion: 1.1
-  assetPath: Assets/Sci-Fi Styled Modular Pack/Example scenes/outpost with snow.unity
-  uploadId: 276156

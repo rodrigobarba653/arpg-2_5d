@@ -1,15 +1,7 @@
 fileFormatVersion: 2
-guid: b42ca4c5c936383429d2318c931f7ad2
-timeCreated: 1487089022
-licenseType: Store
+guid: 31c877c2d2c7a4e198d9714a4f12f1f8
 DefaultImporter:
+  externalObjects: {}
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 82913
-  packageName: Sci-Fi Styled Modular Pack
-  packageVersion: 1.1
-  assetPath: Assets/Sci-Fi Styled Modular Pack/Example scenes/outpost on desert.unity
-  uploadId: 276156
