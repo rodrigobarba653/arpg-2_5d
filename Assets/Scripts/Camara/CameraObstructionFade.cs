@@ -16,6 +16,11 @@ public class CameraObstructionFade : MonoBehaviour
     [Header("Height Filter")]
     public float heightOffset = 0.5f;
 
+    [Header("Standing On Object Filter")]
+    public bool ignoreObjectPlayerIsStandingOn = true;
+    public float standingHeightTolerance = 0.35f;
+    public float standingXZPadding = 0.15f;
+
     [Header("Cast")]
     public float sphereRadius = 0.35f;
 
@@ -126,6 +131,9 @@ public class CameraObstructionFade : MonoBehaviour
         Vector3 dir = target.position - transform.position;
         float dist = dir.magnitude;
 
+        if (dist <= 0.01f)
+            return;
+
         RaycastHit[] hits = Physics.SphereCastAll(
             transform.position,
             sphereRadius,
@@ -137,10 +145,10 @@ public class CameraObstructionFade : MonoBehaviour
 
         foreach (RaycastHit hit in hits)
         {
-            if (hit.collider.bounds.max.y < target.position.y - heightOffset)
+            if (!hit.collider)
                 continue;
 
-            if (Vector3.Dot(hit.normal, Vector3.up) > 0.6f)
+            if (ShouldIgnoreHit(hit))
                 continue;
 
             Renderer[] renderers = hit.collider.GetComponentsInChildren<Renderer>();
@@ -154,6 +162,41 @@ public class CameraObstructionFade : MonoBehaviour
 
         RestoreRenderers();
         UpdateDepthOfField();
+    }
+
+    bool ShouldIgnoreHit(RaycastHit hit)
+    {
+        Bounds b = hit.collider.bounds;
+
+        if (ignoreObjectPlayerIsStandingOn && IsTargetStandingOnBounds(b))
+            return true;
+
+        if (b.max.y < target.position.y - heightOffset)
+            return true;
+
+        if (Vector3.Dot(hit.normal, Vector3.up) > 0.6f)
+            return true;
+
+        return false;
+    }
+
+    bool IsTargetStandingOnBounds(Bounds b)
+    {
+        Vector3 p = target.position;
+
+        bool insideX =
+            p.x >= b.min.x - standingXZPadding &&
+            p.x <= b.max.x + standingXZPadding;
+
+        bool insideZ =
+            p.z >= b.min.z - standingXZPadding &&
+            p.z <= b.max.z + standingXZPadding;
+
+        bool nearTop =
+            p.y >= b.max.y - standingHeightTolerance &&
+            p.y <= b.max.y + standingHeightTolerance;
+
+        return insideX && insideZ && nearTop;
     }
 
     void UpdateDepthOfField()
@@ -238,9 +281,9 @@ public class CameraObstructionFade : MonoBehaviour
                 }
 
                 Color c = currentColors[key];
-                Color target = originalColors[key] * 0.3f;
+                Color targetColor = originalColors[key] * fadeAlpha;
 
-                c = Color.Lerp(c, target, Time.deltaTime * fadeInSpeed);
+                c = Color.Lerp(c, targetColor, Time.deltaTime * fadeInSpeed);
 
                 currentColors[key] = c;
 
