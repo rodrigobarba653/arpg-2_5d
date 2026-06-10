@@ -16,37 +16,37 @@ public class EnemyCombatController : MonoBehaviour
     public float attackDistance = 1.4f;
     public float attackCooldown = 1.2f;
 
-    [Tooltip("If true, the enemy stops moving during the attack animation (no root motion). " +
-             "Disable for attacks where the enemy can keep moving (e.g. ranged/long-reach).")]
     public bool lockMovementDuringAttack = true;
+
+    [Header("Attack Step Forward")]
+    public bool useAttackStepForward = true;
+    public float attackStepDistance = 0.35f;
+    public float attackStepDuration = 0.12f;
+    public float attackStepDelay = 0.05f;
+
+    [Tooltip("Enemy will not step closer than this distance from the player.")]
+    public float minDistanceToPlayerAfterStep = 1.0f;
 
     [Header("Hitbox")]
     public float hitboxForwardDistance = 0.6f;
+
+    [Tooltip("Extra local offset for the melee hitbox. X/Z are used normally. Y is overridden by Hitbox Local Height below.")]
     public Vector3 hitboxLocalOffset;
+
+    [Tooltip("Fixed local Y height for the melee hitbox. Raise this if the hitbox is too low.")]
+    public float hitboxLocalHeight = 0.5f;
 
     [Header("Damage Reaction")]
     public float hitStunTime = 0.3f;
-
-    [Tooltip("Extra time before the enemy can attack again after being hit")]
     public float attackDelayAfterHit = 0.45f;
 
     [Header("Timer-based Hitbox (no anim events needed)")]
-    [Tooltip("If true, the hitbox enables/disables and the attack ends automatically " +
-             "based on the timers below. Animation events are still supported (idempotent).")]
     public bool useTimerBasedHitbox = true;
-
-    [Tooltip("Seconds from StartAttack until the hitbox enables (wind-up).")]
     public float hitboxEnableDelay = 0.20f;
-
-    [Tooltip("Seconds from StartAttack until the hitbox disables.")]
     public float hitboxDisableDelay = 0.35f;
-
-    [Tooltip("Seconds from StartAttack until EndAttack fires (full attack length). " +
-             "Should be >= hitboxDisableDelay.")]
     public float attackEndDelay = 0.55f;
 
     [Header("Safety")]
-    [Tooltip("If isAttacking persists longer than this, force EndAttack as a hard safety net.")]
     public float maxAttackDuration = 3f;
 
     float hitStunUntil;
@@ -56,11 +56,15 @@ public class EnemyCombatController : MonoBehaviour
     bool hitboxEnabledByTimer;
     bool hitboxDisabledByTimer;
 
+    bool attackStepActive;
+    bool attackStepStarted;
+    Vector3 attackStepDirection;
+    float attackStepMoved;
+
     static readonly int AttackTrigger = Animator.StringToHash("Attack");
     static readonly int HurtTrigger = Animator.StringToHash("Hurt");
     static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
 
-    // IMPORTANT: these must match your animator parameter names
     static readonly int HitXHash = Animator.StringToHash("HitX");
     static readonly int HitYHash = Animator.StringToHash("HitY");
 
@@ -82,7 +86,9 @@ public class EnemyCombatController : MonoBehaviour
         if (!player)
             return;
 
-        // ===== Timer-based hitbox =====
+        if (isAttacking)
+            UpdateAttackStepForward();
+
         if (isAttacking && useTimerBasedHitbox)
         {
             float elapsed = Time.time - attackStartedAt;
@@ -103,7 +109,6 @@ public class EnemyCombatController : MonoBehaviour
                 EndAttack();
         }
 
-        // Safety: hard timeout in case both timer and events somehow fail.
         if (isAttacking && Time.time - attackStartedAt > maxAttackDuration)
             EndAttack();
 
@@ -143,6 +148,18 @@ public class EnemyCombatController : MonoBehaviour
         hitboxEnabledByTimer = false;
         hitboxDisabledByTimer = false;
 
+        attackStepActive = false;
+        attackStepStarted = false;
+        attackStepMoved = 0f;
+
+        Vector3 dir = player.position - transform.position;
+        dir.y = 0f;
+
+        if (dir.sqrMagnitude < 0.001f)
+            dir = transform.forward;
+
+        attackStepDirection = dir.normalized;
+
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();
 
@@ -154,7 +171,66 @@ public class EnemyCombatController : MonoBehaviour
         nextAttackTime = Time.time + attackCooldown;
     }
 
-    // ANIMATION EVENT
+    void UpdateAttackStepForward()
+    {
+        if (!useAttackStepForward)
+            return;
+
+        float elapsed = Time.time - attackStartedAt;
+
+        if (!attackStepStarted)
+        {
+            if (elapsed < attackStepDelay)
+                return;
+
+            attackStepStarted = true;
+            attackStepActive = true;
+        }
+
+        if (!attackStepActive)
+            return;
+
+        if (attackStepDuration <= 0f || attackStepDistance <= 0f)
+        {
+            attackStepActive = false;
+            return;
+        }
+
+        float remainingStep = attackStepDistance - attackStepMoved;
+
+        if (remainingStep <= 0f)
+        {
+            attackStepActive = false;
+            return;
+        }
+
+        float distToPlayer = Vector3.Distance(transform.position, player.position);
+        float allowedDistance = distToPlayer - minDistanceToPlayerAfterStep;
+
+        if (allowedDistance <= 0f)
+        {
+            attackStepActive = false;
+            return;
+        }
+
+        float speed = attackStepDistance / attackStepDuration;
+        float moveAmount = speed * Time.deltaTime;
+
+        moveAmount = Mathf.Min(moveAmount, remainingStep);
+        moveAmount = Mathf.Min(moveAmount, allowedDistance);
+
+        if (motor != null && motor.controller != null)
+        {
+            motor.controller.Move(attackStepDirection * moveAmount);
+        }
+        else
+        {
+            transform.position += attackStepDirection * moveAmount;
+        }
+
+attackStepMoved += moveAmount;
+    }
+
     public void EnableHitbox()
     {
         if (!meleeHitbox)
@@ -170,22 +246,24 @@ public class EnemyCombatController : MonoBehaviour
         meleeHitbox.SetActive(true);
     }
 
-    // ANIMATION EVENT
     public void DisableHitbox()
     {
         if (meleeHitbox)
             meleeHitbox.SetActive(false);
     }
 
-    // Can be triggered by timer (default) or animation event.
     public void EndAttack()
     {
-        if (!isAttacking) return;
+        if (!isAttacking)
+            return;
 
         isAttacking = false;
-        if (animator != null) animator.SetBool(IsAttackingHash, false);
+        attackStepActive = false;
+        attackStepStarted = false;
 
-        // Make sure the hitbox is off even if DisableHitbox timer didn't fire yet.
+        if (animator != null)
+            animator.SetBool(IsAttackingHash, false);
+
         DisableHitbox();
 
         EnemyAttackScheduler.ReleaseIfExists(this);
@@ -197,6 +275,7 @@ public class EnemyCombatController : MonoBehaviour
     void OnDisable()
     {
         EnemyAttackScheduler.ReleaseIfExists(this);
+        DisableHitbox();
     }
 
     void OnDestroy()
@@ -211,13 +290,21 @@ public class EnemyCombatController : MonoBehaviour
 
         Vector3 dir = player.position - transform.position;
         dir.y = 0f;
+
+        if (dir.sqrMagnitude < 0.001f)
+            dir = transform.forward;
+
         dir.Normalize();
 
         Vector3 localDir = transform.InverseTransformDirection(dir);
         Vector3 forward = new Vector3(localDir.x, 0f, localDir.z).normalized;
 
-        meleeHitboxTransform.localPosition =
+        Vector3 finalLocalPosition =
             forward * hitboxForwardDistance + hitboxLocalOffset;
+
+        finalLocalPosition.y = hitboxLocalHeight;
+
+        meleeHitboxTransform.localPosition = finalLocalPosition;
     }
 
     public void OnTakeDamage(Vector3 hitDir)
@@ -225,15 +312,18 @@ public class EnemyCombatController : MonoBehaviour
         hitDir.y = 0f;
 
         hitStunUntil = Time.time + hitStunTime;
-
-        // prevent immediate re-attack after damage
         nextAttackTime = Mathf.Max(nextAttackTime, Time.time + attackDelayAfterHit);
 
-        // cancel attack if needed
+        attackStepActive = false;
+        attackStepStarted = false;
+
         if (isAttacking)
         {
             isAttacking = false;
-            animator.SetBool(IsAttackingHash, false);
+
+            if (animator != null)
+                animator.SetBool(IsAttackingHash, false);
+
             EnemyAttackScheduler.ReleaseIfExists(this);
         }
 
@@ -244,9 +334,6 @@ public class EnemyCombatController : MonoBehaviour
 
         if (animator != null)
         {
-            // Convert world hit direction into animator 2D values
-            // hitDir = direction enemy is pushed toward
-            // we want the hurt source direction, so use -hitDir
             Vector3 sourceDir = -hitDir.normalized;
 
             animator.SetFloat(HitXHash, sourceDir.x);

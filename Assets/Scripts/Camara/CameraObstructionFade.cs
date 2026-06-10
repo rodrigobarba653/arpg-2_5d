@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using System.Collections.Generic;
 
 public class CameraObstructionFade : MonoBehaviour
@@ -6,6 +8,10 @@ public class CameraObstructionFade : MonoBehaviour
     [Header("Refs")]
     public Transform target;
     public LayerMask obstructionMask;
+
+    [Header("Depth of Field Control")]
+    public Volume globalVolume;
+    public bool disableDepthOfFieldWhenObstructed = true;
 
     [Header("Height Filter")]
     public float heightOffset = 0.5f;
@@ -70,9 +76,45 @@ public class CameraObstructionFade : MonoBehaviour
     Dictionary<MatKey, Color> originalColors = new Dictionary<MatKey, Color>(new MatKeyComparer());
     Dictionary<MatKey, Color> currentColors = new Dictionary<MatKey, Color>(new MatKeyComparer());
 
+    DepthOfField depthOfField;
+    bool foundDepthOfField;
+    bool originalDepthOfFieldActive;
+
     void Awake()
     {
         mpb = new MaterialPropertyBlock();
+        SetupDepthOfField();
+    }
+
+    void SetupDepthOfField()
+    {
+        if (globalVolume == null)
+        {
+            Volume[] volumes = FindObjectsOfType<Volume>();
+
+            foreach (Volume v in volumes)
+            {
+                if (v == null || !v.isGlobal || v.profile == null)
+                    continue;
+
+                DepthOfField testDof;
+                if (v.profile.TryGet(out testDof))
+                {
+                    globalVolume = v;
+                    break;
+                }
+            }
+        }
+
+        if (globalVolume != null && globalVolume.profile != null)
+        {
+            foundDepthOfField = globalVolume.profile.TryGet(out depthOfField);
+
+            if (foundDepthOfField && depthOfField != null)
+            {
+                originalDepthOfFieldActive = depthOfField.active;
+            }
+        }
     }
 
     void LateUpdate()
@@ -95,11 +137,9 @@ public class CameraObstructionFade : MonoBehaviour
 
         foreach (RaycastHit hit in hits)
         {
-            // 🔥 ignorar cosas debajo
             if (hit.collider.bounds.max.y < target.position.y - heightOffset)
                 continue;
 
-            // 🔥 IGNORAR SUELO
             if (Vector3.Dot(hit.normal, Vector3.up) > 0.6f)
                 continue;
 
@@ -113,6 +153,26 @@ public class CameraObstructionFade : MonoBehaviour
         }
 
         RestoreRenderers();
+        UpdateDepthOfField();
+    }
+
+    void UpdateDepthOfField()
+    {
+        if (!disableDepthOfFieldWhenObstructed)
+            return;
+
+        if (!foundDepthOfField || depthOfField == null)
+        {
+            SetupDepthOfField();
+            if (!foundDepthOfField || depthOfField == null)
+                return;
+        }
+
+        bool hasObstruction = currentHits.Count > 0;
+
+        depthOfField.active = hasObstruction
+            ? false
+            : originalDepthOfFieldActive;
     }
 
     void FadeRenderer(Renderer r)
@@ -149,7 +209,6 @@ public class CameraObstructionFade : MonoBehaviour
                 SetAlphaClipOnBlock(mat, currentAlphaClip[key]);
                 r.SetPropertyBlock(mpb, i);
             }
-            // 🎭 DITHER FADE (nuevo)
             else if (mat.HasProperty(DitherFadeID))
             {
                 if (!originalColors.ContainsKey(key))
@@ -166,11 +225,9 @@ public class CameraObstructionFade : MonoBehaviour
 
                 mpb.SetFloat(DitherFadeID, current);
                 mpb.SetFloat(DitherScaleID, ditherScale);
-                
 
                 r.SetPropertyBlock(mpb, i);
             }
-
             else if (mat.HasProperty(BaseColorID))
             {
                 if (!originalColors.ContainsKey(key))
@@ -181,8 +238,6 @@ public class CameraObstructionFade : MonoBehaviour
                 }
 
                 Color c = currentColors[key];
-
-                // 🔥 en vez de alpha → OSCURECER
                 Color target = originalColors[key] * 0.3f;
 
                 c = Color.Lerp(c, target, Time.deltaTime * fadeInSpeed);
@@ -200,9 +255,6 @@ public class CameraObstructionFade : MonoBehaviour
         List<MatKey> removeAlpha = new List<MatKey>();
         List<MatKey> removeColor = new List<MatKey>();
 
-        // =========================
-        // RESTORE ALPHA CLIP
-        // =========================
         foreach (var pair in originalAlphaClip)
         {
             MatKey key = pair.Key;
@@ -246,9 +298,6 @@ public class CameraObstructionFade : MonoBehaviour
             }
         }
 
-        // =========================
-        // RESTORE DITHER / BASE COLOR
-        // =========================
         foreach (var pair in originalColors)
         {
             MatKey key = pair.Key;
@@ -281,7 +330,6 @@ public class CameraObstructionFade : MonoBehaviour
                 continue;
             }
 
-            // 🎭 RESTORE DITHER
             if (hasDither)
             {
                 float current = currentColors[key].r;
@@ -310,7 +358,6 @@ public class CameraObstructionFade : MonoBehaviour
                 continue;
             }
 
-            // 🧱 RESTORE BASE COLOR
             if (hasBaseColor)
             {
                 Color c = currentColors[key];
@@ -375,5 +422,13 @@ public class CameraObstructionFade : MonoBehaviour
 
         if (mat.HasProperty(AlphaCutoffID))
             mpb.SetFloat(AlphaCutoffID, value);
+    }
+
+    void OnDisable()
+    {
+        if (foundDepthOfField && depthOfField != null)
+        {
+            depthOfField.active = originalDepthOfFieldActive;
+        }
     }
 }

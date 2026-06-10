@@ -19,13 +19,8 @@ public class EnemyHealth : MonoBehaviour
     public float defaultKnockbackTime = 0.25f;
 
     [Header("Per Hit Knockback")]
-    [Tooltip("Index 0 = step 1, index 1 = step 2, index 2 = step 3")]
     public bool[] knockbackEnabledPerStep = new bool[] { false, false, true };
-
-    [Tooltip("Index 0 = step 1, index 1 = step 2, index 2 = step 3")]
     public float[] knockbackForcePerStep = new float[] { 2f, 4f, 7f };
-
-    [Tooltip("Index 0 = step 1, index 1 = step 2, index 2 = step 3")]
     public float[] knockbackTimePerStep = new float[] { 0.08f, 0.12f, 0.22f };
 
     [Header("Flash")]
@@ -33,25 +28,29 @@ public class EnemyHealth : MonoBehaviour
     [SerializeField] private float flashIntensity = 4f;
 
     [Header("Hurt SFX")]
-    [Tooltip("Grunt / pain clips. One picked at random per damage taken. If empty, no sound is played.")]
     [SerializeField] private AudioClip[] hurtSounds;
-
-    [Tooltip("Optional: clip played when the enemy dies. Falls back to hurtSounds if empty.")]
     [SerializeField] private AudioClip deathSound;
 
     [Range(0f, 1f)]
     [SerializeField] private float hurtVolume = 1f;
 
-    [Tooltip("Random pitch variation range (e.g. 0.1 → pitch * 0.9..1.1). Set 0 to disable.")]
     [Range(0f, 0.5f)]
     [SerializeField] private float hurtPitchVariation = 0.1f;
 
     [Header("Death")]
-    [Tooltip("How long the hit animation plays before freezing on the current frame.")]
-    [SerializeField] private float deathHurtPlayTime = 0.4f;
-
-    [Tooltip("Duration of the alpha fade-out before the GameObject is destroyed.")]
+    [SerializeField] private float deathHurtPlayTime = 0.15f;
     [SerializeField] private float deathFadeTime = 0.8f;
+    [SerializeField] private string deathHurtStateName = "Hurt";
+
+    [Range(0f, 1f)]
+    [SerializeField] private float deathFreezeNormalizedTime = 0.8f;
+
+    [Header("Death White + Clip Threshold")]
+    [SerializeField] private float deathWhiteIntensity = 5f;
+    [SerializeField] private string deathDitherProperty = "ClipThreshold";
+    [SerializeField] private string deathAlphaProperty = "_Alpha";
+    [SerializeField] private float deathDitherStart = 0.01f;
+    [SerializeField] private float deathDitherEnd = -1f;
 
     SpriteRenderer[] srs;
     Coroutine flashRoutine;
@@ -67,7 +66,6 @@ public class EnemyHealth : MonoBehaviour
         combat = GetComponent<EnemyCombatController>();
         motor = GetComponent<EnemyMotor>();
 
-        // 🔥 get ALL renderers (important)
         srs = GetComponentsInChildren<SpriteRenderer>();
     }
 
@@ -90,7 +88,6 @@ public class EnemyHealth : MonoBehaviour
             }
         }
 
-        // 🛡️ BLOCK
         if (ai != null && ai.isDefending)
         {
             Vector3 dirToPlayer = (ai.player.position - transform.position).normalized;
@@ -108,9 +105,26 @@ public class EnemyHealth : MonoBehaviour
             }
         }
 
-        // 💔 DAMAGE
         currentHealth -= amount;
         currentHealth = Mathf.Max(currentHealth, 0);
+
+        if (currentHealth <= 0)
+        {
+            Die();
+            return;
+        }
+
+        // IMPORTANT:
+        // Face / knockback must happen BEFORE Hurt animation is triggered.
+        bool didKnockback = ApplyStepKnockback(hitDir, step);
+
+        if (motor != null)
+        {
+            if (!didKnockback)
+                motor.FaceDirection(-hitDir);
+
+            motor.ApplyHitStun(hitStunTime);
+        }
 
         if (combat != null)
             combat.OnTakeDamage(hitDir);
@@ -119,42 +133,29 @@ public class EnemyHealth : MonoBehaviour
         if (ranged != null)
             ranged.OnTakeDamage(hitDir);
 
-        // 💥 FLASH (NEW SYSTEM)
         if (flashRoutine != null)
             StopCoroutine(flashRoutine);
 
         flashRoutine = StartCoroutine(FlashWhite());
 
-        // 🔊 GRUNT
         PlayHurtSfx();
-
-        // 🎯 HIT REACTION
-        if (motor != null)
-        {
-            motor.FaceDirection(-hitDir);
-            motor.ApplyHitStun(hitStunTime);
-        }
-
-        ApplyStepKnockback(hitDir, step);
-
-        if (currentHealth <= 0)
-            Die();
     }
 
-    void ApplyStepKnockback(Vector3 hitDir, int step)
+    bool ApplyStepKnockback(Vector3 hitDir, int step)
     {
-        if (motor == null) return;
+        if (motor == null) return false;
 
         int index = step - 1;
-        if (index < 0) return;
+        if (index < 0) return false;
 
         bool enabled = GetStepBool(knockbackEnabledPerStep, index, false);
-        if (!enabled) return;
+        if (!enabled) return false;
 
         float force = GetStepFloat(knockbackForcePerStep, index, defaultKnockbackForce);
         float time = GetStepFloat(knockbackTimePerStep, index, defaultKnockbackTime);
 
         motor.DoKnockback(hitDir, force, time);
+        return true;
     }
 
     bool GetStepBool(bool[] arr, int index, bool fallback)
@@ -176,8 +177,161 @@ public class EnemyHealth : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
+        StopAllMovementImmediately();
+
         PlayDeathSfx();
         StartCoroutine(DieRoutine());
+    }
+
+    void StopAllMovementImmediately()
+    {
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        if (ai != null) ai.enabled = false;
+
+        if (combat != null)
+        {
+            EnemyAttackScheduler.ReleaseIfExists(combat);
+            combat.DisableHitbox();
+            combat.enabled = false;
+        }
+
+        var ranged = GetComponent<EnemyRangedCombatController>();
+        if (ranged != null)
+        {
+            EnemyAttackScheduler.ReleaseIfExists(ranged);
+            ranged.enabled = false;
+        }
+
+        if (motor != null)
+        {
+            motor.Stop();
+            motor.enabled = false;
+        }
+
+        var push = GetComponent<CharacterPushApart>();
+        if (push != null) push.enabled = false;
+
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
+
+        var rb2d = GetComponent<Rigidbody2D>();
+        if (rb2d != null)
+        {
+            rb2d.linearVelocity = Vector2.zero;
+            rb2d.angularVelocity = 0f;
+            rb2d.bodyType = RigidbodyType2D.Kinematic;
+        }
+
+        var cc = GetComponent<CharacterController>();
+        if (cc != null) cc.enabled = false;
+
+        foreach (var c in GetComponentsInChildren<Collider>())
+            if (c != null) c.enabled = false;
+
+        foreach (var c in GetComponentsInChildren<Collider2D>())
+            if (c != null) c.enabled = false;
+    }
+
+    IEnumerator DieRoutine()
+    {
+        Vector3 frozenPosition = transform.position;
+
+        var animator = GetComponentInChildren<Animator>();
+
+        if (animator != null)
+        {
+            animator.applyRootMotion = false;
+            animator.ResetTrigger("Attack");
+            animator.SetBool("IsAttacking", false);
+            animator.SetBool("isDefending", false);
+            animator.ResetTrigger("Hurt");
+
+            animator.speed = 1f;
+            animator.Play(deathHurtStateName, 0, 0f);
+            animator.Update(0f);
+        }
+
+        SetDeathVisual(1f, deathDitherStart, deathWhiteIntensity);
+
+        float hurtTimer = 0f;
+
+        while (hurtTimer < deathHurtPlayTime)
+        {
+            transform.position = frozenPosition;
+            hurtTimer += Time.deltaTime;
+            yield return null;
+        }
+
+        if (animator != null)
+        {
+            animator.Play(deathHurtStateName, 0, deathFreezeNormalizedTime);
+            animator.Update(0f);
+            animator.speed = 0f;
+        }
+
+        float dur = Mathf.Max(0.01f, deathFadeTime);
+        float t = 0f;
+
+        while (t < dur)
+        {
+            transform.position = frozenPosition;
+
+            if (animator != null)
+            {
+                animator.Play(deathHurtStateName, 0, deathFreezeNormalizedTime);
+                animator.Update(0f);
+            }
+
+            t += Time.deltaTime;
+
+            float normalized = Mathf.Clamp01(t / dur);
+
+            float alpha = 1f;
+            float dither = Mathf.Lerp(deathDitherStart, deathDitherEnd, normalized);
+            float white = deathWhiteIntensity;
+
+            SetDeathVisual(alpha, dither, white);
+
+            yield return null;
+        }
+
+        SetDeathVisual(1f, deathDitherEnd, deathWhiteIntensity);
+
+        Destroy(gameObject);
+    }
+
+    void SetDeathVisual(float alpha, float dither, float white)
+    {
+        if (srs == null) return;
+
+        foreach (var r in srs)
+        {
+            if (r == null) continue;
+
+            var col = r.color;
+            col.a = alpha;
+            r.color = col;
+
+            var mat = r.material;
+
+            if (mat.HasProperty("_FlashColor"))
+                mat.SetColor("_FlashColor", Color.white * white);
+
+            if (!string.IsNullOrEmpty(deathAlphaProperty) && mat.HasProperty(deathAlphaProperty))
+                mat.SetFloat(deathAlphaProperty, alpha);
+
+            mat.SetFloat("_ClipThreshold", dither);
+        }
     }
 
     void PlayHurtSfx()
@@ -199,6 +353,7 @@ public class EnemyHealth : MonoBehaviour
         if (AudioManager.Instance == null) return;
 
         AudioClip clip = deathSound;
+
         if (clip == null && hurtSounds != null && hurtSounds.Length > 0)
             clip = hurtSounds[Random.Range(0, hurtSounds.Length)];
 
@@ -210,93 +365,6 @@ public class EnemyHealth : MonoBehaviour
             src.pitch = 1f + Random.Range(-hurtPitchVariation, hurtPitchVariation);
     }
 
-    IEnumerator DieRoutine()
-    {
-        var animator = GetComponentInChildren<Animator>();
-
-        // Force hurt animation and clear conflicting params so nothing transitions out.
-        if (animator != null)
-        {
-            animator.ResetTrigger("Attack");
-            animator.SetBool("IsAttacking", false);
-            animator.SetBool("isDefending", false);
-            animator.ResetTrigger("Hurt");
-            animator.SetTrigger("Hurt");
-        }
-
-        // Stop AI + combat so the enemy can't take any further action.
-        if (ai != null) ai.enabled = false;
-
-        if (combat != null)
-        {
-            EnemyAttackScheduler.ReleaseIfExists(combat);
-            combat.enabled = false;
-        }
-
-        var ranged = GetComponent<EnemyRangedCombatController>();
-        if (ranged != null)
-        {
-            EnemyAttackScheduler.ReleaseIfExists(ranged);
-            ranged.enabled = false;
-        }
-
-        // Stop motor entirely.
-        if (motor != null)
-        {
-            motor.Stop();
-            motor.enabled = false;
-        }
-
-        // Remove from push-apart system so the corpse doesn't shove anything.
-        var push = GetComponent<CharacterPushApart>();
-        if (push != null) push.enabled = false;
-
-        // Disable colliders so hitboxes don't keep hitting the corpse and so
-        // other characters can walk through.
-        var cc = GetComponent<CharacterController>();
-        if (cc != null) cc.enabled = false;
-
-        var cols = GetComponentsInChildren<Collider>();
-        foreach (var c in cols)
-            if (c != null) c.enabled = false;
-
-        // Stop any active flash so it doesn't fight the fade.
-        if (flashRoutine != null)
-        {
-            StopCoroutine(flashRoutine);
-            flashRoutine = null;
-        }
-
-        // Let the hit animation play a moment, then freeze on its current frame.
-        if (deathHurtPlayTime > 0f)
-            yield return new WaitForSeconds(deathHurtPlayTime);
-
-        if (animator != null) animator.speed = 0f;
-
-        // Fade alpha to 0.
-        float dur = Mathf.Max(0.01f, deathFadeTime);
-        float t = 0f;
-
-        while (t < dur)
-        {
-            t += Time.deltaTime;
-            float alpha = Mathf.Clamp01(1f - t / dur);
-
-            for (int i = 0; i < srs.Length; i++)
-            {
-                if (srs[i] == null) continue;
-                var col = srs[i].color;
-                col.a = alpha;
-                srs[i].color = col;
-            }
-
-            yield return null;
-        }
-
-        Destroy(gameObject);
-    }
-
-    // 🔥 WHITE FLASH (uses Shader Graph _FlashColor)
     IEnumerator FlashWhite()
     {
         if (srs == null || srs.Length == 0) yield break;
@@ -326,7 +394,6 @@ public class EnemyHealth : MonoBehaviour
         flashRoutine = null;
     }
 
-    // 🛡️ BLOCK FLASH
     IEnumerator BlockFlash()
     {
         if (srs == null || srs.Length == 0) yield break;

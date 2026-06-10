@@ -16,9 +16,6 @@ public class EnemyMotor : MonoBehaviour
     [Header("References")]
     public CharacterController controller;
     public Transform target;
-
-    [Tooltip("Optional. If present, AI scripts will read agent.desiredVelocity for " +
-             "pathfinding around obstacles and terrain. Auto-fetched in Awake.")]
     public NavMeshAgent agent;
 
     [Header("Movement")]
@@ -27,9 +24,6 @@ public class EnemyMotor : MonoBehaviour
     public float rotationSpeed = 10f;
 
     [HideInInspector]
-    [Tooltip("If > 0, overrides moveSpeed for this frame. AI scripts set this " +
-             "to switch between patrol and chase speeds. Reset every frame by " +
-             "the motor itself.")]
     public float activeSpeedOverride = -1f;
 
     public float GetActiveSpeed()
@@ -39,8 +33,6 @@ public class EnemyMotor : MonoBehaviour
 
     [Header("Knockback")]
     [SerializeField] private bool faceHitSourceDuringKnockback = true;
-
-    [Tooltip("Extra pause after knockback ends before the enemy can move again")]
     [SerializeField] private float postKnockbackRecoveryTime = 0.2f;
 
     [Header("Hit Stun")]
@@ -51,6 +43,9 @@ public class EnemyMotor : MonoBehaviour
     Vector3 knockbackVelocity;
     float knockbackTimer;
     Vector3 knockbackFaceDirection;
+
+    float hitFacingLockTimer;
+    Vector3 hitFacingLockDirection;
 
     Vector3 verticalVelocity;
     Vector3 moveDirection;
@@ -63,8 +58,6 @@ public class EnemyMotor : MonoBehaviour
         if (!agent)
             agent = GetComponent<NavMeshAgent>();
 
-        // Decouple the agent from transform motion — we move the
-        // CharacterController ourselves and feed back the position to the agent.
         if (agent != null)
         {
             agent.updatePosition = false;
@@ -72,28 +65,31 @@ public class EnemyMotor : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        Move();
+    }
+
     void LateUpdate()
     {
         if (agent != null && agent.enabled)
         {
-            // Sync the agent's speed to whatever the AI chose this frame so its
-            // path / desiredVelocity match what the CharacterController will do.
             agent.speed = GetActiveSpeed();
 
-            // Keep the NavMeshAgent in sync with where the CharacterController
-            // actually ended up after physics + collisions.
             if (agent.isOnNavMesh)
                 agent.nextPosition = transform.position;
         }
 
-        // Reset the per-frame speed override so the next frame falls back to
-        // moveSpeed unless an AI script sets it again.
-        activeSpeedOverride = -1f;
-    }
+        // IMPORTANT:
+        // This runs late, after other scripts may have tried to rotate the enemy.
+        // It prevents the wrong-direction flash.
+        if (hitFacingLockTimer > 0f && faceHitSourceDuringKnockback)
+        {
+            FaceDirectionInstant(hitFacingLockDirection);
+            hitFacingLockTimer -= Time.deltaTime;
+        }
 
-    void Update()
-    {
-        Move();
+        activeSpeedOverride = -1f;
     }
 
     void Move()
@@ -111,30 +107,18 @@ public class EnemyMotor : MonoBehaviour
             if (hitStunTimer > 0f)
                 hitStunTimer -= Time.deltaTime;
 
-            // Fixed enemies never receive knockback or any horizontal motion,
-            // only gravity to keep them grounded.
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
             controller.Move(gravityOnly * Time.deltaTime);
             return;
         }
 
-        // hit stun = full stop
-        if (hitStunTimer > 0f)
-        {
-            hitStunTimer -= Time.deltaTime;
-
-            Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
-            return;
-        }
-
-        // knockback = no normal movement
+        // Knockback first. Hit stun must not block it.
         if (knockbackTimer > 0f)
         {
             ApplyKnockbackAndGravityOnly();
 
             if (faceHitSourceDuringKnockback)
-                RotateToward(knockbackFaceDirection);
+                FaceDirectionInstant(knockbackFaceDirection);
 
             knockbackTimer -= Time.deltaTime;
 
@@ -148,10 +132,21 @@ public class EnemyMotor : MonoBehaviour
             return;
         }
 
-        // small pause after knockback
+        if (hitStunTimer > 0f)
+        {
+            hitStunTimer -= Time.deltaTime;
+
+            Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
+            controller.Move(gravityOnly * Time.deltaTime);
+            return;
+        }
+
         if (movementLockTimer > 0f)
         {
             movementLockTimer -= Time.deltaTime;
+
+            if (faceHitSourceDuringKnockback)
+                FaceDirectionInstant(knockbackFaceDirection);
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
             controller.Move(gravityOnly * Time.deltaTime);
@@ -176,6 +171,9 @@ public class EnemyMotor : MonoBehaviour
 
     void Rotate()
     {
+        if (hitFacingLockTimer > 0f)
+            return;
+
         if (moveDirection.sqrMagnitude < 0.001f)
             return;
 
@@ -184,6 +182,9 @@ public class EnemyMotor : MonoBehaviour
 
     public void RotateToward(Vector3 dir)
     {
+        if (hitFacingLockTimer > 0f)
+            return;
+
         dir.y = 0f;
 
         if (dir.sqrMagnitude < 0.001f)
@@ -198,15 +199,25 @@ public class EnemyMotor : MonoBehaviour
         );
     }
 
+    void FaceDirectionInstant(Vector3 dir)
+    {
+        dir.y = 0f;
+
+        if (dir.sqrMagnitude < 0.001f)
+            return;
+
+        transform.rotation = Quaternion.LookRotation(dir.normalized);
+    }
+
     public void SetMoveDirection(Vector3 dir)
     {
         if (moveType == EnemyMoveType.Fixed)
             return;
 
-        if (hitStunTimer > 0f)
+        if (knockbackTimer > 0f)
             return;
 
-        if (knockbackTimer > 0f)
+        if (hitStunTimer > 0f)
             return;
 
         if (movementLockTimer > 0f)
@@ -238,16 +249,17 @@ public class EnemyMotor : MonoBehaviour
 
     public void FaceDirection(Vector3 dir)
     {
-        dir.y = 0f;
-
-        if (dir.sqrMagnitude < 0.001f)
+        if (hitFacingLockTimer > 0f)
             return;
 
-        transform.rotation = Quaternion.LookRotation(dir.normalized);
+        FaceDirectionInstant(dir);
     }
 
     public void ApplyHitStun(float time)
     {
+        if (knockbackTimer > 0f)
+            return;
+
         hitStunTimer = time;
         moveDirection = Vector3.zero;
     }
@@ -262,9 +274,22 @@ public class EnemyMotor : MonoBehaviour
         if (dir.sqrMagnitude < 0.001f)
             return;
 
-        knockbackVelocity = dir.normalized * force;
+        Vector3 knockbackDir = dir.normalized;
+
+        knockbackVelocity = knockbackDir * force;
         knockbackTimer = time;
-        knockbackFaceDirection = -dir.normalized;
+
+        // Move away from hit, but face hit source.
+        knockbackFaceDirection = -knockbackDir;
+
+        // Lock facing until knockback + recovery finishes.
+        hitFacingLockDirection = knockbackFaceDirection;
+        hitFacingLockTimer = time + postKnockbackRecoveryTime + 0.05f;
+
+        if (faceHitSourceDuringKnockback)
+            FaceDirectionInstant(hitFacingLockDirection);
+
+        hitStunTimer = 0f;
         moveDirection = Vector3.zero;
     }
 
