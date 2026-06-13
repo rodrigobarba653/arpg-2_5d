@@ -70,12 +70,12 @@ Material:
     - _NormalDistanceFadeEnd: 100
     - _NormalDistanceFadeOpacity: 1
     - _NormalDistanceFadeStart: 50
-    - _NormalSpeed: 0.1
+    - _NormalSpeed: 0.01
     - _NormalStrenght: 0.343
-    - _NormalStrength: 0.4
+    - _NormalStrength: 0.09
     - _NormalTile: 1
-    - _NormalTiling: 1.5
-    - _Opacity: 0.539
+    - _NormalTiling: 5
+    - _Opacity: 0.47
     - _OpacityDistanceFadeEnd: 200
     - _OpacityDistanceFadeOpacity: 1
     - _OpacityDistanceFadeStart: 100
@@ -91,7 +91,7 @@ Material:
     - _RipplesSpeed: 0.89
     - _RipplesTIling: 0.197
     - _RipplesTransparency: 0.627
-    - _Smoothness: 0.9
+    - _Smoothness: 0.78
     - _SpecularHighlights: 1
     m_Colors:
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}

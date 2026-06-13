@@ -45,12 +45,12 @@ Material:
     m_Ints: []
     m_Floats:
     - _AtmosphereThickness: 1.54
-    - _Exposure: 0.2
+    - _Exposure: 0.9
     - _ImageType: 0
     - _Layout: 0
     - _Mapping: 1
     - _MirrorOnBack: 0
-    - _Rotation: 52
+    - _Rotation: 212
     - _SunDisk: 2
     - _SunSize: 0.04
     - _SunSizeConvergence: 4.88
