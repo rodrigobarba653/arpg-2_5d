@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0877e214eb82b384eb7963a7cb4c198e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretGattling.prefab
+  uploadId: 880982

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 28b8838cc0b76d8428d2bb0513724994
+timeCreated: 1542290672
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Arcade/ArcadeSpaceStations_Black.mat
+  uploadId: 880982

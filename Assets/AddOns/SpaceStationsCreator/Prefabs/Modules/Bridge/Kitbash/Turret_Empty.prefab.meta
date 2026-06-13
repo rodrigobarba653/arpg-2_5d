@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5ea86acff5d3a47449a3d4c6611bc74d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Kitbash/Turret_Empty.prefab
+  uploadId: 880982

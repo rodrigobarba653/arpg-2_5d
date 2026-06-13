@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2a5905f1b5d084249a12c76ae6cd9d29
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Kitbash/Turret_Rockets.prefab
+  uploadId: 880982

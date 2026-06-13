@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c71c2dbcbe34da34ba73a9be06b3428c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_Tank.prefab
+  uploadId: 880982

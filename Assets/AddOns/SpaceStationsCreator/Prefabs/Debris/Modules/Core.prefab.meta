@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: f4fbfa85ce0b2c245a31d2d3cc6f93f4
+timeCreated: 1569821357
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Modules/Core.prefab
+  uploadId: 880982

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: d9dfb38fb47e7164fab3cd42a092b20c
+timeCreated: 1557147135
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Alien/ShieldGenerator1.prefab
+  uploadId: 880982

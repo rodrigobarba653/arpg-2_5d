@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bf0f1967ba9220c4b8bf692aaf8a3d71
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretNeck.prefab
+  uploadId: 880982

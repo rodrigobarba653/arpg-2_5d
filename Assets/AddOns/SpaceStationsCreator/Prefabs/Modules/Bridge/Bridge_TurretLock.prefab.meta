@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5e8115e121ee9f645aa63e6c40877ed8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretLock.prefab
+  uploadId: 880982

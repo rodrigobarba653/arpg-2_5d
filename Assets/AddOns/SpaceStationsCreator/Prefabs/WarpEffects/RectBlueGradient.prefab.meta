@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 491e88df6fd976844bda7d8f68763775
+timeCreated: 1560424592
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/RectBlueGradient.prefab
+  uploadId: 880982

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1d64b8f3edc59e3499e94d8843df4bef
+timeCreated: 1543847104
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Crates/Crates1_Orange.mat
+  uploadId: 880982

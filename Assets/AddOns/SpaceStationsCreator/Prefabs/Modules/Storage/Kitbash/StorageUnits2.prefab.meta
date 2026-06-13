@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d88d06975fbb2f048a8c0b416c38b534
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Kitbash/StorageUnits2.prefab
+  uploadId: 880982

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a1fbd99dbd78d384f866e8ed81c10792
+timeCreated: 1560423585
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Controllers/WarpEffect_RectRed_1.controller
+  uploadId: 880982

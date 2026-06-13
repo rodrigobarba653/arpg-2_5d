@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a240477e62484b6488a39646344f6db9
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_Pillar.prefab
+  uploadId: 880982

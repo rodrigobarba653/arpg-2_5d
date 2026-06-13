@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 9aa88b2007e93574f9af13dd2e981436
+timeCreated: 1568643976
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modular Examples/Arcade/Arcade_SpaceStation6.prefab
+  uploadId: 880982

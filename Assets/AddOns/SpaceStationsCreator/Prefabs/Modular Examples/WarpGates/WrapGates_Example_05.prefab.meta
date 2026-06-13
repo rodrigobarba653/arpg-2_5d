@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: dcea0e32f30faf841a3f9aa6d26cc8d7
+timeCreated: 1561368545
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modular Examples/WarpGates/WrapGates_Example_05.prefab
+  uploadId: 880982

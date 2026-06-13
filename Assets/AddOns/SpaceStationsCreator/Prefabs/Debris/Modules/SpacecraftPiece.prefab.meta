@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a347cc969dce4384b81683f6e052cb9f
+timeCreated: 1569821397
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Modules/SpacecraftPiece.prefab
+  uploadId: 880982

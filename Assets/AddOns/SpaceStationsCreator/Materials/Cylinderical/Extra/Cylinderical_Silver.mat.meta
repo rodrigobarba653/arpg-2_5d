@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c662479df3cfdfc41968aa657b057e60
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Cylinderical/Extra/Cylinderical_Silver.mat
+  uploadId: 880982

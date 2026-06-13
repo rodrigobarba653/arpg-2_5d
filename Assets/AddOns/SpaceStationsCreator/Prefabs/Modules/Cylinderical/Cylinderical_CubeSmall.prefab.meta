@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7f80d454558460042824beb44b7828ef
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_CubeSmall.prefab
+  uploadId: 880982

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: b704052e6dfbd824994d221940b8062d
+timeCreated: 1569821378
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Modules/Mashroom.prefab
+  uploadId: 880982

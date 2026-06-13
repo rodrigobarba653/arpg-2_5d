@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: db85eddea7f6fb648bc5db7ceb91f785
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Kitbash/Storage_SolarKit1.prefab
+  uploadId: 880982

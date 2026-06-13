@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 395bb4e83bf22964985b7c78d74a5dc9
+timeCreated: 1560423595
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/WarpEffectRectRed.prefab
+  uploadId: 880982

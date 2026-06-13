@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 44783bd2cc09c5c4592901971d78ee06
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretsArm.prefab
+  uploadId: 880982

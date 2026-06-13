@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: bbcfde86276c4ec4dbbd3aa8e8f97d2a
+timeCreated: 1559633337
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Clips/WarpEffect_CircleViolet.anim
+  uploadId: 880982

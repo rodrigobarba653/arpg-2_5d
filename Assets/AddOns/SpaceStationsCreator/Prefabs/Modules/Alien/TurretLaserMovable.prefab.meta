@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c6bc80ec56d3be84bbff39d5af3d5c4c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Alien/TurretLaserMovable.prefab
+  uploadId: 880982

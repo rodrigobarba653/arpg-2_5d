@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c04a2d57d90c4ed4cb6e0be8e7640454
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_SolarHexagon.prefab
+  uploadId: 880982

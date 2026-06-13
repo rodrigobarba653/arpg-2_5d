@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8e474a0b66249574ab12ed121db8b423
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_WarpRing.prefab
+  uploadId: 880982

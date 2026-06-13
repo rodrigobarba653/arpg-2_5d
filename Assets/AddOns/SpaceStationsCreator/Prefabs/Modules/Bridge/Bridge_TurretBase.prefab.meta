@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2f14fe1550be7dd4d90660bfc544b56b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretBase.prefab
+  uploadId: 880982

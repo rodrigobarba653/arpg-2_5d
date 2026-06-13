@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 247d8d6dc69be434b8445fdf59169c0c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretRotator.prefab
+  uploadId: 880982

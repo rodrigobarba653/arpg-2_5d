@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 903cfa51d21d2f74895a07c6033295f5
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_RingQuarters_Combined.prefab
+  uploadId: 880982

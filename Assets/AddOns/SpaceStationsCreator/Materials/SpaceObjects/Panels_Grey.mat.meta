@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 246a98854858a304fadd86900f8d41ba
+timeCreated: 1544081151
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/SpaceObjects/Panels_Grey.mat
+  uploadId: 880982

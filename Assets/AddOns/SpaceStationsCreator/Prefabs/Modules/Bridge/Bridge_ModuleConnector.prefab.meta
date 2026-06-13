@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 91d1fcc2f545fa84f80292a15a19ec69
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_ModuleConnector.prefab
+  uploadId: 880982

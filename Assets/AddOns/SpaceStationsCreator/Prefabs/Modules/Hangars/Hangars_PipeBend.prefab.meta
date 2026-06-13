@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7d5212c750319314995005ac69da3ba1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Hangars_PipeBend.prefab
+  uploadId: 880982

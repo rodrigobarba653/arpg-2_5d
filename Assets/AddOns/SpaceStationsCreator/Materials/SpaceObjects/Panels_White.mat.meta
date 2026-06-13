@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fa5a52ce438a99540bc3cf56c2f073bf
+timeCreated: 1544101980
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/SpaceObjects/Panels_White.mat
+  uploadId: 880982

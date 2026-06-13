@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 76192f78fbb9e4e449e141db95be9cb9
+timeCreated: 1560424575
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/CircleVioletGradient.prefab
+  uploadId: 880982

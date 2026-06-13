@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bec3be14aaa992a409c119c3cb390772
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Kitbash/BeamsDock1.prefab
+  uploadId: 880982

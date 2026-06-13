@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 505626407276f7447b94e5e4b82c1d95
+timeCreated: 1557406100
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modular Examples/Alien/AlienSpaceStation20.prefab
+  uploadId: 880982

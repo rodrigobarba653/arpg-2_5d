@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 252c3c75fb7f0fe40b771b171947d9ea
+timeCreated: 1543847104
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Crates/Crates1_Red.mat
+  uploadId: 880982

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1426a865af6316e4eb002655f04bca85
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_Antenna.prefab
+  uploadId: 880982

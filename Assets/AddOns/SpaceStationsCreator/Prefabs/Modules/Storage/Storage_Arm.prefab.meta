@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 6be59405ba98fe64e85bd2cd6c1150bf
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_Arm.prefab
+  uploadId: 880982

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: b29991311df66814187ea0904b3d592d
+timeCreated: 1557050239
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Alien/AstroEagle/Extra/AlienSpaceStations_AstroEagle_Bronze.mat
+  uploadId: 880982

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d880c953ddc943a4a858621ab8def8c2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_Triangle.prefab
+  uploadId: 880982

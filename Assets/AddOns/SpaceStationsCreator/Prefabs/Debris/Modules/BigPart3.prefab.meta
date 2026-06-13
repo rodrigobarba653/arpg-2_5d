@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a0ca85c1184f0c94bbe902c6cc0f0fa7
+timeCreated: 1569824254
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Modules/BigPart3.prefab
+  uploadId: 880982

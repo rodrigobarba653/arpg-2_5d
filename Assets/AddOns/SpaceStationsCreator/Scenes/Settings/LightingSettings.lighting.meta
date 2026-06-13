@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 661ace02cdd28fe4fa2e8d5d949e8d37
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4890085278179872738
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Scenes/Settings/LightingSettings.lighting
+  uploadId: 880982

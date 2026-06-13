@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 86e3378eda11b2241b4a98048bd73e08
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_Thruster.prefab
+  uploadId: 880982

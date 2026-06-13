@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 7e530a97c3654a94990f66fb81cad157
+timeCreated: 1556104876
+licenseType: Store
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Scenes/Collection/Alien.unity
+  uploadId: 880982

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b6708e802598fed4b96da165ff36373f
+timeCreated: 1543484100
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Debris/Debris_Dark.mat
+  uploadId: 880982

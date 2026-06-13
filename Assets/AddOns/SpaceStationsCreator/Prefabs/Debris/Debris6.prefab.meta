@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 85d70d8bcdcbda94e971684dc7b9649e
+timeCreated: 1545041381
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Debris6.prefab
+  uploadId: 880982

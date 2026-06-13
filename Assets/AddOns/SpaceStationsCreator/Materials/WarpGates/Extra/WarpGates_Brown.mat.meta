@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 723181a9584693748ba5237dc22ab81c
+timeCreated: 1559600633
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/WarpGates/Extra/WarpGates_Brown.mat
+  uploadId: 880982

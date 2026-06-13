@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: c4b35d502a4d4994abab63050ddfde77
+timeCreated: 1557147121
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Alien/CorePart2.prefab
+  uploadId: 880982
