@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7a63072298de73b429058bd1075fe3db
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Examples/WarpGates/WarpGate_10.prefab
+  uploadId: 880982

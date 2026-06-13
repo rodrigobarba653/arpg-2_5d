@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e3383cf201c854c4c96ed45dda42af89
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_Connector.prefab
+  uploadId: 880982

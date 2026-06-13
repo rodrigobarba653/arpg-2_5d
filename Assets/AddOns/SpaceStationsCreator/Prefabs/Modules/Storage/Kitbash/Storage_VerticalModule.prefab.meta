@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 263151738af650f45b1fb383a0a60731
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Kitbash/Storage_VerticalModule.prefab
+  uploadId: 880982

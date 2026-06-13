@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 182a8cb80cc2ec843a52eca96a99b888
+timeCreated: 1569821372
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/Modules/Dish.prefab
+  uploadId: 880982

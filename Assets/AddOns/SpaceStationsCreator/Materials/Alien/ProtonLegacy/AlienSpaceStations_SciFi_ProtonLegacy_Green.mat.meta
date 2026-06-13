@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 8633f73b1a7737347a244ac480c73e3d
+timeCreated: 1557053715
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Alien/ProtonLegacy/AlienSpaceStations_SciFi_ProtonLegacy_Green.mat
+  uploadId: 880982

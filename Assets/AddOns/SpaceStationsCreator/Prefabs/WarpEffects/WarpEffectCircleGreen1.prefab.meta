@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 3c970a89568b7c244a301fd038bc7607
+timeCreated: 1560536128
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/WarpEffectCircleGreen1.prefab
+  uploadId: 880982

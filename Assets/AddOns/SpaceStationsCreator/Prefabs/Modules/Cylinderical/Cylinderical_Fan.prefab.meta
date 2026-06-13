@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f4f7105072c9a154fb05345b95e80c64
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_Fan.prefab
+  uploadId: 880982

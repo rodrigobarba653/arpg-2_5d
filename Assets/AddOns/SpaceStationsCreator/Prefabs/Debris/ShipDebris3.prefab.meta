@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dc79b625963101b43b6271533c3ca425
+timeCreated: 1545038405
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/ShipDebris3.prefab
+  uploadId: 880982

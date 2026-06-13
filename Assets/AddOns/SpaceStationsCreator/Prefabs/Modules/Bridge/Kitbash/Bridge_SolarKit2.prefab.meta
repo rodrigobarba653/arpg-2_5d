@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4256f19b690e9904992aeb5d8db382a9
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Kitbash/Bridge_SolarKit2.prefab
+  uploadId: 880982

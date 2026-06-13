@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 663a189ffe7e7e94a8648f6e053362ba
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Storage/Colorize/Storage_Colorize.mat
+  uploadId: 880982

@@ -1,0 +1,257 @@
+fileFormatVersion: 2
+guid: c0ee5363baee2f74d923cb3adbfc6b69
+timeCreated: 1557147074
+licenseType: Store
+ModelImporter:
+  serializedVersion: 22
+  fileIDToRecycleName:
+    100000: //RootNode
+    100002: Armor
+    100004: Communication
+    100006: ControlCenter1
+    100008: ControlCenter2
+    100010: ControlCenterArm
+    100012: CorePart1
+    100014: CorePart2
+    100016: CorePart3
+    100018: CorePart4
+    100020: HolderArm
+    100022: PowerGenerator1
+    100024: PowerGenerator2
+    100026: PowerKeeper
+    100028: Pyramid
+    100030: Sensor
+    100032: ShieldGenerator1
+    100034: ShieldGenerator2
+    100036: SolarPanel
+    100038: SolarPanelArm
+    100040: storageContainer
+    100042: Thruster2
+    100044: Turret1
+    100046: Turret2
+    100048: Turret3
+    100050: Turret4
+    100052: Turret5
+    100054: Turret6
+    100056: TurretBase1
+    100058: TurretBase2
+    100060: TurretLaser
+    100062: TurretRocket
+    100064: WarpGate
+    400000: //RootNode
+    400002: Armor
+    400004: Communication
+    400006: ControlCenter1
+    400008: ControlCenter2
+    400010: ControlCenterArm
+    400012: CorePart1
+    400014: CorePart2
+    400016: CorePart3
+    400018: CorePart4
+    400020: HolderArm
+    400022: PowerGenerator1
+    400024: PowerGenerator2
+    400026: PowerKeeper
+    400028: Pyramid
+    400030: Sensor
+    400032: ShieldGenerator1
+    400034: ShieldGenerator2
+    400036: SolarPanel
+    400038: SolarPanelArm
+    400040: storageContainer
+    400042: Thruster2
+    400044: Turret1
+    400046: Turret2
+    400048: Turret3
+    400050: Turret4
+    400052: Turret5
+    400054: Turret6
+    400056: TurretBase1
+    400058: TurretBase2
+    400060: TurretLaser
+    400062: TurretRocket
+    400064: WarpGate
+    2100000: No Name
+    2300000: Armor
+    2300002: Communication
+    2300004: ControlCenter1
+    2300006: ControlCenter2
+    2300008: ControlCenterArm
+    2300010: CorePart1
+    2300012: CorePart2
+    2300014: CorePart3
+    2300016: CorePart4
+    2300018: HolderArm
+    2300020: PowerGenerator1
+    2300022: PowerGenerator2
+    2300024: PowerKeeper
+    2300026: Pyramid
+    2300028: Sensor
+    2300030: ShieldGenerator1
+    2300032: ShieldGenerator2
+    2300034: SolarPanel
+    2300036: SolarPanelArm
+    2300038: storageContainer
+    2300040: Thruster2
+    2300042: Turret1
+    2300044: Turret2
+    2300046: Turret3
+    2300048: Turret4
+    2300050: Turret5
+    2300052: Turret6
+    2300054: TurretBase1
+    2300056: TurretBase2
+    2300058: TurretLaser
+    2300060: TurretRocket
+    2300062: WarpGate
+    3300000: Armor
+    3300002: Communication
+    3300004: ControlCenter1
+    3300006: ControlCenter2
+    3300008: ControlCenterArm
+    3300010: CorePart1
+    3300012: CorePart2
+    3300014: CorePart3
+    3300016: CorePart4
+    3300018: HolderArm
+    3300020: PowerGenerator1
+    3300022: PowerGenerator2
+    3300024: PowerKeeper
+    3300026: Pyramid
+    3300028: Sensor
+    3300030: ShieldGenerator1
+    3300032: ShieldGenerator2
+    3300034: SolarPanel
+    3300036: SolarPanelArm
+    3300038: storageContainer
+    3300040: Thruster2
+    3300042: Turret1
+    3300044: Turret2
+    3300046: Turret3
+    3300048: Turret4
+    3300050: Turret5
+    3300052: Turret6
+    3300054: TurretBase1
+    3300056: TurretBase2
+    3300058: TurretLaser
+    3300060: TurretRocket
+    3300062: WarpGate
+    4300000: SolarPanelArm
+    4300002: SolarPanel
+    4300004: storageContainer
+    4300006: Communication
+    4300008: TurretBase1
+    4300010: ControlCenterArm
+    4300012: HolderArm
+    4300014: ControlCenter1
+    4300016: PowerGenerator1
+    4300018: CorePart3
+    4300020: Pyramid
+    4300022: ShieldGenerator1
+    4300024: WarpGate
+    4300026: CorePart2
+    4300028: Armor
+    4300030: Sensor
+    4300032: CorePart1
+    4300034: CorePart4
+    4300036: PowerKeeper
+    4300038: Turret4
+    4300040: Turret3
+    4300042: Turret1
+    4300044: Turret2
+    4300046: Turret5
+    4300048: Turret6
+    4300050: ControlCenter2
+    4300052: TurretLaser
+    4300054: TurretRocket
+    4300056: PowerGenerator2
+    4300058: Thruster2
+    4300060: ShieldGenerator2
+    4300062: TurretBase2
+  externalObjects: {}
+  materials:
+    importMaterials: 0
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: 
+    rootMotionBoneRotation: {x: 0, y: 0, z: 0, w: 1}
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 0
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Meshes/Alien/AlienSpaceStationsModules.FBX
+  uploadId: 880982

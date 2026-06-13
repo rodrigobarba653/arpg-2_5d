@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 1782fa7e929c57348bd4254be9ed8bbe
+timeCreated: 1559600633
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/WarpGates/Extra/WarpGates_Cyan.mat
+  uploadId: 880982

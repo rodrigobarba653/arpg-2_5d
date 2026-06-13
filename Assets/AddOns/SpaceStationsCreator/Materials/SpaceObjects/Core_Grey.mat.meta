@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 86db9fd44c06a5b4d83d667b3eb386a3
+timeCreated: 1544081135
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/SpaceObjects/Core_Grey.mat
+  uploadId: 880982

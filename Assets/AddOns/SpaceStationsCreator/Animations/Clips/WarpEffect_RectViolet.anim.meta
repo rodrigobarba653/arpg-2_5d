@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: d8b9fc173decd2a489b9f39066ecfb1a
+timeCreated: 1560423625
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Clips/WarpEffect_RectViolet.anim
+  uploadId: 880982

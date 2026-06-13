@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3143a73081621ee4e9733bdc59724509
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Kitbash/Radar.prefab
+  uploadId: 880982

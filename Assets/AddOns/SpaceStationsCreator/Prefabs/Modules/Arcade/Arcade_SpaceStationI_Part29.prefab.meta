@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: f8eabdcd3171c4f4e9e3df8b45f41915
+timeCreated: 1568533661
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Arcade/Arcade_SpaceStationI_Part29.prefab
+  uploadId: 880982

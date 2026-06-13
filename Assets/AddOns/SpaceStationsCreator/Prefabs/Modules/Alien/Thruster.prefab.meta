@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 93faf6a71c8cc104cbf099a9bfa76d67
+timeCreated: 1557147162
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Alien/Thruster.prefab
+  uploadId: 880982

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f6c62b0f8dfb37f49b197f782f6383bd
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_Cap.prefab
+  uploadId: 880982

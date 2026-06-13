@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f0c1a7c4de192d8478475b7722726970
+timeCreated: 1545037587
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Crates/Crate1.prefab
+  uploadId: 880982

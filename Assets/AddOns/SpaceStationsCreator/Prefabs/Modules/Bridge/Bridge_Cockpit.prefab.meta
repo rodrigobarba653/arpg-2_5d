@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1c33e2ee481a8144b825ade74f0f1c72
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_Cockpit.prefab
+  uploadId: 880982

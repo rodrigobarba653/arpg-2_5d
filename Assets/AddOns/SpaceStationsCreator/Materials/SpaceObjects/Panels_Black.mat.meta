@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b57f129d66c9cc84abfb28f1bffa80cd
+timeCreated: 1544101980
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/SpaceObjects/Panels_Black.mat
+  uploadId: 880982

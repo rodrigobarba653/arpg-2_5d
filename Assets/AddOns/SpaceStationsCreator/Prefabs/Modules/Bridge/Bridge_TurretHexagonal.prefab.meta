@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f2c0387dc609ec943819d5a04ac0ce01
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_TurretHexagonal.prefab
+  uploadId: 880982

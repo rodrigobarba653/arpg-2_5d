@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d930f55db0db7ea48ae07becdc04d6ca
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Alien/ProtonLegacy/Colorize/AlienSpaceStations_ProtonLegacy_Colorize.mat
+  uploadId: 880982

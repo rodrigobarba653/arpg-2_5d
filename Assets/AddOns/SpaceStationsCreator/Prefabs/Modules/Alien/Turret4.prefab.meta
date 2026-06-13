@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: a4b5bc515af2511458aaa60a11d7a412
+timeCreated: 1557147168
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Alien/Turret4.prefab
+  uploadId: 880982

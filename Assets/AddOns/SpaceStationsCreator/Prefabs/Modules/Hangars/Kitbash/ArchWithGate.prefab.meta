@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 573afa851d8099742ad4da54804b5270
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Kitbash/ArchWithGate.prefab
+  uploadId: 880982

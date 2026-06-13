@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 80e999b504008a34d9b96a11d3419e4d
+timeCreated: 1545038408
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/ShipDebris5.prefab
+  uploadId: 880982

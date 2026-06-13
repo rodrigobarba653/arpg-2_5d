@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 334a6f449fcdbf845b8fd132b0583c8c
+timeCreated: 1545041310
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Debris/StationDebris8.prefab
+  uploadId: 880982

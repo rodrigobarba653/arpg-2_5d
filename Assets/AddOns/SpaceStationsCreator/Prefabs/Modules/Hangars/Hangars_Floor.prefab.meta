@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ee5669efe2440164a9761f5a927032ef
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Hangars_Floor.prefab
+  uploadId: 880982

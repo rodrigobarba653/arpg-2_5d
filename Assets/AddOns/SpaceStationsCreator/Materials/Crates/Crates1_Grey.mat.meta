@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6e900d80555efa444b575c8ebdccf8cd
+timeCreated: 1543837646
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Crates/Crates1_Grey.mat
+  uploadId: 880982

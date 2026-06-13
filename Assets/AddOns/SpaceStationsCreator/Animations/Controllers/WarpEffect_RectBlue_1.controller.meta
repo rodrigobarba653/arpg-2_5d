@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: ca35d8538227d854192d2ecaa38ab4cf
+timeCreated: 1560423421
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Controllers/WarpEffect_RectBlue_1.controller
+  uploadId: 880982

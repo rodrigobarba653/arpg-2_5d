@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 7f008a7e20ff14543a6bbb282467ae39
+timeCreated: 1560423533
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/WarpEffectRectGreen.prefab
+  uploadId: 880982

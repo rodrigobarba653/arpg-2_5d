@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: d330be193b34bb24a9cdcf93505d8378
+timeCreated: 1559633337
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Controllers/WarpEffect_CircleViolet_2.controller
+  uploadId: 880982

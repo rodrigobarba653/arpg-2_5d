@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 98e33a314b4116846809db8c72875bcb
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Bridge/Bridge_Blue.mat
+  uploadId: 880982

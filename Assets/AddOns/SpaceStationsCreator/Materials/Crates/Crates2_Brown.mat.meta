@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f7a928542e0b80242824e1239e1e4808
+timeCreated: 1543845377
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Crates/Crates2_Brown.mat
+  uploadId: 880982

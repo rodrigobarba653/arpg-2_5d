@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 18da1ebf2ce9f8648b58becbff43e902
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_AntennaShort.prefab
+  uploadId: 880982

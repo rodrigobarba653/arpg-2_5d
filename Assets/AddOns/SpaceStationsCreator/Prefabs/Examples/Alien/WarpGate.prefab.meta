@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: ba77e7361521aa54da10f068bbef14eb
+timeCreated: 1557316679
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Examples/Alien/WarpGate.prefab
+  uploadId: 880982

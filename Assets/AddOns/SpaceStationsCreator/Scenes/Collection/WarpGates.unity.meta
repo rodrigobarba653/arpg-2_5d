@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b827307d63237a64b97585dabfc33572
+timeCreated: 1560079587
+licenseType: Store
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Scenes/Collection/WarpGates.unity
+  uploadId: 880982

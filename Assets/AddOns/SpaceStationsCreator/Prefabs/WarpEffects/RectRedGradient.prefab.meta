@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 5b4cd82cd0fac0b4cbd248266e1e12a4
+timeCreated: 1560424616
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/RectRedGradient.prefab
+  uploadId: 880982

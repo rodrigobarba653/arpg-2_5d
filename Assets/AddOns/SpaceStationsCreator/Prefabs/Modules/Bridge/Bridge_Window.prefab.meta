@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7d0ccfb5a514e8b4ca1d85a4a49bdec3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Bridge/Bridge_Window.prefab
+  uploadId: 880982

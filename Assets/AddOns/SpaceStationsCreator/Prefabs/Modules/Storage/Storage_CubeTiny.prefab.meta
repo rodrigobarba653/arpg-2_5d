@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5417663e8b1ad744a84c87f5973448e3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_CubeTiny.prefab
+  uploadId: 880982

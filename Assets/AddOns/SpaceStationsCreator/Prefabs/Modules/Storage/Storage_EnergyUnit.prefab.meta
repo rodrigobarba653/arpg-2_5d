@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f02bedd4d19eca34d859f57a2e2194b4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Storage/Storage_EnergyUnit.prefab
+  uploadId: 880982

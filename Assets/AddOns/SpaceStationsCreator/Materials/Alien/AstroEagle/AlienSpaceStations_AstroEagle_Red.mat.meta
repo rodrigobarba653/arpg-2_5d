@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 9f2fa51677e95dc4da7d7e543883b389
+timeCreated: 1557053644
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Alien/AstroEagle/AlienSpaceStations_AstroEagle_Red.mat
+  uploadId: 880982

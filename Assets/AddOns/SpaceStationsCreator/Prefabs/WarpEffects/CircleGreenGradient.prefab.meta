@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 3dc8eb624ae02b7428f74cf00b665cfc
+timeCreated: 1560424541
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/CircleGreenGradient.prefab
+  uploadId: 880982

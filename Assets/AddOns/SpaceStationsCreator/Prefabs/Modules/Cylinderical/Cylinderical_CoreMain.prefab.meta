@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 51d51aa682f2ec540b0a9a14c0ded246
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Cylinderical/Cylinderical_CoreMain.prefab
+  uploadId: 880982

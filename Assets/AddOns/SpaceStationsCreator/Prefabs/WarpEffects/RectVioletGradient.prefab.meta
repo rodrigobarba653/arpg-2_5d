@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 6ba5ded824a7bff47a5c84dd1874602a
+timeCreated: 1560424626
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/WarpEffects/RectVioletGradient.prefab
+  uploadId: 880982

@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: ba7bf534f32ea3e4288420f6d827d48f
+timeCreated: 1559633286
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Animations/Controllers/WarpEffect_CircleBlue_2.controller
+  uploadId: 880982

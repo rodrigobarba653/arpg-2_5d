@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 25d3ba4e74500df4eb1058b389916820
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Bridge/Colorize/Bridge_Colorize.mat
+  uploadId: 880982

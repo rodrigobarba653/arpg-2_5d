@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 49541278734120c459ecf3415d535d3f
+timeCreated: 1542290672
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Materials/Arcade/ArcadeSpaceStations_Silver.mat
+  uploadId: 880982

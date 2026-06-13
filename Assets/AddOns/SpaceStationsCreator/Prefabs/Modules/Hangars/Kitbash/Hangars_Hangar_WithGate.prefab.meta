@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7e38bd32d9a00de4aa86a40dc2bc5fce
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Kitbash/Hangars_Hangar_WithGate.prefab
+  uploadId: 880982

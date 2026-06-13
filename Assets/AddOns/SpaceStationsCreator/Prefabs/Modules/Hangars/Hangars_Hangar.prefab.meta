@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d23ea159b3bcbea448730d79ffb1cd5b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 280237
+  packageName: Sci-Fi Space Stations Creator
+  packageVersion: 3.5
+  assetPath: Assets/SpaceStationsCreator/Prefabs/Modules/Hangars/Hangars_Hangar.prefab
+  uploadId: 880982
