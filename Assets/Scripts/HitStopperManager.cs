@@ -23,6 +23,17 @@ public class HitStopperManager : MonoBehaviour
         }
 
         Instance = this;
+
+        // Persist across scene loads so the hit-stop pause still works after
+        // the player teleports to a new scene. Requires this GameObject to be
+        // at the root of its scene.
+        if (transform.parent == null)
+            DontDestroyOnLoad(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     public void DoHitStop(float duration)

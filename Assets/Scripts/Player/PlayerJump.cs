@@ -32,6 +32,40 @@ public class PlayerJump : MonoBehaviour
     int externalLockCount;
     public bool IsExternallyLocked => externalLockCount > 0;
 
+    void OnEnable()
+    {
+        // Reset transient state whenever the component is enabled (party-swap
+        // toggles this). Triggers we are inside will re-add their lock via
+        // OnTriggerEnter when the CharacterController re-enables.
+        externalLockCount = 0;
+        airTimer = 0f;
+        inAir = false;
+        isGrounded = true;          // CC.Move on the next frame will correct this if not true.
+        wasGrounded = true;
+        landingLock = false;
+        landingTimer = 0f;
+        jumpStartedFromGround = false;
+
+        // Clear any queued animator triggers so the new character doesn't
+        // inherit a pending jump / land animation from before the swap.
+        if (animator != null)
+        {
+            animator.ResetTrigger("Jump");
+            animator.ResetTrigger("Land");
+            animator.SetBool("InAir", false);
+            animator.SetBool("IsGrounded", true);
+        }
+    }
+
+    void OnDisable()
+    {
+        // Clear lock count when we go dormant so the next swap doesn't inherit
+        // a stale state.
+        externalLockCount = 0;
+        inAir = false;
+        landingLock = false;
+    }
+
     private float airTimer;
     private bool inAir;
 

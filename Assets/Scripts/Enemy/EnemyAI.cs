@@ -74,13 +74,11 @@ public class EnemyAI : MonoBehaviour
         ranged = GetComponent<EnemyRangedCombatController>();
         patrol = GetComponent<EnemyPatrol>();
 
-        // Auto-find the player by tag if not assigned (prefab instances don't
-        // know about the scene Player).
+        // Auto-find the player. Prefer PersistentPlayer.Instance (works even
+        // if the player is disabled during a scene transition); fall back to
+        // FindWithTag for legacy setups without PersistentPlayer.
         if (!player)
-        {
-            var pgo = GameObject.FindWithTag("Player");
-            if (pgo != null) player = pgo.transform;
-        }
+            player = ResolvePlayerTransform();
 
         if (player)
             playerCombat = player.GetComponent<PlayerCombatController>();
@@ -104,17 +102,31 @@ public class EnemyAI : MonoBehaviour
             ranged.player = player;
     }
 
+    static Transform ResolvePlayerTransform()
+    {
+        // Best: the persistent singleton — works on disabled GameObjects too
+        // (the teleport flow disables the player briefly during scene changes).
+        if (PersistentPlayer.Instance != null)
+            return PersistentPlayer.Instance.transform;
+
+        // Fallback: tag-based search (only returns active GameObjects).
+        var pgo = GameObject.FindWithTag("Player");
+        return pgo != null ? pgo.transform : null;
+    }
+
     void Update()
     {
         // No player found yet → patrol if we have a route, otherwise stay idle.
         // (Doesn't return — keeps trying to re-find the player next frame.)
         if (!player)
         {
-            var pgo = GameObject.FindWithTag("Player");
-            if (pgo != null) player = pgo.transform;
+            player = ResolvePlayerTransform();
 
             if (player != null)
+            {
+                playerCombat = player.GetComponent<PlayerCombatController>();
                 PropagatePlayerToCombat();
+            }
         }
 
         if (!player)

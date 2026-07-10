@@ -25,6 +25,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Spell",
+                    "type": "Button",
+                    "id": "ef2bb99d-3f22-4bb4-aef1-b2ae6f816b5e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Roll",
                     "type": "Button",
                     "id": "7cd40cad-e694-4a33-826c-c475e75845d5",
@@ -37,6 +46,15 @@
                     "name": "Jump",
                     "type": "Button",
                     "id": "c3bb74bf-e22a-4ab4-900f-018b63fc8b77",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SwapCharacter",
+                    "type": "Button",
+                    "id": "23350e46-adb7-4369-bc1d-eb07236517c2",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -189,6 +207,28 @@
                 },
                 {
                     "name": "",
+                    "id": "dcfbb32b-af21-4cc0-9fde-30a879ccc717",
+                    "path": "<Gamepad>/buttonNorth",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Spell",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "75d2cc0d-dfda-45a5-b08a-1aa25a32be9e",
+                    "path": "<Keyboard>/k",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Spell",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "61493edf-1138-4281-a997-08cc4c4c9976",
                     "path": "<Gamepad>/buttonEast",
                     "interactions": "",
@@ -228,6 +268,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "Jump",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "64d04d05-ccae-44b6-baa8-a5d3a352af67",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SwapCharacter",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8ca172c3-d75b-4649-99b5-d4fa923ff542",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SwapCharacter",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

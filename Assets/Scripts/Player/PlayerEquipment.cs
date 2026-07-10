@@ -21,6 +21,16 @@ public class PlayerEquipment : MonoBehaviour
              "Inspector for testing, or assigned via Equip().")]
     [SerializeField] private WeaponItem currentWeapon;
 
+    [Header("Equipped Weapon Parts (slot 1/2/3 — the kinds depend on the weapon)")]
+    [Tooltip("Slot 1 part. For a Sword this is Handle; for a Glove it's Knuckle.")]
+    [SerializeField] private WeaponPart equippedSlot1;
+
+    [Tooltip("Slot 2 part.")]
+    [SerializeField] private WeaponPart equippedSlot2;
+
+    [Tooltip("Slot 3 part.")]
+    [SerializeField] private WeaponPart equippedSlot3;
+
     [Header("Behavior")]
     [Tooltip("Auto-equip a weapon as soon as it's picked up, if nothing is currently equipped.")]
     public bool autoEquipFirstWeapon = true;
@@ -47,8 +57,118 @@ public class PlayerEquipment : MonoBehaviour
     /// <summary>Fired whenever the equipped weapon changes (including unequip → null).</summary>
     public event Action<WeaponItem> OnWeaponChanged;
 
+    /// <summary>Fired whenever any weapon part changes. Subscribers should re-read
+    /// the combined stats getters.</summary>
+    public event Action OnPartsChanged;
+
     public WeaponItem CurrentWeapon => currentWeapon;
     public bool HasWeapon => equipped && currentWeapon != null;
+
+    public WeaponPart GetSlotPart(int slotIndex)
+    {
+        switch (slotIndex)
+        {
+            case 0: return equippedSlot1;
+            case 1: return equippedSlot2;
+            case 2: return equippedSlot3;
+            default: return null;
+        }
+    }
+
+    public void SetSlotPart(int slotIndex, WeaponPart part)
+    {
+        switch (slotIndex)
+        {
+            case 0: equippedSlot1 = part; break;
+            case 1: equippedSlot2 = part; break;
+            case 2: equippedSlot3 = part; break;
+        }
+    }
+
+    /// <summary>Get the equipped part of a specific kind (across all 3 slots).</summary>
+    public WeaponPart GetPart(WeaponPartKind kind)
+    {
+        if (equippedSlot1 != null && equippedSlot1.partKind == kind) return equippedSlot1;
+        if (equippedSlot2 != null && equippedSlot2.partKind == kind) return equippedSlot2;
+        if (equippedSlot3 != null && equippedSlot3.partKind == kind) return equippedSlot3;
+        return null;
+    }
+
+    /// <summary>Total damage = weapon base + sum of all parts whose role is Damage.</summary>
+    public int TotalDamage
+    {
+        get
+        {
+            if (!HasWeapon) return 0;
+            int dmg = currentWeapon.damage;
+            dmg += SumStatByRole(WeaponPartRole.Damage);
+            return dmg;
+        }
+    }
+
+    public int TotalDefense => SumStatByRole(WeaponPartRole.Defense);
+
+    public float TotalAttackSpeed
+    {
+        get
+        {
+            float spd = HasWeapon ? currentWeapon.attackSpeed : 0f;
+            // Speed bonus uses the float attackSpeedBonus; sum across speed parts.
+            for (int i = 0; i < 3; i++)
+            {
+                var p = GetSlotPart(i);
+                if (p == null) continue;
+                if (p.partKind.GetRole() == WeaponPartRole.Speed)
+                    spd += p.attackSpeedBonus;
+            }
+            return spd;
+        }
+    }
+
+    int SumStatByRole(WeaponPartRole role)
+    {
+        int total = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            var p = GetSlotPart(i);
+            if (p == null) continue;
+            if (p.partKind.GetRole() != role) continue;
+            switch (role)
+            {
+                case WeaponPartRole.Damage:  total += p.damageBonus; break;
+                case WeaponPartRole.Defense: total += p.defenseBonus; break;
+            }
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Equip a part. Routed to the slot whose kind matches part.partKind, based
+    /// on the currently equipped weapon's slot definitions. Returns true on success.
+    /// </summary>
+    public bool EquipPart(WeaponPart part)
+    {
+        if (part == null) return false;
+        if (currentWeapon == null) return false;
+
+        int slot = currentWeapon.FindSlotIndexForKind(part.partKind);
+        if (slot < 0)
+        {
+            Debug.LogWarning($"[PlayerEquipment] Part '{part.displayName}' (kind={part.partKind}) " +
+                             $"doesn't fit any slot of weapon '{currentWeapon.displayName}'.", this);
+            return false;
+        }
+
+        SetSlotPart(slot, part);
+        OnPartsChanged?.Invoke();
+        return true;
+    }
+
+    public void UnequipSlot(int slotIndex)
+    {
+        SetSlotPart(slotIndex, null);
+        OnPartsChanged?.Invoke();
+    }
 
     PlayerInventory inventory;
     bool awakeDone;

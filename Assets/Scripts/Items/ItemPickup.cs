@@ -9,6 +9,13 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Collider))]
 public class ItemPickup : MonoBehaviour
 {
+    [Header("Identity")]
+    [Tooltip("Unique id for THIS specific pickup in the world. Saved per slot " +
+             "so the pickup doesn't come back after Load. Pick something stable " +
+             "and unique per scene, e.g. 'town_chest_a', 'forest_potion_01'. " +
+             "Empty = pickup is not persistent (always respawns).")]
+    public string pickupId = "";
+
     [Header("Item")]
     public ItemDefinition item;
 
@@ -64,6 +71,12 @@ public class ItemPickup : MonoBehaviour
 
         if (interactPrompt != null)
             interactPrompt.SetActive(false);
+
+        // If this pickup was already collected in a previous play / before the
+        // current load, hide it. The PickupRegistry is populated from SaveData
+        // on Load and cleared on New Game.
+        if (PickupRegistry.IsConsumed(pickupId))
+            gameObject.SetActive(false);
     }
 
     void Update()
@@ -119,6 +132,10 @@ public class ItemPickup : MonoBehaviour
         }
 
         inv.Add(item, quantity);
+
+        // Persistent pickups remember they were consumed so they don't respawn
+        // after Load. Empty id = not persistent.
+        PickupRegistry.MarkConsumed(pickupId);
 
         AudioManager.PlaySfxOrFallback(pickupSound, transform.position, pickupVolume, sfx);
 

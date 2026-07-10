@@ -14,9 +14,14 @@ public class PlayerSwimming : MonoBehaviour
     public float swimGravity = -2f;
 
     bool isSwimming;
+    bool hasIsSwimmingParam;
 
     float originalSpeed;
     float originalGravity;
+
+    static readonly int IsSwimmingHash = Animator.StringToHash("isSwimming");
+
+    PlayerEquipment equipment;
 
     void Start()
     {
@@ -24,14 +29,55 @@ public class PlayerSwimming : MonoBehaviour
         if (!jump) jump = GetComponent<PlayerJump>();
         if (!animator) animator = GetComponentInChildren<Animator>();
         combat = GetComponent<PlayerCombatController>();
+        equipment = GetComponent<PlayerEquipment>();
 
         originalSpeed = motor.moveSpeed;
         originalGravity = motor.gravity;
+
+        CacheAnimatorParameter();
+
+        // PlayerEquipment swaps the runtime animator controller when a weapon
+        // is equipped — re-check the swim parameter when that happens.
+        if (equipment != null)
+            equipment.OnWeaponChanged += _ => CacheAnimatorParameter();
+    }
+
+    void CacheAnimatorParameter()
+    {
+        hasIsSwimmingParam = false;
+        if (animator == null)
+        {
+            Debug.LogWarning("[PlayerSwimming] No Animator found — swim animation will not play.", this);
+            return;
+        }
+
+        var parms = animator.parameters;
+        for (int i = 0; i < parms.Length; i++)
+        {
+            if (parms[i].nameHash == IsSwimmingHash)
+            {
+                hasIsSwimmingParam = true;
+                break;
+            }
+        }
+
+        if (!hasIsSwimmingParam)
+        {
+            string ctrlName = animator.runtimeAnimatorController != null
+                ? animator.runtimeAnimatorController.name
+                : "NULL";
+            Debug.LogWarning($"[PlayerSwimming] Animator on '{animator.name}' is missing " +
+                             "'isSwimming' (bool). Add it in the Animator Controller's " +
+                             "Parameters tab so the swim state can activate. " +
+                             $"(Currently equipped controller: {ctrlName})", this);
+        }
     }
 
     public void EnterWater()
     {
         if (isSwimming) return;
+
+        Debug.Log("[PlayerSwimming] EnterWater()", this);
 
         // 🔥 1. CAMBIAR ESTADO PRIMERO
         isSwimming = true;
@@ -51,10 +97,10 @@ public class PlayerSwimming : MonoBehaviour
         motor.moveSpeed = swimSpeed;
         motor.gravity = swimGravity;
 
-        // 🔥 6. animación inmediata
-        if (animator)
+        // 🔥 6. animación inmediata (solo si el parámetro existe)
+        if (animator && hasIsSwimmingParam)
         {
-            animator.SetBool("isSwimming", true);
+            animator.SetBool(IsSwimmingHash, true);
             animator.Update(0f);
         }
 
@@ -66,6 +112,8 @@ public class PlayerSwimming : MonoBehaviour
     {
         if (!isSwimming) return;
 
+        Debug.Log("[PlayerSwimming] ExitWater()", this);
+
         // 🔥 1. CAMBIAR ESTADO PRIMERO
         isSwimming = false;
 
@@ -76,10 +124,10 @@ public class PlayerSwimming : MonoBehaviour
         // 🔺 reset físico
         motor.SetVerticalVelocity(0f);
 
-        // 🔺 animación
-        if (animator)
+        // 🔺 animación (solo si el parámetro existe)
+        if (animator && hasIsSwimmingParam)
         {
-            animator.SetBool("isSwimming", false);
+            animator.SetBool(IsSwimmingHash, false);
             animator.Update(0f);
         }
 

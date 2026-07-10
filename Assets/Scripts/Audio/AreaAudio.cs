@@ -28,6 +28,14 @@ public class AreaAudio : MonoBehaviour
     [Tooltip("Crossfade time. -1 = use AudioManager.defaultFadeTime.")]
     public float fadeTime = -1f;
 
+    [Header("On Start Options")]
+    [Tooltip("If true and Bgm Clip is null (OnStart mode), stop whatever BGM " +
+             "was playing from the previous scene. False = leave it alone.")]
+    public bool stopBgmIfNullOnStart = true;
+
+    [Tooltip("Same idea for the ambient channel.")]
+    public bool stopAmbientIfNullOnStart = true;
+
     [Header("On Trigger Options")]
     [Tooltip("If true, when the player exits the trigger, stop the BGM (fade out).")]
     public bool stopBgmOnExit = false;
@@ -83,10 +91,16 @@ public class AreaAudio : MonoBehaviour
             return;
         }
 
+        // BGM
         if (bgmClip != null)
             AudioManager.Instance.PlayBGM(bgmClip, fadeTime);
+        else if (mode == Mode.OnStart && stopBgmIfNullOnStart)
+            AudioManager.Instance.StopBGM(fadeTime);
 
+        // Ambient
         if (ambientClip != null)
             AudioManager.Instance.PlayAmbient(ambientClip, fadeTime);
+        else if (mode == Mode.OnStart && stopAmbientIfNullOnStart)
+            AudioManager.Instance.StopAmbient(fadeTime);
     }
 }
