@@ -137,6 +137,16 @@ public class MeleeHitbox : MonoBehaviour
             if (player == null)
                 return;
 
+            // Only damage the ACTIVE party member. The dormant player's colliders
+            // may still be enabled (pickup triggers, hitboxes, etc.) which would
+            // otherwise let one enemy attack damage both characters at once.
+            if (Party.Active != null && player != Party.Active)
+            {
+                if (logDebug)
+                    Debug.Log($"[Hitbox] Enemy hit dormant '{player.name}' — ignored (only active takes damage).", this);
+                return;
+            }
+
             if (!hitPlayers.Add(player))
                 return;
 
@@ -145,7 +155,7 @@ public class MeleeHitbox : MonoBehaviour
 
             DoHitStop();
             Vector3 dir = (player.transform.position - owner.position).normalized;
-            player.TakeDamage(baseDamage, dir);
+            player.TakeDamage(ResolveDamage(), dir);
             return;
         }
 
@@ -218,14 +228,25 @@ public class MeleeHitbox : MonoBehaviour
         }
     }
 
+    int overrideDamage = -1;
+
+    /// <summary>Set a damage value that overrides both baseDamage and the
+    /// equipped-weapon damage until <see cref="ClearOverrideDamage"/> is called.
+    /// Used by <see cref="EnemyCombatController"/> to swap in per-attack damage
+    /// for the duration of a variant.</summary>
+    public void SetOverrideDamage(int value) => overrideDamage = value;
+    public void ClearOverrideDamage() => overrideDamage = -1;
+
     int ResolveDamage()
     {
+        if (overrideDamage >= 0) return overrideDamage;
+
         if (!useEquippedWeaponDamage || owner == null)
             return baseDamage;
 
         var eq = owner.GetComponentInParent<PlayerEquipment>();
         if (eq != null && eq.HasWeapon)
-            return eq.CurrentWeapon.damage;
+            return eq.TotalDamage;  // weapon base + Blade part bonus
 
         return baseDamage;
     }
@@ -265,7 +286,11 @@ public class MeleeHitbox : MonoBehaviour
             attackStep == 2 ? hitStopStep2 :
                               hitStopStep1;
 
-        HitStopperManager.Instance?.DoHitStop(dur);
+        // Use Unity's overloaded == null (not ?. operator) so a destroyed
+        // HitStopperManager doesn't throw MissingReferenceException — which
+        // would interrupt the damage flow before TakeDamage runs.
+        var mgr = HitStopperManager.Instance;
+        if (mgr != null) mgr.DoHitStop(dur);
     }
 
     private void CreateDebugCube()

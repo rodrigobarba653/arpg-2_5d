@@ -18,9 +18,14 @@ public class PlayerWaterDetector : MonoBehaviour
 
         waterContacts++;
 
+        Debug.Log($"[PlayerWaterDetector] Entered water '{other.name}' (contacts={waterContacts}).", this);
+
         if (waterContacts == 1)
         {
-            swimming?.EnterWater();
+            if (swimming == null)
+                Debug.LogWarning("[PlayerWaterDetector] No PlayerSwimming on parent — nothing to call.", this);
+            else
+                swimming.EnterWater();
         }
     }
 

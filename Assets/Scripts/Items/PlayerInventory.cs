@@ -10,18 +10,49 @@ public class InventoryEntry
 }
 
 /// <summary>
-/// Runtime inventory attached to the player. No UI; expose events so a future
-/// UI panel can subscribe and refresh.
+/// Runtime inventory attached to the player.
+///
+/// SHARED ACROSS THE PARTY — internally all entries live in a single static
+/// list, so adding an item via Ax's PlayerInventory makes it visible to Jyn's
+/// PlayerInventory immediately. Events also fire globally regardless of which
+/// instance triggered the change (so a single UI subscription updates from
+/// every character's pickups).
 /// </summary>
 public class PlayerInventory : MonoBehaviour
 {
-    [SerializeField] List<InventoryEntry> entries = new List<InventoryEntry>();
+    // Single shared list — every PlayerInventory instance reads/writes the same data.
+    static readonly List<InventoryEntry> entries = new List<InventoryEntry>();
 
-    public event Action<ItemDefinition, int> OnItemAdded;
-    public event Action<ItemDefinition, int> OnItemRemoved;
-    public event Action OnChanged;
+    // Internal static events. Instance-style events below forward subscriptions
+    // here so existing code (inv.OnChanged += ...) still works.
+    static event Action<ItemDefinition, int> sOnItemAdded;
+    static event Action<ItemDefinition, int> sOnItemRemoved;
+    static event Action sOnChanged;
+
+    public event Action<ItemDefinition, int> OnItemAdded
+    {
+        add    { sOnItemAdded += value; }
+        remove { sOnItemAdded -= value; }
+    }
+    public event Action<ItemDefinition, int> OnItemRemoved
+    {
+        add    { sOnItemRemoved += value; }
+        remove { sOnItemRemoved -= value; }
+    }
+    public event Action OnChanged
+    {
+        add    { sOnChanged += value; }
+        remove { sOnChanged -= value; }
+    }
 
     public IReadOnlyList<InventoryEntry> Entries => entries;
+
+    /// <summary>Wipe the shared inventory. Called by SaveManager on New Game.</summary>
+    public static void ClearAll()
+    {
+        entries.Clear();
+        sOnChanged?.Invoke();
+    }
 
     public void Add(ItemDefinition item, int qty = 1)
     {
@@ -39,16 +70,16 @@ public class PlayerInventory : MonoBehaviour
 
                 if (added > 0)
                 {
-                    OnItemAdded?.Invoke(item, added);
-                    OnChanged?.Invoke();
+                    sOnItemAdded?.Invoke(item, added);
+                    sOnChanged?.Invoke();
                 }
                 return;
             }
         }
 
         entries.Add(new InventoryEntry { item = item, quantity = qty });
-        OnItemAdded?.Invoke(item, qty);
-        OnChanged?.Invoke();
+        sOnItemAdded?.Invoke(item, qty);
+        sOnChanged?.Invoke();
     }
 
     public bool Remove(ItemDefinition item, int qty = 1)
@@ -63,8 +94,8 @@ public class PlayerInventory : MonoBehaviour
         if (existing.quantity <= 0)
             entries.Remove(existing);
 
-        OnItemRemoved?.Invoke(item, qty);
-        OnChanged?.Invoke();
+        sOnItemRemoved?.Invoke(item, qty);
+        sOnChanged?.Invoke();
         return true;
     }
 
@@ -77,6 +108,26 @@ public class PlayerInventory : MonoBehaviour
     public bool HasItem(ItemDefinition item, int qty = 1)
     {
         return GetCount(item) >= qty;
+    }
+
+    /// <summary>
+    /// Consume one of <paramref name="item"/> on the given target. Returns true
+    /// only if the item was actually used (and removed from the inventory).
+    /// </summary>
+    public bool UseItem(ItemDefinition item, PlayerHealth target)
+    {
+        if (item == null) return false;
+        if (!item.IsUsable) return false;
+        if (!HasItem(item)) return false;
+        if (!item.CanUse(target)) return false;
+
+        if (item.Use(target))
+        {
+            Remove(item, 1);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Returns the first KeyItem in the inventory matching the given keyId.</summary>
@@ -98,7 +149,7 @@ public class PlayerInventory : MonoBehaviour
 
     public bool HasKey(string keyId) => FindKey(keyId) != null;
 
-    InventoryEntry FindEntry(ItemDefinition item)
+    static InventoryEntry FindEntry(ItemDefinition item)
     {
         for (int i = 0; i < entries.Count; i++)
         {

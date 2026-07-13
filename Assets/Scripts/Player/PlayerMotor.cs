@@ -69,6 +69,15 @@ public class PlayerMotor : MonoBehaviour
     private bool facingLocked = false;
     private Vector2 lockedFacing = Vector2.down;
 
+    void OnEnable()
+    {
+        // Reset transient state so a party-swap doesn't inherit stale locks.
+        rollActive = false;
+        movementLocked = false;
+        facingLocked = false;
+        verticalVelocity = Vector3.zero;
+    }
+
     void Awake()
     {
         if (!controller)
@@ -282,6 +291,16 @@ public class PlayerMotor : MonoBehaviour
     public Vector2 GetFacing2D()
     {
         return facingLocked ? lockedFacing : lastNonZeroFacing;
+    }
+
+    /// <summary>
+    /// Force the motor's "last facing" without locking. Used by party-swap to
+    /// preserve the direction the old character was facing on the new one.
+    /// </summary>
+    public void SetFacing(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f) return;
+        lastNonZeroFacing = dir.normalized;
     }
 
     public float GetRealSpeed()

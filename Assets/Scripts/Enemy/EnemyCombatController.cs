@@ -49,6 +49,59 @@ public class EnemyCombatController : MonoBehaviour
     [Header("Safety")]
     public float maxAttackDuration = 3f;
 
+    // ============================================================
+    // ATTACK VARIANTS
+    // ============================================================
+    [System.Serializable]
+    public class AttackVariant
+    {
+        [Tooltip("Human label for this attack, only shown in the Inspector.")]
+        public string id = "Attack";
+
+        [Tooltip("Animator trigger to fire when this attack starts. If empty, " +
+                 "uses the default 'Attack' trigger.")]
+        public string animatorTrigger = "";
+
+        [Tooltip("Damage this attack deals. If -1, uses the MeleeHitbox's baseDamage.")]
+        public int damage = -1;
+
+        [Header("Range Restriction")]
+        [Tooltip("Minimum distance to player for this attack to be selectable.")]
+        public float minDistance = 0f;
+
+        [Tooltip("Maximum distance to player for this attack to be selectable.")]
+        public float maxDistance = 3f;
+
+        [Header("Selection Weight")]
+        [Tooltip("Relative probability of being picked when multiple attacks " +
+                 "match the range. 0 = never picked automatically.")]
+        [Min(0f)] public float weight = 1f;
+
+        [Header("Timing Overrides")]
+        [Tooltip("If > 0, overrides the base hitboxEnableDelay for this attack.")]
+        public float hitboxEnableDelay = -1f;
+
+        [Tooltip("If > 0, overrides the base hitboxDisableDelay for this attack.")]
+        public float hitboxDisableDelay = -1f;
+
+        [Tooltip("If > 0, overrides the base attackEndDelay for this attack.")]
+        public float attackEndDelay = -1f;
+
+        [Header("Cooldown")]
+        [Tooltip("Multiplier applied to attackCooldown after this attack. " +
+                 "1 = same cooldown, 2 = double, 0.5 = half.")]
+        [Min(0f)] public float cooldownMultiplier = 1f;
+    }
+
+    [Header("Attack Variants (optional)")]
+    [Tooltip("If populated, one variant is picked at random (weighted by " +
+             "'weight') from the ones whose range matches the current distance " +
+             "to the player. If empty, the base attack fields above are used.")]
+    public System.Collections.Generic.List<AttackVariant> attackVariants =
+        new System.Collections.Generic.List<AttackVariant>();
+
+    AttackVariant currentAttack;
+
     float hitStunUntil;
     float nextAttackTime;
     float attackStartedAt;
@@ -93,19 +146,23 @@ public class EnemyCombatController : MonoBehaviour
         {
             float elapsed = Time.time - attackStartedAt;
 
-            if (!hitboxEnabledByTimer && elapsed >= hitboxEnableDelay)
+            float enableAt = CurrentEnableDelay();
+            float disableAt = CurrentDisableDelay();
+            float endAt = CurrentEndDelay();
+
+            if (!hitboxEnabledByTimer && elapsed >= enableAt)
             {
                 EnableHitbox();
                 hitboxEnabledByTimer = true;
             }
 
-            if (!hitboxDisabledByTimer && elapsed >= hitboxDisableDelay)
+            if (!hitboxDisabledByTimer && elapsed >= disableAt)
             {
                 DisableHitbox();
                 hitboxDisabledByTimer = true;
             }
 
-            if (elapsed >= attackEndDelay)
+            if (elapsed >= endAt)
                 EndAttack();
         }
 
@@ -152,6 +209,10 @@ public class EnemyCombatController : MonoBehaviour
         attackStepStarted = false;
         attackStepMoved = 0f;
 
+        // Pick which attack variant to use (if any are configured). Null =
+        // fall back to the base fields — legacy behaviour.
+        currentAttack = PickAttackVariant();
+
         Vector3 dir = player.position - transform.position;
         dir.y = 0f;
 
@@ -165,10 +226,91 @@ public class EnemyCombatController : MonoBehaviour
 
         animator.SetBool(IsAttackingHash, true);
         animator.ResetTrigger(HurtTrigger);
-        animator.ResetTrigger(AttackTrigger);
-        animator.SetTrigger(AttackTrigger);
 
-        nextAttackTime = Time.time + attackCooldown;
+        // Fire the variant's animator trigger (or the default one).
+        string trigger = (currentAttack != null && !string.IsNullOrEmpty(currentAttack.animatorTrigger))
+            ? currentAttack.animatorTrigger
+            : "Attack";
+
+        int triggerHash = Animator.StringToHash(trigger);
+        animator.ResetTrigger(triggerHash);
+        animator.SetTrigger(triggerHash);
+
+        float cooldown = attackCooldown;
+        if (currentAttack != null) cooldown *= currentAttack.cooldownMultiplier;
+        nextAttackTime = Time.time + cooldown;
+    }
+
+    // ============================================================
+    // ATTACK VARIANT SELECTION & TIMING HELPERS
+    // ============================================================
+    AttackVariant PickAttackVariant()
+    {
+        if (attackVariants == null || attackVariants.Count == 0) return null;
+        if (player == null) return null;
+
+        float dist = Vector3.Distance(transform.position, player.position);
+
+        // Collect valid variants (in range + weight > 0).
+        float totalWeight = 0f;
+        int validCount = 0;
+        for (int i = 0; i < attackVariants.Count; i++)
+        {
+            var v = attackVariants[i];
+            if (v == null) continue;
+            if (v.weight <= 0f) continue;
+            if (dist < v.minDistance || dist > v.maxDistance) continue;
+            totalWeight += v.weight;
+            validCount++;
+        }
+
+        if (validCount == 0) return null;
+
+        // Weighted random pick.
+        float roll = Random.value * totalWeight;
+        float acc = 0f;
+        for (int i = 0; i < attackVariants.Count; i++)
+        {
+            var v = attackVariants[i];
+            if (v == null) continue;
+            if (v.weight <= 0f) continue;
+            if (dist < v.minDistance || dist > v.maxDistance) continue;
+            acc += v.weight;
+            if (roll <= acc) return v;
+        }
+
+        return attackVariants[0]; // shouldn't reach, but safe fallback
+    }
+
+    float CurrentEnableDelay()
+    {
+        if (currentAttack != null && currentAttack.hitboxEnableDelay > 0f)
+            return currentAttack.hitboxEnableDelay;
+        return hitboxEnableDelay;
+    }
+
+    float CurrentDisableDelay()
+    {
+        if (currentAttack != null && currentAttack.hitboxDisableDelay > 0f)
+            return currentAttack.hitboxDisableDelay;
+        return hitboxDisableDelay;
+    }
+
+    float CurrentEndDelay()
+    {
+        if (currentAttack != null && currentAttack.attackEndDelay > 0f)
+            return currentAttack.attackEndDelay;
+        return attackEndDelay;
+    }
+
+    /// <summary>Damage the current attack should deal. -1 means "use MeleeHitbox
+    /// baseDamage as-is". Called by EnableHitbox to override the hitbox damage
+    /// for the duration of this attack.</summary>
+    int CurrentDamageOverride()
+    {
+        if (currentAttack != null && currentAttack.damage >= 0)
+            return currentAttack.damage;
+        return -1;
     }
 
     void UpdateAttackStepForward()
@@ -241,7 +383,14 @@ attackStepMoved += moveAmount;
         var hb = meleeHitbox.GetComponent<MeleeHitbox>();
 
         if (hb)
+        {
             hb.SetOwner(transform);
+
+            // If the current attack variant specifies a damage override, apply it.
+            int dmg = CurrentDamageOverride();
+            if (dmg >= 0) hb.SetOverrideDamage(dmg);
+            else hb.ClearOverrideDamage();
+        }
 
         meleeHitbox.SetActive(true);
     }

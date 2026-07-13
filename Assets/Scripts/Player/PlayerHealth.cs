@@ -1,11 +1,39 @@
-﻿using UnityEngine;
+﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
 public class PlayerHealth : MonoBehaviour
 {
+    // ============================================================
+    // STATIC REGISTRY — every PlayerHealth in the scene registers here so
+    // the menu / UI can enumerate all party members without a separate manager.
+    // ============================================================
+    static readonly List<PlayerHealth> all = new List<PlayerHealth>();
+    public static IReadOnlyList<PlayerHealth> All => all;
+
+    [Header("Identity")]
+    [Tooltip("Character template (portrait, name, class, element). Identity only — stats live below.")]
+    public CharacterDefinition character;
+
     [Header("Health")]
     public int maxHealth = 100;
-    public int currentHealth;
+    public int currentHealth = 100;
+
+    [Header("Mana")]
+    public int maxMana = 100;
+    public int currentMana = 100;
+
+    [Header("AP")]
+    public int maxAP = 8;
+    public int currentAP = 2;
+
+    [Header("Progression")]
+    [Tooltip("Current level. Use Heal()/Damage()/SpendMP() etc. and LevelUp() to grow.")]
+    public int level = 1;
+
+    /// <summary>Fired whenever any stat changes. UI binds to this for live updates.</summary>
+    public event Action OnStatsChanged;
 
     [Header("State")]
     public bool isTakingDamage;
@@ -38,12 +66,20 @@ public class PlayerHealth : MonoBehaviour
     Coroutine damageRoutine;
     Coroutine flickerRoutine;
 
+    // Polled in Update — when reached, isTakingDamage is forced off. This is a
+    // safety net so the player never gets stuck unable to attack / roll if the
+    // DamageLockRoutine dies (scene transition, exception, etc.).
+    float damageLockEndTime = -1f;
+
+    /// <summary>Time.time at which the current damage lock ends. -1 if not
+    /// currently locked. Read by PartySwapInput to enforce a grace period
+    /// where swap is denied around the moment of a hit.</summary>
+    public float DamageLockEndTime => damageLockEndTime;
+
     static readonly int TintColorID = Shader.PropertyToID("_TintColor");
 
     void Awake()
     {
-        currentHealth = maxHealth;
-
         rend = GetComponentInChildren<Renderer>();
         spriteRenderers = GetComponentsInChildren<SpriteRenderer>(true);
         animator = GetComponentInChildren<Animator>();
@@ -61,20 +97,83 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    void OnEnable()
+    {
+        if (!all.Contains(this))
+        {
+            all.Add(this);
+            Party.RaisePartyChanged();
+        }
+
+        // If we were disabled mid-damage (e.g. SceneTeleporter froze us during
+        // a knockback), reset state so the player can attack / roll again.
+        isTakingDamage = false;
+        damageLockEndTime = -1f;
+        damageRoutine = null;
+
+        if (motor != null)
+        {
+            motor.LockMovement(false);
+            motor.UnlockFacing();
+        }
+    }
+
+    void OnDisable()
+    {
+        if (all.Remove(this))
+            Party.RaisePartyChanged();
+
+        // Stop any in-flight routines explicitly so they don't leak state.
+        if (damageRoutine != null)
+        {
+            StopCoroutine(damageRoutine);
+            damageRoutine = null;
+        }
+        if (flickerRoutine != null)
+        {
+            StopCoroutine(flickerRoutine);
+            flickerRoutine = null;
+        }
+    }
+
+    void Update()
+    {
+        // Failsafe-style damage lock release. Polling Time.time is more robust
+        // than a coroutine: if anything kills the coroutine mid-flight (scene
+        // transition, exception, second hit timing edge case), the player would
+        // be stuck unable to attack or roll. Polling guarantees release.
+        if (isTakingDamage && Time.time >= damageLockEndTime)
+        {
+            isTakingDamage = false;
+            damageLockEndTime = -1f;
+
+            if (motor != null)
+            {
+                motor.LockMovement(false);
+                motor.UnlockFacing();
+            }
+        }
+    }
+
+    public void NotifyStatsChanged() => OnStatsChanged?.Invoke();
+
     public void TakeDamage(int amount, Vector3 hitDirection)
     {
         PlayerCombatController combat = GetComponent<PlayerCombatController>();
+        if (combat != null) combat.CancelCombatImmediate();
 
-        if (combat != null)
-            combat.CancelCombatImmediate();
+        if (currentHealth <= 0) return;
 
-        if (currentHealth <= 0)
-            return;
+        currentHealth = Mathf.Max(0, currentHealth - amount);
+        OnStatsChanged?.Invoke();
 
-        currentHealth -= amount;
-        currentHealth = Mathf.Max(currentHealth, 0);
+        // Stamp the party-wide last-damage timestamp BEFORE isTakingDamage is
+        // set below. PartySwapInput uses this to block reflex swap presses that
+        // arrive on the same frame as the hit but before isTakingDamage flips.
+        if (Party.Active == this)
+            Party.NotifyActiveTookDamage();
 
-        Debug.Log($"[PlayerHealth] {name} took {amount} damage. Current Health = {currentHealth}", this);
+        Debug.Log($"[PlayerHealth] {name} took {amount} damage. HP = {currentHealth}/{maxHealth}", this);
 
         // =========================
         // 📸 CAMERA SHAKE
@@ -123,18 +222,23 @@ public class PlayerHealth : MonoBehaviour
         // =========================
         // 🧍 DAMAGE LOCK
         // =========================
-        if (motor != null)
-        {
-            if (damageRoutine != null)
-                StopCoroutine(damageRoutine);
+        isTakingDamage = true;
+        damageLockEndTime = Time.time + damageLockTime;
 
-            damageRoutine = StartCoroutine(DamageLockRoutine(damageLockTime));
-        }
+        if (motor != null)
+            motor.LockMovement(true);
 
         // =========================
         // ✨ FLICKER
         // =========================
-        if (spriteRenderers != null && spriteRenderers.Length > 0)
+        // Only run the visual flicker on the ACTIVE party member. On a dormant
+        // party member (hidden by PartyMemberControl), toggling the renderers
+        // to visible here would briefly reveal them. Defensive — MeleeHitbox
+        // already filters out dormant targets, but any other code path that
+        // ends up calling TakeDamage on a dormant player would still trip this.
+        bool isActiveMember = Party.Active == this;
+
+        if (isActiveMember && spriteRenderers != null && spriteRenderers.Length > 0)
         {
             if (flickerRoutine != null)
                 StopCoroutine(flickerRoutine);
@@ -154,7 +258,8 @@ public class PlayerHealth : MonoBehaviour
             if (flickerRoutine != null)
                 StopCoroutine(flickerRoutine);
 
-            SetRenderersVisible(true);
+            if (isActiveMember)
+                SetRenderersVisible(true);
 
             if (motor != null)
             {
@@ -198,23 +303,6 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
-    IEnumerator DamageLockRoutine(float time)
-    {
-        isTakingDamage = true;
-
-        if (motor != null)
-            motor.LockMovement(true);
-
-        yield return new WaitForSeconds(time);
-
-        if (motor != null)
-        {
-            motor.LockMovement(false);
-            motor.UnlockFacing();
-        }
-
-        isTakingDamage = false;
-    }
 
     IEnumerator FlashRed()
     {
@@ -226,6 +314,42 @@ public class PlayerHealth : MonoBehaviour
 
             mat.SetColor(TintColorID, originalColor);
         }
+    }
+
+    public void Heal(int amount)
+    {
+        if (amount <= 0) return;
+
+        currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+        OnStatsChanged?.Invoke();
+    }
+
+    public void SpendMP(int amount)
+    {
+        if (amount <= 0) return;
+        currentMana = Mathf.Max(0, currentMana - amount);
+        OnStatsChanged?.Invoke();
+    }
+
+    public void RestoreMP(int amount)
+    {
+        if (amount <= 0) return;
+        currentMana = Mathf.Min(maxMana, currentMana + amount);
+        OnStatsChanged?.Invoke();
+    }
+
+    public void SpendAP(int amount)
+    {
+        if (amount <= 0) return;
+        currentAP = Mathf.Max(0, currentAP - amount);
+        OnStatsChanged?.Invoke();
+    }
+
+    public void RestoreAP(int amount)
+    {
+        if (amount <= 0) return;
+        currentAP = Mathf.Min(maxAP, currentAP + amount);
+        OnStatsChanged?.Invoke();
     }
 
     void Die()

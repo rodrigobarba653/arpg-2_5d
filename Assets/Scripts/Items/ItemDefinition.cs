@@ -4,9 +4,11 @@ public enum ItemCategory
 {
     Key,
     Weapon,
+    WeaponPart,
     Craft,
     Potion,
-    Ether
+    Ether,
+    Revive
 }
 
 /// <summary>
@@ -35,4 +37,19 @@ public abstract class ItemDefinition : ScriptableObject
     public int maxStack = 99;
 
     public abstract ItemCategory Category { get; }
+
+    // ============================================================
+    // USAGE — overridden by subclasses (Potion heals, Ether restores MP, etc).
+    // Default = not usable (Key, Craft, Weapon items don't "use" from inventory).
+    // ============================================================
+
+    /// <summary>True if this item type can be used from the inventory UI at all.</summary>
+    public virtual bool IsUsable => false;
+
+    /// <summary>True if it can be used right now on this specific target.</summary>
+    public virtual bool CanUse(PlayerHealth target) => false;
+
+    /// <summary>Apply the effect to the target. Returns true if the item was consumed.</summary>
+    public virtual bool Use(PlayerHealth target) => false;
 }
+

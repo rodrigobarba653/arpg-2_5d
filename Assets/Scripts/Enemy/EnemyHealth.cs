@@ -11,6 +11,13 @@ public class EnemyHealth : MonoBehaviour
     public int maxHealth = 30;
     public int currentHealth;
 
+    [Header("Damage Reaction")]
+    [Tooltip("If OFF, the enemy IGNORES hit-flinch: no Hurt animation, no " +
+             "knockback, no hit-stun, and the current attack is NOT cancelled. " +
+             "Damage still applies. Use this for hyperarmor bosses or enemies " +
+             "whose attacks can't be interrupted by hitting them.")]
+    public bool canBeInterrupted = true;
+
     [Header("Hit Stun")]
     public float hitStunTime = 0.08f;
 
@@ -26,6 +33,30 @@ public class EnemyHealth : MonoBehaviour
     [Header("Flash")]
     [SerializeField] private float flashDuration = 0.08f;
     [SerializeField] private float flashIntensity = 4f;
+
+    [Header("Varium Reward")]
+    [Tooltip("Minimum varium awarded to the player on death.")]
+    [SerializeField] private int variumMin = 5;
+
+    [Tooltip("Maximum varium awarded (inclusive). Set equal to min for a fixed amount.")]
+    [SerializeField] private int variumMax = 15;
+
+    [Header("Item Drops")]
+    [Tooltip("Items the enemy may drop on death. Each entry is rolled independently.")]
+    [SerializeField] private System.Collections.Generic.List<ItemDropEntry> itemDrops = new System.Collections.Generic.List<ItemDropEntry>();
+
+    [System.Serializable]
+    public class ItemDropEntry
+    {
+        public ItemDefinition item;
+
+        [Range(0f, 1f)]
+        [Tooltip("0 = never, 1 = always. Rolled per entry.")]
+        public float chance = 0.1f;
+
+        [Min(1)]
+        public int quantity = 1;
+    }
 
     [Header("Hurt SFX")]
     [SerializeField] private AudioClip[] hurtSounds;
@@ -47,12 +78,10 @@ public class EnemyHealth : MonoBehaviour
 
     [Header("Death White + Clip Threshold")]
     [SerializeField] private float deathWhiteIntensity = 5f;
-    [SerializeField] private string deathDitherProperty = "ClipThreshold";
-    [SerializeField] private string deathAlphaProperty = "_Alpha";
     [SerializeField] private float deathDitherStart = 0.01f;
     [SerializeField] private float deathDitherEnd = -1f;
 
-    SpriteRenderer[] srs;
+    EnemyVisuals visuals;
     Coroutine flashRoutine;
 
     bool isDead;
@@ -66,7 +95,11 @@ public class EnemyHealth : MonoBehaviour
         combat = GetComponent<EnemyCombatController>();
         motor = GetComponent<EnemyMotor>();
 
-        srs = GetComponentsInChildren<SpriteRenderer>();
+        // Resolve the visual driver. If none is present, auto-add the sprite
+        // variant so legacy 2D enemy prefabs keep working with no changes.
+        visuals = GetComponent<EnemyVisuals>();
+        if (visuals == null)
+            visuals = gameObject.AddComponent<EnemySpriteVisuals>();
     }
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
@@ -114,6 +147,17 @@ public class EnemyHealth : MonoBehaviour
             return;
         }
 
+        // Flash + hurt sfx always happen (visual/audio feedback of the hit).
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+        flashRoutine = StartCoroutine(FlashWhite());
+        PlayHurtSfx();
+
+        // If the enemy is uninterruptible, skip ALL flinch behaviour:
+        // no knockback, no hitstun, no Hurt animation, current attack keeps
+        // going. The damage still counted (currentHealth already reduced).
+        if (!canBeInterrupted) return;
+
         // IMPORTANT:
         // Face / knockback must happen BEFORE Hurt animation is triggered.
         bool didKnockback = ApplyStepKnockback(hitDir, step);
@@ -132,13 +176,6 @@ public class EnemyHealth : MonoBehaviour
         var ranged = GetComponent<EnemyRangedCombatController>();
         if (ranged != null)
             ranged.OnTakeDamage(hitDir);
-
-        if (flashRoutine != null)
-            StopCoroutine(flashRoutine);
-
-        flashRoutine = StartCoroutine(FlashWhite());
-
-        PlayHurtSfx();
     }
 
     bool ApplyStepKnockback(Vector3 hitDir, int step)
@@ -178,6 +215,9 @@ public class EnemyHealth : MonoBehaviour
         isDead = true;
 
         StopAllMovementImmediately();
+
+        AwardVarium();
+        AwardItemDrops();
 
         PlayDeathSfx();
         StartCoroutine(DieRoutine());
@@ -312,26 +352,7 @@ public class EnemyHealth : MonoBehaviour
 
     void SetDeathVisual(float alpha, float dither, float white)
     {
-        if (srs == null) return;
-
-        foreach (var r in srs)
-        {
-            if (r == null) continue;
-
-            var col = r.color;
-            col.a = alpha;
-            r.color = col;
-
-            var mat = r.material;
-
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.white * white);
-
-            if (!string.IsNullOrEmpty(deathAlphaProperty) && mat.HasProperty(deathAlphaProperty))
-                mat.SetFloat(deathAlphaProperty, alpha);
-
-            mat.SetFloat("_ClipThreshold", dither);
-        }
+        if (visuals != null) visuals.SetDeathVisual(alpha, dither, white);
     }
 
     void PlayHurtSfx()
@@ -365,61 +386,76 @@ public class EnemyHealth : MonoBehaviour
             src.pitch = 1f + Random.Range(-hurtPitchVariation, hurtPitchVariation);
     }
 
+    void AwardVarium()
+    {
+        if (variumMin <= 0 && variumMax <= 0) return;
+
+        int amount = Random.Range(variumMin, variumMax + 1);
+        if (amount <= 0) return;
+
+        if (PlayerWallet.Instance != null)
+            PlayerWallet.Instance.AddVarium(amount);
+        else
+            Debug.LogWarning("[EnemyHealth] No PlayerWallet in scene; varium reward lost. " +
+                             "Add a PlayerWallet component to the Player GameObject.", this);
+    }
+
+    void AwardItemDrops()
+    {
+        if (itemDrops == null || itemDrops.Count == 0) return;
+
+        var inv = ResolvePlayerInventory();
+        if (inv == null)
+        {
+            Debug.LogWarning("[EnemyHealth] No PlayerInventory in scene; item drops lost.", this);
+            return;
+        }
+
+        for (int i = 0; i < itemDrops.Count; i++)
+        {
+            var drop = itemDrops[i];
+            if (drop == null || drop.item == null) continue;
+            if (drop.chance <= 0f) continue;
+
+            if (Random.value <= drop.chance)
+            {
+                inv.Add(drop.item, drop.quantity);
+                ItemPickupNotifier.Show(
+                    string.IsNullOrEmpty(drop.item.displayName) ? drop.item.name : drop.item.displayName,
+                    drop.item.icon);
+            }
+        }
+    }
+
+    static PlayerInventory ResolvePlayerInventory()
+    {
+        var players = PlayerHealth.All;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i] == null) continue;
+            var inv = players[i].GetComponent<PlayerInventory>();
+            if (inv != null) return inv;
+        }
+
+        var pgo = GameObject.FindWithTag("Player");
+        return pgo != null ? pgo.GetComponent<PlayerInventory>() : null;
+    }
+
     IEnumerator FlashWhite()
     {
-        if (srs == null || srs.Length == 0) yield break;
-
-        foreach (var r in srs)
-        {
-            if (r == null) continue;
-
-            var mat = r.material;
-
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.white * flashIntensity);
-        }
-
+        if (visuals == null) yield break;
+        visuals.SetFlashColor(Color.white * flashIntensity);
         yield return new WaitForSeconds(flashDuration);
-
-        foreach (var r in srs)
-        {
-            if (r == null) continue;
-
-            var mat = r.material;
-
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.black);
-        }
-
+        visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }
 
     IEnumerator BlockFlash()
     {
-        if (srs == null || srs.Length == 0) yield break;
-
-        foreach (var r in srs)
-        {
-            if (r == null) continue;
-
-            var mat = r.material;
-
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.gray * 2f);
-        }
-
+        if (visuals == null) yield break;
+        visuals.SetFlashColor(Color.gray * 2f);
         yield return new WaitForSeconds(0.05f);
-
-        foreach (var r in srs)
-        {
-            if (r == null) continue;
-
-            var mat = r.material;
-
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.black);
-        }
-
+        visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }
 }
