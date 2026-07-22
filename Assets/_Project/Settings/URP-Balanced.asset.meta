@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 761c6d99a869a4539b07a47e539ed3a3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 238654
+  packageName: VTDumpster
+  packageVersion: 1.0
+  assetPath: Assets/Settings/URP-Balanced.asset
+  uploadId: 548527
