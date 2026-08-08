@@ -14,7 +14,7 @@ using UnityMeshSimplifier;
 public static class LodBatchOptimizer
 {
     const string RootFolder = "Assets/Third Party";
-    const string GeneratedMeshFolder = "Assets/Game/Generated/MeshLODs";
+    const string GeneratedMeshFolder = "Assets/Game/Generated/MeshLODs/ThirdParty";
     const int MinTriangles = 5000;
     const int MaxPrefabs = 200; // safety cap for first pass
     const float Lod1Quality = 0.45f;
@@ -234,12 +234,22 @@ public static class LodBatchOptimizer
 
     static void PersistGeneratedMeshes(GameObject root, string prefabPath)
     {
+        // Assets/Third Party/<Pack>/.../Prefab.prefab -> MeshLODs/ThirdParty/<Pack>/<Prefab>_<guid8>
+        string packName = "Unknown";
+        const string thirdPartyPrefix = "Assets/Third Party/";
+        if (prefabPath.StartsWith(thirdPartyPrefix, StringComparison.Ordinal))
+        {
+            var rest = prefabPath.Substring(thirdPartyPrefix.Length);
+            var slash = rest.IndexOf('/');
+            packName = slash >= 0 ? rest.Substring(0, slash) : rest;
+        }
+
         string safeName = Path.GetFileNameWithoutExtension(prefabPath)
             .Replace(" ", "_")
             .Replace("(", "")
             .Replace(")", "");
         string prefabGuid = AssetDatabase.AssetPathToGUID(prefabPath);
-        string folder = $"{GeneratedMeshFolder}/{safeName}_{prefabGuid.Substring(0, 8)}";
+        string folder = $"{GeneratedMeshFolder}/{packName}/{safeName}_{prefabGuid.Substring(0, 8)}";
         EnsureFolder(folder);
 
         var filters = root.GetComponentsInChildren<MeshFilter>(true);
