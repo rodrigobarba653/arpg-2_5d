@@ -225,6 +225,52 @@ public class SaveManager : MonoBehaviour
         if (data.partyEquipment.Count > 0)
             data.equippedWeaponId = data.partyEquipment[0].weaponId;
 
+        // Stats — one entry per party member (HP/MP, independent per character).
+        data.partyStats.Clear();
+        for (int i = 0; i < players.Count; i++)
+        {
+            var p = players[i];
+            if (p == null) continue;
+
+            string charId = p.character != null ? p.character.id : "";
+
+            data.partyStats.Add(new SavedCharacterStats
+            {
+                characterId   = charId,
+                currentHealth = p.currentHealth,
+                maxHealth     = p.maxHealth,
+                currentMana   = p.currentMana,
+                maxMana       = p.maxMana,
+            });
+        }
+
+        // Magic — one entry per party member (which spell is bound to each of
+        // their 3 cast-wheel slots). The party-wide pool of KNOWN spells is
+        // already covered above via `items` (SpellItems in the shared inventory).
+        data.partyMagic.Clear();
+        for (int i = 0; i < players.Count; i++)
+        {
+            var p = players[i];
+            if (p == null) continue;
+
+            var magic = p.GetComponent<PlayerMagic>();
+            if (magic == null) continue;
+
+            string charId = p.character != null ? p.character.id : "";
+
+            var s1 = magic.GetEquipped(0);
+            var s2 = magic.GetEquipped(1);
+            var s3 = magic.GetEquipped(2);
+
+            data.partyMagic.Add(new SavedCharacterMagic
+            {
+                characterId  = charId,
+                slot1SpellId = s1 != null ? s1.id : "",
+                slot2SpellId = s2 != null ? s2.id : "",
+                slot3SpellId = s3 != null ? s3.id : "",
+            });
+        }
+
         // World
         if (GameState.Instance != null)
             data.currentLocation = GameState.Instance.currentLocation;
@@ -513,17 +559,32 @@ public class SaveManager : MonoBehaviour
             // Position is handled separately in PositionPlayerFromSave so the
             // player is already in place when we get here.
 
-            ph.level = data.level;
-            ph.maxHealth   = Mathf.Max(1, data.maxHealth);
-            ph.maxMana     = Mathf.Max(0, data.maxMana);
-            ph.maxAP       = Mathf.Max(0, data.maxAP);
-            ph.currentHealth = Mathf.Clamp(data.currentHealth, 0, ph.maxHealth);
-            ph.currentMana   = Mathf.Clamp(data.currentMana,   0, ph.maxMana);
-            ph.currentAP     = Mathf.Clamp(data.currentAP,     0, ph.maxAP);
+            // HP/MP are restored per-character below (partyStats). Level/AP
+            // stay single-character for now — only the first party member.
+            ph.level  = data.level;
+            ph.maxAP  = Mathf.Max(0, data.maxAP);
+            ph.currentAP = Mathf.Clamp(data.currentAP, 0, ph.maxAP);
             ph.NotifyStatsChanged();
 
-            Debug.Log($"[SaveManager] Player teleported to {data.playerPosition} " +
-                      $"with HP {ph.currentHealth}/{ph.maxHealth}.");
+            Debug.Log($"[SaveManager] Player teleported to {data.playerPosition}.");
+        }
+
+        // Stats — per character via partyStats list, with fallback to the
+        // legacy single-character HP/MP fields for old saves (which only ever
+        // tracked the first party member).
+        if (data.partyStats != null && data.partyStats.Count > 0)
+        {
+            for (int i = 0; i < data.partyStats.Count; i++)
+                ApplyStatsEntry(players, data.partyStats[i]);
+        }
+        else if (players.Count > 0)
+        {
+            var ph = players[0];
+            ph.maxHealth     = Mathf.Max(1, data.maxHealth);
+            ph.maxMana       = Mathf.Max(0, data.maxMana);
+            ph.currentHealth = Mathf.Clamp(data.currentHealth, 0, ph.maxHealth);
+            ph.currentMana   = Mathf.Clamp(data.currentMana,   0, ph.maxMana);
+            ph.NotifyStatsChanged();
         }
 
         // Wallet — shared across the party (static state).
@@ -568,6 +629,15 @@ public class SaveManager : MonoBehaviour
             }
         }
 
+        // Magic — per character via partyMagic list. Must run AFTER inventory
+        // is restored above, since PlayerMagic.Equip() requires the SpellItem
+        // to already be present in the shared inventory.
+        if (itemDb != null && data.partyMagic != null && data.partyMagic.Count > 0)
+        {
+            for (int i = 0; i < data.partyMagic.Count; i++)
+                ApplyMagicEntry(players, data.partyMagic[i], itemDb);
+        }
+
         // World
         if (GameState.Instance != null && !string.IsNullOrEmpty(data.currentLocation))
             GameState.Instance.SetLocation(data.currentLocation);
@@ -589,23 +659,8 @@ public class SaveManager : MonoBehaviour
         SavedCharacterEquipment entry,
         ItemDatabase db)
     {
-        if (players == null || players.Count == 0) return;
-
-        PlayerHealth target = null;
-        if (!string.IsNullOrEmpty(entry.characterId))
-        {
-            for (int i = 0; i < players.Count; i++)
-            {
-                if (players[i] == null || players[i].character == null) continue;
-                if (players[i].character.id == entry.characterId)
-                {
-                    target = players[i];
-                    break;
-                }
-            }
-        }
-
-        if (target == null) target = players[0];
+        var target = FindByCharacterId(players, entry.characterId);
+        if (target == null) return;
 
         var eq = target.GetComponent<PlayerEquipment>();
         if (eq == null) return;
@@ -637,5 +692,75 @@ public class SaveManager : MonoBehaviour
         if (string.IsNullOrEmpty(id)) return;
         var part = db.GetById(id) as WeaponPart;
         if (part != null) eq.EquipPart(part);
+    }
+
+    /// <summary>Finds the PlayerHealth whose character.id matches, falling
+    /// back to index 0 when the id is empty or unmatched. Shared by the
+    /// per-character save-entry appliers (equipment/stats/magic).</summary>
+    static PlayerHealth FindByCharacterId(
+        System.Collections.Generic.IReadOnlyList<PlayerHealth> players, string characterId)
+    {
+        if (players == null || players.Count == 0) return null;
+
+        if (!string.IsNullOrEmpty(characterId))
+        {
+            for (int i = 0; i < players.Count; i++)
+            {
+                if (players[i] == null || players[i].character == null) continue;
+                if (players[i].character.id == characterId) return players[i];
+            }
+        }
+
+        return players[0];
+    }
+
+    /// <summary>Apply one party member's saved HP/MP. Matches by characterId,
+    /// falls back to index 0 when unmatched (see FindByCharacterId).</summary>
+    static void ApplyStatsEntry(
+        System.Collections.Generic.IReadOnlyList<PlayerHealth> players,
+        SavedCharacterStats entry)
+    {
+        var target = FindByCharacterId(players, entry.characterId);
+        if (target == null) return;
+
+        target.maxHealth     = Mathf.Max(1, entry.maxHealth);
+        target.maxMana       = Mathf.Max(0, entry.maxMana);
+        target.currentHealth = Mathf.Clamp(entry.currentHealth, 0, target.maxHealth);
+        target.currentMana   = Mathf.Clamp(entry.currentMana,   0, target.maxMana);
+        target.NotifyStatsChanged();
+    }
+
+    /// <summary>Apply one party member's saved magic loadout (which SpellItem
+    /// is bound to each of their 3 cast-wheel slots). Matches by characterId,
+    /// falls back to index 0 when unmatched (see FindByCharacterId). Requires
+    /// the spell to already be in the shared inventory — PlayerMagic.Equip()
+    /// silently no-ops otherwise (also self-guards against an incompatible
+    /// character/spell pairing, so a bad fallback match is harmless).</summary>
+    static void ApplyMagicEntry(
+        System.Collections.Generic.IReadOnlyList<PlayerHealth> players,
+        SavedCharacterMagic entry,
+        ItemDatabase db)
+    {
+        var target = FindByCharacterId(players, entry.characterId);
+        if (target == null) return;
+
+        var magic = target.GetComponent<PlayerMagic>();
+        if (magic == null) return;
+
+        ApplySpellSlot(magic, db, 0, entry.slot1SpellId);
+        ApplySpellSlot(magic, db, 1, entry.slot2SpellId);
+        ApplySpellSlot(magic, db, 2, entry.slot3SpellId);
+    }
+
+    static void ApplySpellSlot(PlayerMagic magic, ItemDatabase db, int slotIndex, string spellId)
+    {
+        if (string.IsNullOrEmpty(spellId))
+        {
+            magic.Equip(null, slotIndex);
+            return;
+        }
+
+        var spell = db.GetById(spellId) as SpellItem;
+        if (spell != null) magic.Equip(spell, slotIndex);
     }
 }

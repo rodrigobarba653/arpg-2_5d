@@ -31,8 +31,6 @@ public class AreaSpellEffect : SpellEffect
     public float spawnForwardOffset = 4f;
 
     [Header("Damage")]
-    public int damage = 30;
-
     [Tooltip("Radius around the impact point that gets damaged.")]
     public float damageRadius = 3f;
 
@@ -52,13 +50,20 @@ public class AreaSpellEffect : SpellEffect
     public GameObject impactVfxPrefab;
     public AudioClip impactSound;
 
-    public override void Init(PlayerHealth caster, MagicDefinition magic)
+    int resolvedDamage;
+
+    public override void Init(PlayerHealth caster, SpellItem spell)
     {
         if (caster == null)
         {
             Destroy(gameObject);
             return;
         }
+
+        // Damage = caster's CURRENT weapon damage × this spell's multiplier —
+        // see SpellItem.ComputeDamage. Resolved once here so a mid-flight
+        // equipment change doesn't retroactively alter an already-cast strike.
+        resolvedDamage = spell != null ? spell.ComputeDamage(caster) : 0;
 
         Vector3 targetPos = ChooseTargetPosition(caster);
         transform.position = targetPos;
@@ -125,7 +130,7 @@ public class AreaSpellEffect : SpellEffect
             if (dir.sqrMagnitude < 0.001f) dir = Vector3.forward;
             dir.Normalize();
 
-            enemy.TakeDamage(damage, dir, 1);
+            enemy.TakeDamage(resolvedDamage, dir, 1);
         }
 
         // Keep the GO alive for the tail of the VFX, then clean up.

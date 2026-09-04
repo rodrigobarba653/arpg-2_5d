@@ -15,6 +15,14 @@ public class EnemyAI : MonoBehaviour
     public float detectDistance = 6f;
     public float stopDistance = 1.5f;
 
+    [Tooltip("If true, this enemy takes a slot on a circle around the player " +
+             "(shared with every other engaging enemy of the same target) " +
+             "instead of pathing straight to the player's exact position. " +
+             "Stops enemies from stacking on top of each other when several " +
+             "are chasing at once. Disable for enemies that should always " +
+             "approach head-on (e.g. a solo boss).")]
+    public bool surroundPlayer = true;
+
     [Header("Speeds")]
     [Tooltip("Speed used while patrolling (no player in sight).")]
     public float patrolSpeed = 1.5f;
@@ -62,6 +70,8 @@ public class EnemyAI : MonoBehaviour
 
     float defendTimer;
     bool playerWasAttackingLastFrame;
+
+    Transform lastRegisteredPlayer; // who we're currently registered with in EnemySurroundGroup
 
     void Awake()
     {
@@ -142,6 +152,9 @@ public class EnemyAI : MonoBehaviour
             }
             return;
         }
+
+        if (lastRegisteredPlayer != null && lastRegisteredPlayer != player)
+            EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
 
         if (playerCombat == null)
             playerCombat = player.GetComponent<PlayerCombatController>();
@@ -264,6 +277,12 @@ public class EnemyAI : MonoBehaviour
             // Out of detect range → patrol if a route is set, otherwise stay idle.
             motor.activeSpeedOverride = patrolSpeed;
 
+            if (lastRegisteredPlayer != null)
+            {
+                EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
+                lastRegisteredPlayer = null;
+            }
+
             if (patrol != null && patrol.HasRoute)
                 patrol.Tick(transform, motor);
             else
@@ -274,6 +293,12 @@ public class EnemyAI : MonoBehaviour
         // Inside detect range → engaging. Tell patrol so it knows to restart later.
         if (patrol != null)
             patrol.OnPatrolPaused();
+
+        if (surroundPlayer && lastRegisteredPlayer != player)
+        {
+            EnemySurroundGroup.Register(player, this);
+            lastRegisteredPlayer = player;
+        }
 
         // Apply chase speed (or fall back to motor.moveSpeed if not configured).
         if (chaseSpeed > 0f)
@@ -290,14 +315,20 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        // Move toward the player. Use NavMeshAgent for pathfinding if it's set up,
-        // otherwise fall back to straight-line steering.
-        Vector3 moveDir = player.position - transform.position;
+        // Move toward the player's surround slot (or their exact position if
+        // surroundPlayer is off / we're the only one engaging). Use NavMeshAgent
+        // for pathfinding if it's set up, otherwise fall back to straight-line
+        // steering.
+        Vector3 targetPos = player.position;
+        if (surroundPlayer)
+            targetPos += EnemySurroundGroup.GetSurroundOffset(player, this, stopDistance);
+
+        Vector3 moveDir = targetPos - transform.position;
         moveDir.y = 0f;
 
         if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
         {
-            motor.agent.SetDestination(player.position);
+            motor.agent.SetDestination(targetPos);
 
             Vector3 desired = motor.agent.desiredVelocity;
             desired.y = 0f;
@@ -307,6 +338,21 @@ public class EnemyAI : MonoBehaviour
         }
 
         motor.SetMoveDirection(moveDir);
+    }
+
+    void OnDisable()
+    {
+        if (lastRegisteredPlayer != null)
+        {
+            EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
+            lastRegisteredPlayer = null;
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (lastRegisteredPlayer != null)
+            EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
     }
 
     void StartAlert()
