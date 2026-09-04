@@ -9,17 +9,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 21848ffbaa01e7b4fb2edef8d565eac8, type: 3}
+  m_Script: {fileID: 11500000, guid: f8f6ca293b5129f4d934ad00d79fc87d, type: 3}
   m_Name: Ax_FireballSpell
-  m_EditorClassIdentifier: Assembly-CSharp::MagicDefinition
-  id: Ax_Fireball
-  displayName: Fireball
-  icon: {fileID: 21300000, guid: 016c3d2d2b03edf4cb070505f8598d30, type: 3}
+  m_EditorClassIdentifier: Assembly-CSharp::SpellItem
+  id: Fire_Ax
+  displayName: Fire
   description: 
+  icon: {fileID: 21300000, guid: 016c3d2d2b03edf4cb070505f8598d30, type: 3}
+  stackable: 0
+  maxStack: 1
   compatibleCharacters:
   - {fileID: 11400000, guid: 7f90360b2a7cb7042b2d271ce8d00cc2, type: 2}
-  manaCost: 10
-  cooldown: 1
+  manaCost: 5
+  cooldown: 2
+  defaultDamageMultiplier: 1
+  perCharacterMultipliers: []
+  displayDamage: 0
   animTrigger: Cast
   castSound: {fileID: 0}
   castVfxPrefab: {fileID: 0}

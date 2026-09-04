@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -202,6 +203,29 @@ public class MenuManager : MonoBehaviour
     {
         UpdateNavSound();
 
+        // Self-heal: several nested panels/modals (WeaponSlotsPanel,
+        // PartSelectorPanel, MagicSpellSelectorPanel, SettingsPanel's sub-tabs)
+        // restore focus on close via a guard like
+        // "if (returnFocus != null && returnFocus.gameObject.activeInHierarchy)".
+        // If that target ever became inactive/destroyed in the meantime (e.g. a
+        // dynamically-spawned list row that got rebuilt), the guard silently
+        // fails: EventSystem.current.SetSelectedGameObject(null) was already
+        // called and NEVER gets a follow-up reselect. With no active selection,
+        // keyboard/gamepad Move has nothing to navigate FROM, so the whole menu
+        // looks "stuck" (mouse clicks still work, stick/dpad/arrows do nothing)
+        // until the player clicks something to reseed the selection.
+        //
+        // Recover automatically: whenever the menu is open, no modal is mid-
+        // transition (IsModalOpen is false — that flag stays true through the
+        // exact frame a legitimate restore attempt happens, so this never
+        // fights a normal close), and the EventSystem selection is null, pick
+        // something sane to reselect.
+        if (IsOpen && !IsModalOpen && EventSystem.current != null
+            && EventSystem.current.currentSelectedGameObject == null)
+        {
+            RecoverLostFocus();
+        }
+
         bool togglePressed =
             (toggleAction != null && toggleAction.action != null && toggleAction.action.WasPressedThisFrame())
             || (defaultToggle != null && defaultToggle.WasPressedThisFrame());
@@ -281,6 +305,32 @@ public class MenuManager : MonoBehaviour
 
         EventSystem.current.SetSelectedGameObject(null);
         EventSystem.current.SetSelectedGameObject(btn.gameObject);
+    }
+
+    /// <summary>Called from Update() when the menu is open but the EventSystem
+    /// has no current selection (see the self-heal comment in Update()).
+    /// Prefers the active panel's own first selectable; falls back to that
+    /// panel's sidebar button if the panel has nothing selectable of its own.</summary>
+    void RecoverLostFocus()
+    {
+        if (EventSystem.current == null) return;
+
+        Selectable target = null;
+
+        if (CurrentPanelIndex >= 0 && panels != null && CurrentPanelIndex < panels.Length
+            && panels[CurrentPanelIndex] != null)
+        {
+            target = panels[CurrentPanelIndex].GetFirstSelectable();
+        }
+
+        if (target == null && sidebarButtons != null
+            && CurrentPanelIndex >= 0 && CurrentPanelIndex < sidebarButtons.Length)
+        {
+            target = sidebarButtons[CurrentPanelIndex];
+        }
+
+        if (target != null)
+            EventSystem.current.SetSelectedGameObject(target.gameObject);
     }
 
     bool IsFocusInsidePanel()
@@ -504,6 +554,22 @@ public class MenuManager : MonoBehaviour
 
         // Move EventSystem focus into the panel so keyboard/gamepad nav lives
         // inside it. The user comes back to the sidebar via the Cancel/Esc key.
+        // Deferred one frame: Open() (and EquipmentPanel/MagicPanel's Refresh())
+        // SetActive(true) the target button in this same frame, and selecting it
+        // immediately silently fails — same trap the modal panels already work
+        // around with FocusFirstNextFrame(). Without the delay, the first Submit
+        // press opens the panel but doesn't land a selection, so it takes a
+        // second press to actually navigate inside it.
+        if (focusPanelRoutine != null) StopCoroutine(focusPanelRoutine);
+        focusPanelRoutine = StartCoroutine(FocusFirstSelectableOfPanelNextFrame(index));
+    }
+
+    Coroutine focusPanelRoutine;
+
+    IEnumerator FocusFirstSelectableOfPanelNextFrame(int index)
+    {
+        yield return null;
+        focusPanelRoutine = null;
         FocusFirstSelectableOfPanel(index);
     }
 

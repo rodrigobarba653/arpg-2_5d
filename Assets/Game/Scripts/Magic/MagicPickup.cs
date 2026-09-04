@@ -19,7 +19,9 @@ public class MagicPickup : MonoBehaviour
     public string pickupId = "";
 
     [Header("Magic")]
-    public MagicDefinition magic;
+    [Tooltip("Which SpellItem to add to the shared party inventory when picked " +
+             "up. Assign an asset created via Create → ARPG → Items → Spell.")]
+    public SpellItem spell;
 
     [Header("Behaviour")]
     [Tooltip("If true, requires the player to press the interact button while " +
@@ -134,43 +136,40 @@ public class MagicPickup : MonoBehaviour
 
     void TryLearn(PlayerMagic pm)
     {
-        if (magic == null)
+        if (spell == null)
         {
-            Debug.LogWarning($"[MagicPickup] '{name}' has no MagicDefinition assigned.", this);
+            Debug.LogWarning($"[MagicPickup] '{name}' has no SpellItem assigned.", this);
             return;
         }
 
-        // Compatibility check — only the specified characters can learn.
-        if (!pm.IsCompatible(magic))
+        // Add to the SHARED party inventory. Any character can pick up any
+        // spell — compatibility is only enforced when equipping.
+        var inv = pm.GetComponent<PlayerInventory>();
+        if (inv == null)
+        {
+            Debug.LogWarning($"[MagicPickup] '{pm.name}' has no PlayerInventory.", this);
+            return;
+        }
+
+        // Unique — one per party. If the party already has it, do nothing (no
+        // duplicate stacks are allowed for SpellItems).
+        if (inv.HasItem(spell))
         {
             if (debugLog)
-                Debug.Log($"[MagicPickup] '{pm.name}' is NOT compatible with '{magic.displayName}'. Ignoring.");
+                Debug.Log($"[MagicPickup] Party already has '{spell.displayName}'.");
             if (incompatibleSound != null)
                 AudioManager.PlaySfxOrFallback(incompatibleSound, transform.position, volume);
             return;
         }
 
-        // Already knows it → nothing to do (but still consume? No — leave it
-        // so the other character can still try, in case they walk up later).
-        if (pm.HasLearned(magic))
-        {
-            if (debugLog)
-                Debug.Log($"[MagicPickup] '{pm.name}' already knows '{magic.displayName}'.");
-            if (incompatibleSound != null)
-                AudioManager.PlaySfxOrFallback(incompatibleSound, transform.position, volume);
-            return;
-        }
+        inv.Add(spell, 1);
 
-        if (!pm.Learn(magic))
-        {
-            if (debugLog)
-                Debug.Log($"[MagicPickup] Learn() failed for some reason on '{pm.name}'.");
-            return;
-        }
+        // Auto-equip on the picker if they are compatible + have a free slot.
+        pm.TryAutoEquip(spell);
 
         // Success.
         if (debugLog)
-            Debug.Log($"[MagicPickup] '{pm.name}' learned '{magic.displayName}'.", this);
+            Debug.Log($"[MagicPickup] '{pm.name}' picked up '{spell.displayName}'.", this);
 
         if (learnSound != null)
             AudioManager.PlaySfxOrFallback(learnSound, transform.position, volume);

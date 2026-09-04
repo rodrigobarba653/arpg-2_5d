@@ -23,9 +23,6 @@ public class ProjectileSpellEffect : SpellEffect
     [Tooltip("Height above the caster's feet where the projectile spawns.")]
     public float spawnHeight = 1.2f;
 
-    [Header("Damage")]
-    public int damage = 20;
-
     [Tooltip("Optional layers to consider as hittable. Leave 'Nothing' to hit " +
              "anything with an EnemyHealth in the hierarchy.")]
     public LayerMask hitLayerMask = ~0;
@@ -41,9 +38,10 @@ public class ProjectileSpellEffect : SpellEffect
 
     Vector3 direction;
     PlayerHealth casterRef;
+    int resolvedDamage;
     readonly System.Collections.Generic.HashSet<EnemyHealth> hitEnemies = new System.Collections.Generic.HashSet<EnemyHealth>();
 
-    public override void Init(PlayerHealth caster, MagicDefinition magic)
+    public override void Init(PlayerHealth caster, SpellItem spell)
     {
         if (caster == null)
         {
@@ -52,6 +50,12 @@ public class ProjectileSpellEffect : SpellEffect
         }
 
         casterRef = caster;
+
+        // Damage = caster's CURRENT weapon damage × this spell's multiplier —
+        // see SpellItem.ComputeDamage. Resolved once here, not re-read per hit,
+        // so mid-flight equipment changes don't retroactively alter an
+        // already-fired projectile.
+        resolvedDamage = spell != null ? spell.ComputeDamage(caster) : 0;
 
         // Ignore all colliders on the caster and on any other party member so
         // the projectile doesn't self-collide on spawn or hit the other player.
@@ -137,7 +141,7 @@ public class ProjectileSpellEffect : SpellEffect
             if (dir.sqrMagnitude < 0.001f)
                 dir = (enemy.transform.position - transform.position).normalized;
 
-            enemy.TakeDamage(damage, dir, 1);
+            enemy.TakeDamage(resolvedDamage, dir, 1);
             didDamage = true;
         }
 

@@ -42,6 +42,12 @@ public class AudioManager : MonoBehaviour
     Coroutine bgmFadeRoutine;
     Coroutine ambientFadeRoutine;
 
+    // PlayerPrefs keys — settings persist across sessions without a save file.
+    const string MasterVolumeKey  = "Settings_MasterVolume";
+    const string BgmVolumeKey     = "Settings_BGMVolume";
+    const string AmbientVolumeKey = "Settings_AmbientVolume";
+    const string SfxVolumeKey     = "Settings_SFXVolume";
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -55,7 +61,19 @@ public class AudioManager : MonoBehaviour
         if (persistAcrossScenes)
             DontDestroyOnLoad(gameObject);
 
+        LoadVolumePrefs();
         EnsureSources();
+    }
+
+    /// <summary>Loads saved volumes from PlayerPrefs, falling back to whatever
+    /// is set on this component in the Inspector (the designer's defaults) if
+    /// no saved value exists yet.</summary>
+    void LoadVolumePrefs()
+    {
+        masterVolume  = PlayerPrefs.GetFloat(MasterVolumeKey,  masterVolume);
+        bgmVolume     = PlayerPrefs.GetFloat(BgmVolumeKey,     bgmVolume);
+        ambientVolume = PlayerPrefs.GetFloat(AmbientVolumeKey, ambientVolume);
+        sfxVolume     = PlayerPrefs.GetFloat(SfxVolumeKey,     sfxVolume);
     }
 
     void OnDestroy()
@@ -299,10 +317,33 @@ public class AudioManager : MonoBehaviour
     // VOLUME (call from UI sliders, settings menu, etc)
     // ============================================================
 
-    public void SetMasterVolume(float v)  { masterVolume  = Mathf.Clamp01(v); }
-    public void SetBGMVolume(float v)     { bgmVolume     = Mathf.Clamp01(v); }
-    public void SetAmbientVolume(float v) { ambientVolume = Mathf.Clamp01(v); }
-    public void SetSFXVolume(float v)     { sfxVolume     = Mathf.Clamp01(v); }
+    public void SetMasterVolume(float v)
+    {
+        masterVolume = Mathf.Clamp01(v);
+        PlayerPrefs.SetFloat(MasterVolumeKey, masterVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetBGMVolume(float v)
+    {
+        bgmVolume = Mathf.Clamp01(v);
+        PlayerPrefs.SetFloat(BgmVolumeKey, bgmVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetAmbientVolume(float v)
+    {
+        ambientVolume = Mathf.Clamp01(v);
+        PlayerPrefs.SetFloat(AmbientVolumeKey, ambientVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetSFXVolume(float v)
+    {
+        sfxVolume = Mathf.Clamp01(v);
+        PlayerPrefs.SetFloat(SfxVolumeKey, sfxVolume);
+        PlayerPrefs.Save();
+    }
 
     // ============================================================
     // STATIC HELPERS (safe to call from anywhere without null checks)
