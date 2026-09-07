@@ -7,6 +7,7 @@ TagManager:
   - Enemy
   - Hole
   - Water
+  - Door
   layers:
   - Default
   - TransparentFX
@@ -18,7 +19,7 @@ TagManager:
   - Enemy
   - CameraTransparent
   - Prompt
-  - 
+  - Player2
   - 
   - 
   - 
