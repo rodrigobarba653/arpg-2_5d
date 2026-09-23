@@ -25,10 +25,18 @@ public class EnemyHealth : MonoBehaviour
     public float defaultKnockbackForce = 6f;
     public float defaultKnockbackTime = 0.25f;
 
-    [Header("Per Hit Knockback")]
-    public bool[] knockbackEnabledPerStep = new bool[] { false, false, true };
-    public float[] knockbackForcePerStep = new float[] { 2f, 4f, 7f };
-    public float[] knockbackTimePerStep = new float[] { 0.08f, 0.12f, 0.22f };
+    [Header("Per Hit Knockback (fallback)")]
+    [Tooltip("Used when the attacker does NOT send its own knockback " +
+             "(e.g. spells). Player melee uses PlayerCombatController → " +
+             "Knockback Per Combo Step instead.\n" +
+             "Index 0 = Attack1, 1 = Attack2, 2 = Attack3.")]
+    public bool[] knockbackEnabledPerStep = new bool[] { false, true, true };
+
+    [Tooltip("Fallback push speed per combo step (world units/sec).")]
+    public float[] knockbackForcePerStep = new float[] { 0f, 2.5f, 10f };
+
+    [Tooltip("Fallback push duration per combo step.")]
+    public float[] knockbackTimePerStep = new float[] { 0f, 0.1f, 0.28f };
 
     [Header("Flash")]
     [SerializeField] private float flashDuration = 0.08f;
@@ -104,6 +112,20 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
     {
+        TakeDamage(amount, hitDir, step, useAttackerKnockback: false, push: false, force: 0f, duration: 0f);
+    }
+
+    /// <summary>
+    /// Player melee overload: knockback comes from the attacker's combo profile
+    /// (PlayerCombatController.knockbackPerStep), not this enemy's fallback arrays.
+    /// </summary>
+    public void TakeDamage(int amount, Vector3 hitDir, int step, bool push, float force, float duration)
+    {
+        TakeDamage(amount, hitDir, step, useAttackerKnockback: true, push, force, duration);
+    }
+
+    void TakeDamage(int amount, Vector3 hitDir, int step, bool useAttackerKnockback, bool push, float force, float duration)
+    {
         if (isDead) return;
 
         hitDir.y = 0f;
@@ -160,7 +182,9 @@ public class EnemyHealth : MonoBehaviour
 
         // IMPORTANT:
         // Face / knockback must happen BEFORE Hurt animation is triggered.
-        bool didKnockback = ApplyStepKnockback(hitDir, step);
+        bool didKnockback = useAttackerKnockback
+            ? ApplyAttackerKnockback(hitDir, push, force, duration)
+            : ApplyStepKnockback(hitDir, step);
 
         if (motor != null)
         {
@@ -178,6 +202,15 @@ public class EnemyHealth : MonoBehaviour
             ranged.OnTakeDamage(hitDir);
     }
 
+    bool ApplyAttackerKnockback(Vector3 hitDir, bool push, float force, float duration)
+    {
+        if (motor == null) return false;
+        if (!push || force <= 0f || duration <= 0f) return false;
+
+        motor.DoKnockback(hitDir, force, duration);
+        return true;
+    }
+
     bool ApplyStepKnockback(Vector3 hitDir, int step)
     {
         if (motor == null) return false;
@@ -190,6 +223,8 @@ public class EnemyHealth : MonoBehaviour
 
         float force = GetStepFloat(knockbackForcePerStep, index, defaultKnockbackForce);
         float time = GetStepFloat(knockbackTimePerStep, index, defaultKnockbackTime);
+
+        if (force <= 0f || time <= 0f) return false;
 
         motor.DoKnockback(hitDir, force, time);
         return true;

@@ -9,6 +9,10 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private Transform meleeHitboxTransform;
     [SerializeField] private PlayerMotor motor;
     [SerializeField] private PlayerJump jump;
+    [Tooltip("Weapon sprite under SpriteBody. Cleared when not in combat so Run/CombatRun can share one clip.")]
+    [SerializeField] private SpriteRenderer weaponBody;
+    [Tooltip("Optional. Plays the weapon 'store into player' VFX when combat ends.")]
+    [SerializeField] private WeaponStoreEffect weaponStoreEffect;
     PlayerSwimming swim;
     PlayerHealth health;
     PlayerEquipment equipment;
@@ -36,12 +40,31 @@ public class PlayerCombatController : MonoBehaviour
         public float speed;
         public float duration;
         public float delay;
+
+        [Tooltip("If on, lunge speed starts at full and eases out to 0 over the duration.")]
+        public bool useEaseOut;
+
+        [Tooltip("Ease-out strength. 1 = linear slowdown, 2 = classic ease-out (fast then soft stop), higher = stays fast longer then stops softer.")]
+        [Min(1f)]
+        public float easeOutPower;
     }
 
     [Header("Lunge Params Per Step")]
-    [SerializeField] private LungeParams step1 = new LungeParams { speed = 6.5f, duration = 0.08f, delay = 0f };
-    [SerializeField] private LungeParams step2 = new LungeParams { speed = 6.5f, duration = 0.06f, delay = 0.02f };
-    [SerializeField] private LungeParams step3 = new LungeParams { speed = 7.5f, duration = 0.08f, delay = 0.04f };
+    [SerializeField] private LungeParams step1 = new LungeParams
+    {
+        speed = 6.5f, duration = 0.08f, delay = 0f,
+        useEaseOut = true, easeOutPower = 2f
+    };
+    [SerializeField] private LungeParams step2 = new LungeParams
+    {
+        speed = 6.5f, duration = 0.06f, delay = 0.02f,
+        useEaseOut = true, easeOutPower = 2f
+    };
+    [SerializeField] private LungeParams step3 = new LungeParams
+    {
+        speed = 7.5f, duration = 0.08f, delay = 0.04f,
+        useEaseOut = true, easeOutPower = 2f
+    };
 
     [Header("Roll")]
     [SerializeField] private bool enableRoll = true;
@@ -53,8 +76,51 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private bool rollUsesFacingIfNoInput = true;
 
     [Header("Hitbox Position (in front)")]
+    [Tooltip("World-space distance in front of facing (not multiplied by player scale).")]
     [SerializeField] private float hitboxForwardDistance = 0.60f;
     [SerializeField] private Vector3 hitboxLocalOffset = Vector3.zero;
+
+    [Tooltip("World-space uniform scale for the hitbox transform. Cancels the player root scale (e.g. 2.5).")]
+    [SerializeField] private float hitboxWorldScale = 0.7f;
+
+    [System.Serializable]
+    private struct HitboxStepProfile
+    {
+        [Tooltip("If on, this step uses the values below instead of the defaults above.")]
+        public bool overrideDefaults;
+
+        public float forwardDistance;
+        public Vector3 localOffset;
+
+        [Tooltip("BoxCollider size for this step. Leave at 0 to use the prefab default size (not the previous hit).")]
+        public Vector3 boxSize;
+    }
+
+    [Tooltip("Optional per-combo-step hitbox (index 0 = Attack1, 1 = Attack2, 2 = Attack3). " +
+             "Anim events already pass the step into EnableHitboxInt.")]
+    [SerializeField] private HitboxStepProfile[] hitboxPerStep = new HitboxStepProfile[3];
+
+    [System.Serializable]
+    private struct KnockbackStepProfile
+    {
+        [Tooltip("If off, this combo hit deals damage but does not push the enemy.")]
+        public bool pushEnemy;
+
+        [Tooltip("Push speed in world units/sec.")]
+        public float force;
+
+        [Tooltip("How long the push lasts (seconds).")]
+        public float duration;
+    }
+
+    [Header("Enemy Knockback Per Combo Step")]
+    [Tooltip("Index 0 = Attack1, 1 = Attack2, 2 = Attack3. Tune push feel here per character.")]
+    [SerializeField] private KnockbackStepProfile[] knockbackPerStep = new KnockbackStepProfile[]
+    {
+        new KnockbackStepProfile { pushEnemy = false, force = 0f,   duration = 0f },
+        new KnockbackStepProfile { pushEnemy = true,  force = 2.5f, duration = 0.12f },
+        new KnockbackStepProfile { pushEnemy = true,  force = 10f,  duration = 0.28f },
+    };
 
     [Header("Attack Swing SFX")]
     [Tooltip("One swing clip per combo step (index 0 = step 1, etc). " +
@@ -92,6 +158,14 @@ public class PlayerCombatController : MonoBehaviour
     private float rollEndTime = 0f;
     private float rollCooldownUntil = 0f;
 
+    // Play store VFX once on the combat-exit edge (animator still writes weapon each frame).
+    private bool pendingWeaponStoreVfx;
+
+    private BoxCollider meleeHitboxCollider;
+    private Vector3 defaultHitboxSize = Vector3.one;
+    private bool hasDefaultHitboxSize;
+    private float defaultHitboxHeightWorld;
+
     void Awake()
     {
         if (!motor) motor = GetComponent<PlayerMotor>();
@@ -102,6 +176,35 @@ public class PlayerCombatController : MonoBehaviour
 
         if (!meleeHitboxTransform && meleeHitbox)
             meleeHitboxTransform = meleeHitbox.transform;
+
+        if (meleeHitbox)
+        {
+            meleeHitboxCollider = meleeHitbox.GetComponent<BoxCollider>();
+            if (meleeHitboxCollider)
+            {
+                defaultHitboxSize = meleeHitboxCollider.size;
+                hasDefaultHitboxSize = true;
+            }
+
+            if (meleeHitboxTransform)
+                defaultHitboxHeightWorld = meleeHitboxTransform.position.y - transform.position.y;
+
+            // Start disabled so it can't ghost-hit before the first attack.
+            meleeHitbox.SetActive(false);
+        }
+
+        if (!weaponBody && spriteAnimator)
+        {
+            var t = spriteAnimator.transform.Find("WeaponBody");
+            if (t) weaponBody = t.GetComponent<SpriteRenderer>();
+        }
+
+        if (!weaponStoreEffect)
+        {
+            weaponStoreEffect = GetComponent<WeaponStoreEffect>();
+            if (!weaponStoreEffect)
+                weaponStoreEffect = gameObject.AddComponent<WeaponStoreEffect>();
+        }
 
         swim = GetComponent<PlayerSwimming>();
         health = GetComponent<PlayerHealth>();
@@ -114,7 +217,46 @@ public class PlayerCombatController : MonoBehaviour
             spriteAnimator.SetBool(IsRollingHash, false);
         }
 
+        EnsureKnockbackDefaults();
+
         DisableHitbox();
+    }
+
+    void EnsureKnockbackDefaults()
+    {
+        if (knockbackPerStep != null && knockbackPerStep.Length >= 3)
+            return;
+
+        knockbackPerStep = new KnockbackStepProfile[]
+        {
+            new KnockbackStepProfile { pushEnemy = false, force = 0f,   duration = 0f },
+            new KnockbackStepProfile { pushEnemy = true,  force = 2.5f, duration = 0.12f },
+            new KnockbackStepProfile { pushEnemy = true,  force = 10f,  duration = 0.28f },
+        };
+    }
+
+    void OnValidate()
+    {
+        EnsureKnockbackDefaults();
+    }
+
+    void LateUpdate()
+    {
+        // Shared Run/CombatRun clips always write weapon sprites; hide them outside combat
+        // without restarting the locomotion state.
+        if (weaponBody == null || inCombat)
+            return;
+
+        // Play store VFX even if Idle already blanked WeaponBody — snapshot was taken in ExitCombat.
+        if (pendingWeaponStoreVfx)
+        {
+            if (weaponStoreEffect != null)
+                weaponStoreEffect.TryPlay();
+            pendingWeaponStoreVfx = false;
+        }
+
+        if (weaponBody.sprite != null)
+            weaponBody.sprite = null;
     }
 
     void Update()
@@ -247,7 +389,8 @@ public class PlayerCombatController : MonoBehaviour
             step == 2 ? step2 :
                         step3;
 
-        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.delay);
+        float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
+        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.delay, easePower);
     }
 
     public void TryAdvanceCombo()
@@ -297,32 +440,111 @@ public class PlayerCombatController : MonoBehaviour
         if (!meleeHitbox || !meleeHitboxTransform || motor == null)
             return;
 
-        PositionHitboxInFront();
+        float dist = hitboxForwardDistance;
+        Vector3 offset = hitboxLocalOffset;
+        Vector3 boxSize = hasDefaultHitboxSize ? defaultHitboxSize : Vector3.zero;
+
+        int idx = step - 1;
+        if (hitboxPerStep != null && idx >= 0 && idx < hitboxPerStep.Length
+            && hitboxPerStep[idx].overrideDefaults)
+        {
+            dist = hitboxPerStep[idx].forwardDistance;
+            offset = hitboxPerStep[idx].localOffset;
+            // Per-step size only if set; otherwise keep the prefab default (not the previous hit's size).
+            if (hitboxPerStep[idx].boxSize.sqrMagnitude > 0.0001f)
+                boxSize = hitboxPerStep[idx].boxSize;
+        }
+
+        PositionHitboxInFront(dist, offset);
+        ApplyHitboxSize(boxSize);
 
         var hb = meleeHitbox.GetComponent<MeleeHitbox>();
 
         if (hb)
         {
             hb.SetOwner(transform);
-            hb.SetAttackStep(step);
+            ApplyKnockbackProfileToHitbox(hb, step);
         }
 
         meleeHitbox.SetActive(true);
+
+        // Fresh once-per-target list for this swing (works even if GO was already active).
+        if (hb)
+            hb.BeginHitWindow(step);
+    }
+
+    void ApplyKnockbackProfileToHitbox(MeleeHitbox hb, int step)
+    {
+        int idx = step - 1;
+        if (knockbackPerStep != null && idx >= 0 && idx < knockbackPerStep.Length)
+        {
+            var profile = knockbackPerStep[idx];
+            hb.SetKnockback(profile.pushEnemy, profile.force, profile.duration);
+            return;
+        }
+
+        // Fallback if the array was resized shorter than the combo.
+        hb.SetKnockback(step >= 2, step >= 3 ? 10f : 2.5f, step >= 3 ? 0.28f : 0.12f);
     }
 
     public void DisableHitbox()
     {
         if (meleeHitbox) meleeHitbox.SetActive(false);
+        // Restore so the next Enable doesn't inherit a previous step's size by accident.
+        if (hasDefaultHitboxSize)
+            ApplyHitboxSize(defaultHitboxSize);
+    }
+
+    void ApplyHitboxSize(Vector3 size)
+    {
+        if (size.sqrMagnitude < 0.0001f) return;
+        if (!meleeHitboxCollider && meleeHitbox)
+            meleeHitboxCollider = meleeHitbox.GetComponent<BoxCollider>();
+        if (meleeHitboxCollider)
+            meleeHitboxCollider.size = size;
     }
 
     private void PositionHitboxInFront()
+    {
+        PositionHitboxInFront(hitboxForwardDistance, hitboxLocalOffset);
+    }
+
+    private void PositionHitboxInFront(float forwardDistance, Vector3 localOffset)
     {
         Vector2 dir2 = motor.GetFacing2D();
         if (dir2.sqrMagnitude < 0.001f) dir2 = Vector2.down;
         dir2.Normalize();
 
         Vector3 forward = new Vector3(dir2.x, 0f, dir2.y);
-        meleeHitboxTransform.localPosition = forward * hitboxForwardDistance + hitboxLocalOffset;
+        Vector3 right = Vector3.Cross(Vector3.up, forward);
+        if (right.sqrMagnitude < 0.0001f) right = Vector3.right;
+        else right.Normalize();
+
+        // Cancel player root scale (often 2.5) so BoxCollider.size matches the debug cube in world units.
+        Vector3 parentLossy = transform.lossyScale;
+        float s = Mathf.Max(0.0001f, hitboxWorldScale);
+        meleeHitboxTransform.localScale = new Vector3(
+            s / Mathf.Max(0.0001f, parentLossy.x),
+            s / Mathf.Max(0.0001f, parentLossy.y),
+            s / Mathf.Max(0.0001f, parentLossy.z)
+        );
+
+        float height = !Mathf.Approximately(localOffset.y, 0f)
+            ? localOffset.y
+            : defaultHitboxHeightWorld;
+
+        // forwardDistance / offset XZ are WORLD units (not scaled by the 2.5 root).
+        Vector3 worldPos = transform.position
+                           + forward * (forwardDistance + localOffset.z)
+                           + right * localOffset.x;
+        worldPos.y = transform.position.y + height;
+
+        meleeHitboxTransform.SetPositionAndRotation(
+            worldPos,
+            Quaternion.LookRotation(forward, Vector3.up)
+        );
+
+        Physics.SyncTransforms();
     }
 
     private void StartRoll()
@@ -374,19 +596,30 @@ public class PlayerCombatController : MonoBehaviour
         combatTimer = combatTimeout;
     }
 
+    private void ExitCombat()
+    {
+        // Snapshot NOW — CombatIdle→Idle blanks WeaponBody before LateUpdate.
+        if (inCombat)
+        {
+            if (weaponStoreEffect != null)
+                weaponStoreEffect.CaptureNow();
+            pendingWeaponStoreVfx = true;
+        }
+
+        inCombat = false;
+        spriteAnimator?.SetBool(InCombatHash, false);
+    }
+
     private void EnterCombat()
     {
         combatTimer = combatTimeout;
         if (inCombat) return;
 
         inCombat = true;
+        pendingWeaponStoreVfx = false;
+        if (weaponStoreEffect != null)
+            weaponStoreEffect.ClearPendingCapture();
         spriteAnimator?.SetBool(InCombatHash, true);
-    }
-
-    private void ExitCombat()
-    {
-        inCombat = false;
-        spriteAnimator?.SetBool(InCombatHash, false);
     }
 
     public void CancelCombatImmediate()

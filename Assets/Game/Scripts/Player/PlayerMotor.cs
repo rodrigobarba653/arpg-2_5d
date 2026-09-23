@@ -42,13 +42,16 @@ public class PlayerMotor : MonoBehaviour
     // ATTACK LUNGE
     bool attackLungeActive;
     float attackLungeTimer;
+    float attackLungeDuration;
     float attackLungeSpeed;
+    float attackLungeEaseOutPower; // 0 = constant speed, >=1 = ease-out (1 - t^power)
     Vector3 attackLungeDir;
 
     bool attackLungePending;
     float attackLungeDelayTimer;
     float pendingAttackLungeSpeed;
     float pendingAttackLungeDuration;
+    float pendingAttackLungeEaseOutPower;
     Vector3 pendingAttackLungeDir;
 
     // KNOCKBACK
@@ -157,7 +160,9 @@ public class PlayerMotor : MonoBehaviour
                 attackLungePending = false;
                 attackLungeActive = true;
                 attackLungeSpeed = pendingAttackLungeSpeed;
+                attackLungeDuration = pendingAttackLungeDuration;
                 attackLungeTimer = pendingAttackLungeDuration;
+                attackLungeEaseOutPower = pendingAttackLungeEaseOutPower;
                 attackLungeDir = pendingAttackLungeDir;
             }
         }
@@ -168,7 +173,7 @@ public class PlayerMotor : MonoBehaviour
             attackLungeTimer -= Time.deltaTime;
 
             moveWorld = attackLungeDir;
-            speed = attackLungeSpeed;
+            speed = attackLungeSpeed * GetAttackLungeSpeedFactor();
 
             if (attackLungeTimer <= 0f)
             {
@@ -419,7 +424,11 @@ public class PlayerMotor : MonoBehaviour
         movementLocked = false;
     }
 
-    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float delay)
+    /// <param name="easeOutPower">
+    /// 0 = constant speed (old behavior).
+    /// >=1 = ease-out: speed *= 1 - t^power (1 = linear, 2 = classic ease-out).
+    /// </param>
+    public void BeginAttackLunge(Vector2 attackDir2D, float speed, float duration, float delay, float easeOutPower = 0f)
     {
         if (attackDir2D.sqrMagnitude < 0.01f)
             attackDir2D = lastNonZeroFacing;
@@ -437,7 +446,9 @@ public class PlayerMotor : MonoBehaviour
         {
             attackLungeDir = worldDir;
             attackLungeSpeed = speed;
+            attackLungeDuration = duration;
             attackLungeTimer = duration;
+            attackLungeEaseOutPower = easeOutPower;
             attackLungeActive = true;
             return;
         }
@@ -445,6 +456,7 @@ public class PlayerMotor : MonoBehaviour
         pendingAttackLungeDir = worldDir;
         pendingAttackLungeSpeed = speed;
         pendingAttackLungeDuration = duration;
+        pendingAttackLungeEaseOutPower = easeOutPower;
         attackLungeDelayTimer = delay;
         attackLungePending = true;
     }
@@ -455,6 +467,18 @@ public class PlayerMotor : MonoBehaviour
         attackLungePending = false;
         attackLungeTimer = 0f;
         attackLungeDelayTimer = 0f;
+        attackLungeEaseOutPower = 0f;
+        pendingAttackLungeEaseOutPower = 0f;
+    }
+
+    float GetAttackLungeSpeedFactor()
+    {
+        if (attackLungeEaseOutPower < 1f || attackLungeDuration <= 0.0001f)
+            return 1f;
+
+        float elapsed = attackLungeDuration - attackLungeTimer;
+        float t = Mathf.Clamp01(elapsed / attackLungeDuration);
+        return 1f - Mathf.Pow(t, attackLungeEaseOutPower);
     }
 
     public void BeginKnockback(Vector3 worldDirection, float speed, float duration)

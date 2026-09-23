@@ -38,8 +38,8 @@ public class MeleeHitbox : MonoBehaviour
 
     Transform owner;
 
-    private readonly HashSet<EnemyHealth> hitEnemies = new HashSet<EnemyHealth>();
-    private readonly HashSet<PlayerHealth> hitPlayers = new HashSet<PlayerHealth>();
+    private readonly HashSet<int> hitEnemyIds = new HashSet<int>();
+    private readonly HashSet<int> hitPlayerIds = new HashSet<int>();
 
     private float disableAtTime = -1f;
 
@@ -48,9 +48,54 @@ public class MeleeHitbox : MonoBehaviour
 
     private int attackStep = 1;
 
+    // Knockback for the current swing (set by PlayerCombatController per combo step).
+    private bool hasAttackerKnockback;
+    private bool knockbackPush;
+    private float knockbackForce;
+    private float knockbackDuration;
+
     public void SetAttackStep(int step)
     {
         attackStep = Mathf.Clamp(step, 1, 99);
+    }
+
+    /// <summary>
+    /// Per-swing knockback owned by the attacker (combo step). When set, EnemyHealth
+    /// uses these values instead of its own per-step fallback tables.
+    /// </summary>
+    public void SetKnockback(bool pushEnemy, float force, float duration)
+    {
+        hasAttackerKnockback = true;
+        knockbackPush = pushEnemy;
+        knockbackForce = Mathf.Max(0f, force);
+        knockbackDuration = Mathf.Max(0f, duration);
+    }
+
+    public void ClearKnockback()
+    {
+        hasAttackerKnockback = false;
+        knockbackPush = false;
+        knockbackForce = 0f;
+        knockbackDuration = 0f;
+    }
+
+    /// <summary>
+    /// Start a fresh hit window for this swing. Each enemy/player can be damaged
+    /// at most once until the next BeginHitWindow (multi-target still allowed).
+    /// </summary>
+    public void BeginHitWindow(int step)
+    {
+        SetAttackStep(step);
+        hitEnemyIds.Clear();
+        hitPlayerIds.Clear();
+
+        if (box == null)
+            box = GetComponent<BoxCollider>();
+        if (box)
+            box.enabled = true;
+
+        disableAtTime = (autoDisableAfter > 0f) ? Time.time + autoDisableAfter : -1f;
+        UpdateDebugCubeActive();
     }
 
     public void SetOwner(Transform t)
@@ -74,8 +119,9 @@ public class MeleeHitbox : MonoBehaviour
         if (logDebug)
             Debug.Log($"[Hitbox] ENABLED on {name} | owner={(owner ? owner.name : "NULL")} | step={attackStep}", this);
 
-        hitEnemies.Clear();
-        hitPlayers.Clear();
+        // Fresh window whenever the hitbox GameObject turns on.
+        hitEnemyIds.Clear();
+        hitPlayerIds.Clear();
 
         box.enabled = true;
 
@@ -147,7 +193,7 @@ public class MeleeHitbox : MonoBehaviour
                 return;
             }
 
-            if (!hitPlayers.Add(player))
+            if (!hitPlayerIds.Add(player.GetInstanceID()))
                 return;
 
             if (logDebug)
@@ -164,12 +210,22 @@ public class MeleeHitbox : MonoBehaviour
         // ======================
         if (ownerIsPlayer)
         {
+            // Only solid hurtboxes / CharacterController count.
+            // Enemy MeleeHitbox (and other triggers) stay active often and would
+            // register "phantom" hits far from the visible body.
+            if (other.isTrigger)
+            {
+                if (logDebug)
+                    Debug.Log($"[Hitbox] Ignoring trigger collider '{other.name}' (not a hurtbox).", this);
+                return;
+            }
+
             EnemyHealth enemy = other.GetComponentInParent<EnemyHealth>();
 
             if (enemy == null)
                 return;
 
-            if (!hitEnemies.Add(enemy))
+            if (!hitEnemyIds.Add(enemy.GetInstanceID()))
                 return;
 
             if (logDebug)
@@ -224,7 +280,11 @@ public class MeleeHitbox : MonoBehaviour
             // ======================
             DoHitStop();
             PlayBlockOrHitSfx(enemy.transform.position, blocked: false);
-            enemy.TakeDamage(ResolveDamage(), dir, attackStep);
+
+            if (hasAttackerKnockback)
+                enemy.TakeDamage(ResolveDamage(), dir, attackStep, knockbackPush, knockbackForce, knockbackDuration);
+            else
+                enemy.TakeDamage(ResolveDamage(), dir, attackStep);
         }
     }
 
