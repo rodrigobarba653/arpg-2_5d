@@ -13,6 +13,8 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private SpriteRenderer weaponBody;
     [Tooltip("Optional. Plays the weapon 'store into player' VFX when combat ends.")]
     [SerializeField] private WeaponStoreEffect weaponStoreEffect;
+    [Tooltip("Soft targeting / melee magnetism. Auto-added if missing.")]
+    [SerializeField] private MeleeSoftTargeting softTargeting;
     PlayerSwimming swim;
     PlayerHealth health;
     PlayerEquipment equipment;
@@ -210,6 +212,11 @@ public class PlayerCombatController : MonoBehaviour
         health = GetComponent<PlayerHealth>();
         equipment = GetComponent<PlayerEquipment>();
 
+        if (!softTargeting)
+            softTargeting = GetComponent<MeleeSoftTargeting>();
+        if (!softTargeting)
+            softTargeting = gameObject.AddComponent<MeleeSoftTargeting>();
+
         if (spriteAnimator)
         {
             spriteAnimator.SetBool(IsAttackingHash, false);
@@ -341,9 +348,17 @@ public class PlayerCombatController : MonoBehaviour
         comboIndex = 1;
         buffered = false;
 
-        motor?.LockFacing(motor.GetFacing2D());
+        Vector2 intent = motor != null ? motor.GetFacing2D() : Vector2.down;
+        LungeParams p = step1;
+        float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
+
+        MeleeSoftTargeting.SoftAim aim = softTargeting != null
+            ? softTargeting.BeginCombo(intent, p.speed, p.duration, easePower)
+            : new MeleeSoftTargeting.SoftAim { facing2D = intent, speedScale = 1f, steered = false };
+
+        motor?.LockFacing(aim.facing2D);
         motor?.LockMovement(true);
-        DoStepLunge(1);
+        DoStepLunge(1, aim);
         PlaySwingSfx(1);
 
         spriteAnimator?.SetBool(IsAttackingHash, true);
@@ -390,7 +405,61 @@ public class PlayerCombatController : MonoBehaviour
                         step3;
 
         float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
-        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.delay, easePower);
+        Vector2 intent = motor.GetFacing2D();
+
+        MeleeSoftTargeting.SoftAim aim = softTargeting != null
+            ? softTargeting.ResolveStep(intent, step, p.speed, p.duration, easePower)
+            : new MeleeSoftTargeting.SoftAim { facing2D = intent, speedScale = 1f, steered = false };
+
+        DoStepLunge(step, aim);
+    }
+
+    private void DoStepLunge(int step, MeleeSoftTargeting.SoftAim aim)
+    {
+        if (!useAttackLunge || motor == null) return;
+
+        bool enabled =
+            step == 1 ? lungeStep1 :
+            step == 2 ? lungeStep2 :
+                        lungeStep3;
+
+        if (!enabled) return;
+
+        LungeParams p =
+            step == 1 ? step1 :
+            step == 2 ? step2 :
+                        step3;
+
+        float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
+
+        // Soft targeting steers the SAME lunge — never a second magnet force.
+        if (aim.steered)
+            motor.LockFacing(aim.facing2D);
+
+        // Already in attack range → keep facing/anim, skip positional lunge.
+        if (aim.steered && aim.speedScale <= 0.001f)
+            return;
+
+        float speed = p.speed * Mathf.Max(0f, aim.speedScale);
+        motor.BeginAttackLunge(aim.facing2D, speed, p.duration, p.delay, easePower);
+    }
+
+    /// <summary>
+    /// World-space distance from player root to the far face of the melee hitbox
+    /// along attack forward. Used by soft targeting for attack spacing.
+    /// </summary>
+    public float GetMeleeHitboxReach()
+    {
+        float reach = hitboxForwardDistance;
+
+        Vector3 size = hasDefaultHitboxSize ? defaultHitboxSize : Vector3.zero;
+        if (size.sqrMagnitude > 0.0001f)
+        {
+            float depth = size.z * 0.5f * Mathf.Max(0.01f, hitboxWorldScale);
+            reach += depth;
+        }
+
+        return Mathf.Max(0.05f, reach);
     }
 
     public void TryAdvanceCombo()
@@ -425,6 +494,8 @@ public class PlayerCombatController : MonoBehaviour
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
+
+        softTargeting?.ClearComboTarget();
 
         motor?.CancelAttackLunge();
         motor?.LockMovement(false);
@@ -641,6 +712,8 @@ public class PlayerCombatController : MonoBehaviour
 
         comboIndex = 0;
         buffered = false;
+
+        softTargeting?.ClearComboTarget();
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetBool(IsRollingHash, false);

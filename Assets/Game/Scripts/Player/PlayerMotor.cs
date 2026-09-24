@@ -262,6 +262,9 @@ public class PlayerMotor : MonoBehaviour
 
     Vector3 GetMoveWorld(Vector2 input)
     {
+        if (input.sqrMagnitude < 0.0001f)
+            return Vector3.zero;
+
         if (!mainCam)
             mainCam = Camera.main;
 
@@ -276,26 +279,38 @@ public class PlayerMotor : MonoBehaviour
         camRight.y = 0f;
         camRight.Normalize();
 
+        // Preserve analog magnitude for movement (do not force-normalize).
         return camForward * input.y + camRight * input.x;
     }
 
     /// <summary>
-    /// Convert a world-space direction into the same 2D facing space used by
-    /// MoveX/MoveY and HitX/HitY (camera-relative stick space).
+    /// Stick/facing 2D → normalized world XZ using the current camera basis.
+    /// Zero input falls back to world forward (for aiming only — not movement).
+    /// </summary>
+    public Vector3 FacingToWorld(Vector2 input)
+    {
+        if (input.sqrMagnitude < 0.0001f)
+            return Vector3.forward;
+
+        Vector3 world = GetMoveWorld(input.normalized);
+        world.y = 0f;
+        return world.sqrMagnitude > 0.0001f ? world.normalized : Vector3.forward;
+    }
+
+    /// <summary>
+    /// World XZ → stick/facing 2D (inverse of <see cref="FacingToWorld"/>).
     /// </summary>
     public Vector2 WorldToFacing(Vector3 worldDir)
     {
         worldDir.y = 0f;
         if (worldDir.sqrMagnitude < 0.0001f)
-            return GetFacing2D();
-
-        worldDir.Normalize();
+            return lastNonZeroFacing;
 
         if (!mainCam)
             mainCam = Camera.main;
 
         if (!mainCam)
-            return new Vector2(worldDir.x, worldDir.z);
+            return new Vector2(worldDir.x, worldDir.z).normalized;
 
         Vector3 camForward = mainCam.transform.forward;
         camForward.y = 0f;
@@ -305,9 +320,10 @@ public class PlayerMotor : MonoBehaviour
         camRight.y = 0f;
         camRight.Normalize();
 
-        return new Vector2(
-            Vector3.Dot(worldDir, camRight),
-            Vector3.Dot(worldDir, camForward));
+        float x = Vector3.Dot(worldDir.normalized, camRight);
+        float y = Vector3.Dot(worldDir.normalized, camForward);
+        Vector2 facing = new Vector2(x, y);
+        return facing.sqrMagnitude > 0.0001f ? facing.normalized : lastNonZeroFacing;
     }
 
     static Vector2 SnapTo8(Vector2 v)

@@ -1,8 +1,13 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class EnemyHealth : MonoBehaviour
 {
+    // Registry for combat queries (soft targeting, AOE, etc.) — mirrors PlayerHealth.All.
+    static readonly List<EnemyHealth> all = new List<EnemyHealth>(64);
+    public static IReadOnlyList<EnemyHealth> All => all;
+
     EnemyAI ai;
     EnemyCombatController combat;
     EnemyMotor motor;
@@ -24,6 +29,13 @@ public class EnemyHealth : MonoBehaviour
     [Header("Default Knockback")]
     public float defaultKnockbackForce = 6f;
     public float defaultKnockbackTime = 0.25f;
+
+    [Header("Knockback Response")]
+    [Tooltip("Multiplies incoming knockback force (and duration). " +
+             "1 = normal, 0 = immovable, 0.3 = heavy/large enemy. " +
+             "Attacker still provides the base intent (Jyn/Ax/combo step).")]
+    [Min(0f)]
+    public float knockbackReceiveMultiplier = 1f;
 
     [Header("Per Hit Knockback (fallback)")]
     [Tooltip("Used when the attacker does NOT send its own knockback " +
@@ -108,6 +120,17 @@ public class EnemyHealth : MonoBehaviour
         visuals = GetComponent<EnemyVisuals>();
         if (visuals == null)
             visuals = gameObject.AddComponent<EnemySpriteVisuals>();
+    }
+
+    void OnEnable()
+    {
+        if (!all.Contains(this))
+            all.Add(this);
+    }
+
+    void OnDisable()
+    {
+        all.Remove(this);
     }
 
     public void TakeDamage(int amount, Vector3 hitDir, int step)
@@ -207,8 +230,7 @@ public class EnemyHealth : MonoBehaviour
         if (motor == null) return false;
         if (!push || force <= 0f || duration <= 0f) return false;
 
-        motor.DoKnockback(hitDir, force, duration);
-        return true;
+        return ApplyScaledKnockback(hitDir, force, duration);
     }
 
     bool ApplyStepKnockback(Vector3 hitDir, int step)
@@ -226,7 +248,15 @@ public class EnemyHealth : MonoBehaviour
 
         if (force <= 0f || time <= 0f) return false;
 
-        motor.DoKnockback(hitDir, force, time);
+        return ApplyScaledKnockback(hitDir, force, time);
+    }
+
+    bool ApplyScaledKnockback(Vector3 hitDir, float force, float duration)
+    {
+        float mul = Mathf.Max(0f, knockbackReceiveMultiplier);
+        if (mul <= 0f) return false;
+
+        motor.DoKnockback(hitDir, force * mul, duration * mul);
         return true;
     }
 
