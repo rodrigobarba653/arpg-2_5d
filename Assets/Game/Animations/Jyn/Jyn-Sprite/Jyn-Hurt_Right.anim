@@ -30,7 +30,7 @@ AnimationClip:
   - serializedVersion: 2
     curve:
     - time: 0
-      value: {fileID: 0}
+      value: {fileID: 663033803, guid: c91461941f53846f9ac657ab1f1af051, type: 3}
     attribute: m_Sprite
     path: WeaponBody
     classID: 212
@@ -63,7 +63,7 @@ AnimationClip:
       isSerializeReferenceCurve: 0
     pptrCurveMapping:
     - {fileID: 1833312772, guid: 7d9b458bf0924412495aaaaca1ae4153, type: 3}
-    - {fileID: 0}
+    - {fileID: 663033803, guid: c91461941f53846f9ac657ab1f1af051, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}
