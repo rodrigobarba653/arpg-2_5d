@@ -279,6 +279,37 @@ public class PlayerMotor : MonoBehaviour
         return camForward * input.y + camRight * input.x;
     }
 
+    /// <summary>
+    /// Convert a world-space direction into the same 2D facing space used by
+    /// MoveX/MoveY and HitX/HitY (camera-relative stick space).
+    /// </summary>
+    public Vector2 WorldToFacing(Vector3 worldDir)
+    {
+        worldDir.y = 0f;
+        if (worldDir.sqrMagnitude < 0.0001f)
+            return GetFacing2D();
+
+        worldDir.Normalize();
+
+        if (!mainCam)
+            mainCam = Camera.main;
+
+        if (!mainCam)
+            return new Vector2(worldDir.x, worldDir.z);
+
+        Vector3 camForward = mainCam.transform.forward;
+        camForward.y = 0f;
+        camForward.Normalize();
+
+        Vector3 camRight = mainCam.transform.right;
+        camRight.y = 0f;
+        camRight.Normalize();
+
+        return new Vector2(
+            Vector3.Dot(worldDir, camRight),
+            Vector3.Dot(worldDir, camForward));
+    }
+
     static Vector2 SnapTo8(Vector2 v)
     {
         float angle = Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg;

@@ -624,6 +624,18 @@ public class PlayerCombatController : MonoBehaviour
 
     public void CancelCombatImmediate()
     {
+        InterruptCombatActions();
+        motor?.LockMovement(false);
+        motor?.UnlockFacing();
+        ExitCombat();
+    }
+
+    /// <summary>
+    /// Stop attack/roll/hitbox without leaving combat mode.
+    /// Used when taking a hit so HurtCombat can keep the weapon visible.
+    /// </summary>
+    public void InterruptCombatActions()
+    {
         isAttacking = false;
         isRolling = false;
 
@@ -635,12 +647,12 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
 
         motor?.CancelAttackLunge();
-        motor?.LockMovement(false);
-        motor?.UnlockFacing();
-
+        // Don't unlock facing/movement here — TakeDamage re-locks them for the hit reaction.
         DisableHitbox();
 
-        ExitCombat();
+        // Stay in combat; refresh the combat timeout so HurtCombat keeps weapon sprites.
+        if (inCombat)
+            combatTimer = combatTimeout;
     }
 
     public bool IsInCombat()
