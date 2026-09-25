@@ -6,6 +6,7 @@ public class EnemyCombatController : MonoBehaviour
     public Animator animator;
     public EnemyMotor motor;
     EnemyAI ai;
+    EnemyReactionChart reactions;
 
     public GameObject meleeHitbox;
     public Transform meleeHitboxTransform;
@@ -127,6 +128,7 @@ public class EnemyCombatController : MonoBehaviour
             motor = GetComponent<EnemyMotor>();
 
         ai = GetComponent<EnemyAI>();
+        reactions = GetComponent<EnemyReactionChart>();
 
         if (!animator)
             animator = GetComponentInChildren<Animator>();
@@ -191,6 +193,13 @@ public class EnemyCombatController : MonoBehaviour
 
         if (Time.time < nextAttackTime)
             return;
+
+        if (reactions != null)
+        {
+            reactions.Tick();
+            if (!reactions.AllowsAttack)
+                return;
+        }
 
         if (!EnemyAttackScheduler.Instance.TryReserve(this))
             return;

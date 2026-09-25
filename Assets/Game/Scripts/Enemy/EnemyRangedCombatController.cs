@@ -6,6 +6,7 @@ public class EnemyRangedCombatController : MonoBehaviour
     public Animator animator;
     public EnemyMotor motor;
     EnemyAI ai;
+    EnemyReactionChart reactions;
 
     public Transform player;
 
@@ -65,6 +66,7 @@ public class EnemyRangedCombatController : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
 
         ai = GetComponent<EnemyAI>();
+        reactions = GetComponent<EnemyReactionChart>();
     }
 
     void Update()
@@ -110,6 +112,13 @@ public class EnemyRangedCombatController : MonoBehaviour
 
         if (Time.time < nextAttackTime)
             return;
+
+        if (reactions != null)
+        {
+            reactions.Tick();
+            if (!reactions.AllowsAttack)
+                return;
+        }
 
         if (!bypassAttackScheduler && !EnemyAttackScheduler.Instance.TryReserve(this))
             return;

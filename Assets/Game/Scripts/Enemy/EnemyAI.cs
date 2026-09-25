@@ -9,6 +9,7 @@ public class EnemyAI : MonoBehaviour
     EnemyCombatController melee;
     EnemyRangedCombatController ranged;
     EnemyPatrol patrol;
+    EnemyReactionChart reactions;
     PlayerCombatController playerCombat;
 
     [Header("Distances")]
@@ -83,6 +84,7 @@ public class EnemyAI : MonoBehaviour
         melee = GetComponent<EnemyCombatController>();
         ranged = GetComponent<EnemyRangedCombatController>();
         patrol = GetComponent<EnemyPatrol>();
+        reactions = GetComponent<EnemyReactionChart>();
 
         // Auto-find the player. Prefer PersistentPlayer.Instance (works even
         // if the player is disabled during a scene transition); fall back to
@@ -303,6 +305,34 @@ public class EnemyAI : MonoBehaviour
         // Apply chase speed (or fall back to motor.moveSpeed if not configured).
         if (chaseSpeed > 0f)
             motor.activeSpeedOverride = chaseSpeed;
+
+        if (reactions != null)
+            reactions.Tick();
+
+        if (reactions != null && reactions.WantsHold)
+        {
+            motor.Stop();
+            if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
+                motor.agent.ResetPath();
+            return;
+        }
+
+        if (reactions != null && reactions.WantsStepBack)
+        {
+            float backTo = stopDistance + reactions.StepBackDistance;
+            if (dist >= backTo)
+            {
+                motor.Stop();
+                if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
+                    motor.agent.ResetPath();
+                return;
+            }
+
+            Vector3 away = transform.position - player.position;
+            away.y = 0f;
+            motor.SetMoveDirection(away);
+            return;
+        }
 
         if (dist <= stopDistance)
         {
