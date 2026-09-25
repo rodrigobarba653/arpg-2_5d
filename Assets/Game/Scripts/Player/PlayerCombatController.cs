@@ -508,6 +508,12 @@ public class PlayerCombatController : MonoBehaviour
 
     public void EnableHitboxInt(int step)
     {
+        if (!IsActivePartyMember())
+        {
+            DisableHitbox();
+            return;
+        }
+
         if (!meleeHitbox || !meleeHitboxTransform || motor == null)
             return;
 
@@ -564,6 +570,15 @@ public class PlayerCombatController : MonoBehaviour
         // Restore so the next Enable doesn't inherit a previous step's size by accident.
         if (hasDefaultHitboxSize)
             ApplyHitboxSize(defaultHitboxSize);
+    }
+
+    bool IsActivePartyMember()
+    {
+        if (health == null)
+            health = GetComponent<PlayerHealth>();
+        if (health == null)
+            return true;
+        return Party.Active == null || Party.Active == health;
     }
 
     void ApplyHitboxSize(Vector3 size)

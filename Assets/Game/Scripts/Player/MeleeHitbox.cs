@@ -164,6 +164,15 @@ public class MeleeHitbox : MonoBehaviour
             Debug.Log($"[Hitbox] TRIGGER with: {other.name}", this);
 
         if (owner == null)
+            TryResolveOwner();
+
+        if (!IsOwnerTheActivePlayer())
+            return;
+
+        if (BelongsToAx())
+            LogAxHit(other);
+
+        if (owner == null)
             return;
 
         // ignorar al propio dueño
@@ -285,6 +294,8 @@ public class MeleeHitbox : MonoBehaviour
                 enemy.TakeDamage(ResolveDamage(), dir, attackStep, knockbackPush, knockbackForce, knockbackDuration);
             else
                 enemy.TakeDamage(ResolveDamage(), dir, attackStep);
+
+            owner.GetComponent<MeleeSoftTargeting>()?.NotifyConnectedHit(enemy);
         }
     }
 
@@ -309,6 +320,51 @@ public class MeleeHitbox : MonoBehaviour
             return eq.TotalDamage;  // weapon base + Blade part bonus
 
         return baseDamage;
+    }
+
+    void TryResolveOwner()
+    {
+        var health = GetComponentInParent<PlayerHealth>();
+        if (health != null)
+            owner = health.transform;
+    }
+
+    bool IsOwnerTheActivePlayer()
+    {
+        var health = owner != null
+            ? owner.GetComponentInParent<PlayerHealth>()
+            : GetComponentInParent<PlayerHealth>();
+        if (health == null)
+            return true;
+        return Party.Active == null || Party.Active == health;
+    }
+
+    bool BelongsToAx()
+    {
+        var health = owner != null
+            ? owner.GetComponentInParent<PlayerHealth>()
+            : GetComponentInParent<PlayerHealth>();
+
+        if (health != null && health.character != null &&
+            string.Equals(health.character.id, "Ax", System.StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        Transform t = owner != null ? owner : transform;
+        while (t != null)
+        {
+            if (t.name.IndexOf("Ax", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    void LogAxHit(Collider other)
+    {
+        if (other == null) return;
+        var enemy = other.GetComponentInParent<EnemyHealth>();
+        if (enemy == null) return;
+        Debug.LogWarning($"[Ax Hitbox] Hit enemy '{enemy.name}' via '{other.name}' (combo step {attackStep}).", this);
     }
 
     void PlayBlockOrHitSfx(Vector3 worldPos, bool blocked)

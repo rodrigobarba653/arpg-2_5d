@@ -3,8 +3,10 @@ using UnityEngine;
 /// <summary>
 /// Automatic soft targeting / melee magnetism for beat-'em-up style combos.
 /// Acquires a single ComboTarget from player intent, then steers each attack's
-/// EXISTING lunge toward that enemy within tunable limits. Does not add a
-/// second magnet force, does not glue enemies, and does not own knockback.
+/// EXISTING lunge toward that enemy. Attack 1 stays inside a steering cone.
+/// Once a swing actually connects, later combo steps (any step, including ones
+/// added later) aim straight at that enemy and close the gap so the combo can latch.
+/// Does not add a second magnet force and does not own knockback.
 /// </summary>
 [DisallowMultipleComponent]
 public class MeleeSoftTargeting : MonoBehaviour
@@ -12,7 +14,7 @@ public class MeleeSoftTargeting : MonoBehaviour
     [Header("Enable")]
     [SerializeField] bool enableSoftTargeting = true;
 
-    [Header("Acquisition (Attack 1)")]
+    [Header("Acquisition")]
     [Tooltip("Max distance to consider an enemy when starting a combo.")]
     [SerializeField] float acquisitionRadius = 4.5f;
 
@@ -35,8 +37,15 @@ public class MeleeSoftTargeting : MonoBehaviour
 
     [Header("Lunge Distance Correction")]
     [Tooltip("Extra gap beyond hitbox reach + enemy body radius. " +
-             "Desired center spacing = hitboxReach + enemyRadius + this.")]
+             "Desired center spacing = hitboxReach + enemyRadius + this - closeIn.")]
     [SerializeField] float attackSpacingPadding = 0.1f;
+
+    [Tooltip("Meters to step inside the point where the hitbox would just touch the hurt volume. " +
+             "The hurtbox is larger than the sprite, so 0 leaves a visible gap.")]
+    [SerializeField] float closeIn = 0.9f;
+
+    [Tooltip("Closest center-to-center distance a lunge will aim for.")]
+    [SerializeField] float minCenterSpacing = 0.7f;
 
     [Tooltip("Used when the ComboTarget has no CharacterController radius.")]
     [SerializeField] float fallbackEnemyRadius = 0.4f;
@@ -49,8 +58,16 @@ public class MeleeSoftTargeting : MonoBehaviour
     [Tooltip("Maximum lunge scale to close a gap (relative to the attack's normal lunge).")]
     [SerializeField] float maxLungeScale = 1.4f;
 
-    [Tooltip("Extra max-scale allowance per combo step after the first.")]
+    [Tooltip("Extra max-scale allowance per combo step after the first. Ignored once latched.")]
     [SerializeField] float comboStepDistanceBoost = 0.12f;
+
+    [Header("Latch (after a connecting hit)")]
+    [Tooltip("Once a swing damages an enemy, later steps of this combo aim straight at that enemy.")]
+    [SerializeField] bool latchAfterHit = true;
+
+    [Tooltip("Max lunge scale used to close the remaining gap after a hit. " +
+             "Higher than the normal cap so a short follow-up step can still reach attack spacing.")]
+    [SerializeField] float latchMaxLungeScale = 8f;
 
     [Header("Combo Target Retention")]
     [Tooltip("Drop ComboTarget if farther than this from the player.")]
@@ -67,6 +84,7 @@ public class MeleeSoftTargeting : MonoBehaviour
     PlayerCombatController combat;
 
     EnemyHealth comboTarget;
+    bool latched;
 
     // Debug / last resolve snapshot
     Vector3 debugIntentWorld = Vector3.forward;
@@ -79,6 +97,7 @@ public class MeleeSoftTargeting : MonoBehaviour
 
     public EnemyHealth ComboTarget => comboTarget;
     public bool HasComboTarget => IsUsable(comboTarget);
+    public bool IsLatched => latched && IsUsable(comboTarget);
     public bool Enabled => enableSoftTargeting;
 
     public struct SoftAim
@@ -97,7 +116,25 @@ public class MeleeSoftTargeting : MonoBehaviour
     public void ClearComboTarget()
     {
         comboTarget = null;
+        latched = false;
         debugHasTarget = false;
+    }
+
+    /// <summary>
+    /// A swing damaged this enemy. The first connecting hit of the combo locks
+    /// that enemy; every later step moves directly onto them.
+    /// </summary>
+    public void NotifyConnectedHit(EnemyHealth enemy)
+    {
+        if (!enableSoftTargeting || !latchAfterHit || !IsUsable(enemy))
+            return;
+
+        if (latched && IsUsable(comboTarget))
+            return;
+
+        comboTarget = enemy;
+        latched = true;
+        debugHasTarget = true;
     }
 
     /// <summary>
@@ -137,13 +174,41 @@ public class MeleeSoftTargeting : MonoBehaviour
         debugAcquisitionHalfAngle = acquisitionHalfAngle;
         debugRetentionHalfAngle = retentionHalfAngle;
 
-        if (!IsUsable(comboTarget) || !IsWithinRetention(comboTarget, intentWorld))
+        if (!HasLockedTarget(intentWorld))
         {
+            bool wasLatched = latched;
             ClearComboTarget();
-            return Passthrough(intentFacing2D);
+
+            // A dropped latch (dead or out of range) does not pick a new victim.
+            // Otherwise every step can still acquire, including attacks added later.
+            if (!wasLatched)
+            {
+                EnemyHealth best = FindBestAcquisitionTarget(intentWorld);
+                if (best != null)
+                    comboTarget = best;
+            }
         }
 
+        if (!IsUsable(comboTarget))
+            return Passthrough(intentFacing2D);
+
         return BuildAim(intentFacing2D, intentWorld, comboStep, baseSpeed, baseDuration, easeOutPower);
+    }
+
+    bool HasLockedTarget(Vector3 intentWorld)
+    {
+        if (!IsUsable(comboTarget))
+            return false;
+
+        if (latched)
+            return FlatDistance(comboTarget) <= retentionRadius;
+
+        return IsWithinRetention(comboTarget, intentWorld);
+    }
+
+    float FlatDistance(EnemyHealth enemy)
+    {
+        return FlatDelta(enemy.transform.position, transform.position).magnitude;
     }
 
     SoftAim BuildAim(Vector2 intentFacing2D, Vector3 intentWorld, int comboStep,
@@ -168,14 +233,17 @@ public class MeleeSoftTargeting : MonoBehaviour
         }
 
         Vector3 desiredDir = toTarget / dist;
-        float maxSteer = GetMaxSteer(comboStep);
-        Vector3 steeredWorld = SteerToward(intentWorld, desiredDir, maxSteer);
+        // A connecting hit means "go to them." Otherwise keep the per-step steer cone.
+        // Steps past 3 reuse the widest cone so new attacks still soft-target.
+        Vector3 steeredWorld = latched
+            ? desiredDir
+            : SteerToward(intentWorld, desiredDir, GetMaxSteer(comboStep));
 
         debugAimWorld = steeredWorld;
         debugHasTarget = true;
 
         Vector2 facing2D = motor.WorldToFacing(steeredWorld);
-        float speedScale = ComputeSpeedScale(dist, comboTarget, comboStep, baseSpeed, baseDuration, easeOutPower);
+        float speedScale = ComputeSpeedScale(dist, comboTarget, comboStep, baseSpeed, baseDuration, easeOutPower, latched);
 
         return new SoftAim
         {
@@ -299,7 +367,7 @@ public class MeleeSoftTargeting : MonoBehaviour
     }
 
     float ComputeSpeedScale(float centerDist, EnemyHealth enemy, int comboStep,
-        float baseSpeed, float baseDuration, float easeOutPower)
+        float baseSpeed, float baseDuration, float easeOutPower, bool directLatch)
     {
         float spacing = ResolveAttackSpacing(enemy);
         debugAttackSpacing = spacing;
@@ -317,7 +385,9 @@ public class MeleeSoftTargeting : MonoBehaviour
             return minLungeScale;
 
         float scale = desiredTravel / nominal;
-        float up = maxLungeScale + comboStepDistanceBoost * Mathf.Max(0, comboStep - 1);
+        float up = directLatch
+            ? Mathf.Max(maxLungeScale, latchMaxLungeScale)
+            : maxLungeScale + comboStepDistanceBoost * Mathf.Max(0, comboStep - 1);
         return Mathf.Clamp(scale, minLungeScale, up);
     }
 
@@ -332,13 +402,25 @@ public class MeleeSoftTargeting : MonoBehaviour
             reach = combat.GetMeleeHitboxReach();
 
         float enemyRadius = EstimateHorizontalRadius(enemy != null ? enemy.transform : null);
-        return Mathf.Max(0.05f, reach + enemyRadius + attackSpacingPadding);
+        float spacing = reach + enemyRadius + attackSpacingPadding - Mathf.Max(0f, closeIn);
+        return Mathf.Max(minCenterSpacing, spacing);
     }
 
     float EstimateHorizontalRadius(Transform t)
     {
         if (t == null)
             return fallbackEnemyRadius;
+
+        // Prefer the real hurt volume. The CharacterController is a small
+        // movement capsule and makes a locked combo think it is already in range.
+        var hurt = FindHurtbox(t);
+        if (hurt != null)
+        {
+            Vector3 ext = hurt.bounds.extents;
+            float r = Mathf.Max(ext.x, ext.z);
+            if (r > 0.05f)
+                return r;
+        }
 
         var cc = t.GetComponent<CharacterController>();
         if (cc != null)
@@ -347,14 +429,32 @@ public class MeleeSoftTargeting : MonoBehaviour
             return Mathf.Max(0.05f, cc.radius * scale);
         }
 
-        var col = t.GetComponentInChildren<Collider>();
-        if (col != null)
-        {
-            Vector3 ext = col.bounds.extents;
-            return Mathf.Max(0.05f, Mathf.Max(ext.x, ext.z));
-        }
-
         return fallbackEnemyRadius;
+    }
+
+    static Collider FindHurtbox(Transform root)
+    {
+        if (root == null) return null;
+        var cols = root.GetComponentsInChildren<Collider>(true);
+        Collider named = null;
+        Collider best = null;
+        float bestArea = 0f;
+        for (int i = 0; i < cols.Length; i++)
+        {
+            var c = cols[i];
+            if (c == null || c.isTrigger) continue;
+            if (c is CharacterController) continue;
+            if (c.gameObject.name == "Hurtbox")
+                named = c;
+            Vector3 e = c.bounds.extents;
+            float area = e.x * e.z;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = c;
+            }
+        }
+        return named != null ? named : best;
     }
 
     /// <summary>
