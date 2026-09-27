@@ -79,11 +79,12 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
         if (!animator || !motor)
             return;
 
-        float speed = motor.GetSpeed();
+        bool defending = ai != null && ai.isDefending;
+        float speed = defending ? 0f : motor.GetSpeed();
 
         bool isMoving = speed > moveDeadzone;
 
-        Vector3 dir = GetMoveDirection();
+        Vector3 dir = defending ? ai.DefendFacing : GetMoveDirection();
 
         if (dir.sqrMagnitude > 0.0001f)
             lastMoveDir = dir;
@@ -94,7 +95,19 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
         // tracks the player in real time (rotated by EnemyAI/motor.RotateToward).
         Vector3 finalDir;
 
-        if (isMoving)
+        // Defend pose comes from the facing stored when the guard started.
+        // BillboardToCamera still owns the sprite plane. This only sets MoveX/MoveY.
+        // A strafe slides sideways, but the walk clip keeps pointing at the player.
+        if (defending)
+        {
+            finalDir = dir.sqrMagnitude > 0.0001f ? dir : lastMoveDir;
+        }
+        else if (motor.AnimFacesAim)
+        {
+            finalDir = motor.AnimAimDirection;
+            lastMoveDir = finalDir;
+        }
+        else if (isMoving)
         {
             finalDir = dir;
         }

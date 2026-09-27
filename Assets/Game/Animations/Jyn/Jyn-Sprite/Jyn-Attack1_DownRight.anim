@@ -29,18 +29,16 @@ AnimationClip:
     - time: 0.3
       value: {fileID: 389237381, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - time: 0.4
-      value: {fileID: 824182131, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 0.5
       value: {fileID: 59307514, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 0.6
+    - time: 0.5
       value: {fileID: 1207096898, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 0.7
+    - time: 0.6
       value: {fileID: 258828469, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 0.8
+    - time: 0.7
       value: {fileID: 1984479371, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 0.9
+    - time: 0.8
       value: {fileID: 1207834169, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - time: 1
+    - time: 0.9
       value: {fileID: 995641491, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     attribute: m_Sprite
     path: 
@@ -86,7 +84,6 @@ AnimationClip:
     - {fileID: 688005508, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - {fileID: 264116574, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - {fileID: 389237381, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
-    - {fileID: 824182131, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - {fileID: 59307514, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - {fileID: 1207096898, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
     - {fileID: 258828469, guid: b0b95b941ac694bd5b58ba08334289bc, type: 3}
@@ -99,7 +96,7 @@ AnimationClip:
     m_AdditiveReferencePoseClip: {fileID: 0}
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
-    m_StopTime: 1.1
+    m_StopTime: 1
     m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
@@ -119,28 +116,28 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
-  - time: 0.6
+  - time: 0.5
     functionName: EnableHitboxInt
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 1
     messageOptions: 0
-  - time: 0.846153780544383
+  - time: 0.7461537805
     functionName: DisableHitbox
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.9307691870295887
+  - time: 0.830769187
     functionName: TryAdvanceCombo
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.0153845528994123
+  - time: 0.9153845529
     functionName: EndAttack
     data: 
     objectReferenceParameter: {fileID: 0}

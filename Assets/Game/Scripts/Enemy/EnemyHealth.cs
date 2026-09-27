@@ -166,22 +166,22 @@ public class EnemyHealth : MonoBehaviour
             }
         }
 
-        if (ai != null && ai.isDefending)
+        // Hits that never pass through MeleeHitbox (spells, other damage) land here.
+        // A blocked player swing already returned inside MeleeHitbox, so it does
+        // not flash or shake a second time.
+        if (ai != null && ai.BlocksAttackFrom(transform.position - hitDir))
         {
-            Vector3 dirToPlayer = (ai.player.position - transform.position).normalized;
-            dirToPlayer.y = 0f;
+            ai.NotifyBlockedHit();
 
-            float dot = Vector3.Dot(transform.forward, dirToPlayer);
+            if (flashRoutine != null)
+                StopCoroutine(flashRoutine);
 
-            if (dot > 0.5f)
-            {
-                if (flashRoutine != null)
-                    StopCoroutine(flashRoutine);
-
-                flashRoutine = StartCoroutine(BlockFlash());
-                return;
-            }
+            flashRoutine = StartCoroutine(BlockFlash());
+            return;
         }
+
+        if (ai != null)
+            ai.BreakDefense();
 
         currentHealth -= amount;
         currentHealth = Mathf.Max(currentHealth, 0);

@@ -40,7 +40,6 @@ public class Enemy3DCreatorWindow : EditorWindow
     float moveSpeed = 3f;
     float detectDistance = 6f;
     float stopDistance = 1.5f;
-    float defendDistance = 2f;
 
     // Combat
     float attackDistance = 1.4f;
@@ -147,7 +146,6 @@ public class Enemy3DCreatorWindow : EditorWindow
         moveSpeed = EditorGUILayout.FloatField("Move Speed", moveSpeed);
         detectDistance = EditorGUILayout.FloatField("Detect Distance", detectDistance);
         stopDistance = EditorGUILayout.FloatField("Stop Distance", stopDistance);
-        defendDistance = EditorGUILayout.FloatField("Defend Distance", defendDistance);
         EditorGUILayout.Space();
 
         // --- Combat ---
@@ -368,7 +366,6 @@ public class Enemy3DCreatorWindow : EditorWindow
         var ai = Undo.AddComponent<EnemyAI>(root);
         ai.detectDistance = detectDistance;
         ai.stopDistance = stopDistance;
-        ai.defendDistance = defendDistance;
 
         // Combat
         EnemyCombatController meleeCombat = null;

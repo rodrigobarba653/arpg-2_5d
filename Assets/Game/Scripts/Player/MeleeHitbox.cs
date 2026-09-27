@@ -25,6 +25,12 @@ public class MeleeHitbox : MonoBehaviour
     [Tooltip("Optional separate sound played when the hit is blocked by an enemy's guard.")]
     [SerializeField] private AudioClip blockSound;
 
+    [Header("Block Clash")]
+    [SerializeField] private float blockEnemyPushForce = 1.25f;
+    [SerializeField] private float blockEnemyPushTime = 0.08f;
+    [SerializeField] private float blockPlayerPushSpeed = 5f;
+    [SerializeField] private float blockPlayerPushTime = 0.12f;
+
     [Range(0f, 1f)]
     [SerializeField] private float hitVolume = 1f;
 
@@ -245,43 +251,30 @@ public class MeleeHitbox : MonoBehaviour
 
             Vector3 dir = (enemy.transform.position - owner.position).normalized;
 
-            // ======================
-            // 🛡️ DIRECTIONAL DEFENSE
-            // ======================
-            // Block only if the hit comes from the enemy's front arc.
-            // Hits from behind bypass the block entirely.
-            if (ai != null && ai.isDefending)
+            // Player melee that the guard absorbs never reaches EnemyHealth.
+            // BlocksAttackFrom is the only test: front arc, or 360 when coverage says so.
+            // The clash push below is only this path. A hit that gets through falls
+            // through to TakeDamage, which then drops the guard.
+            if (ai != null && ai.BlocksAttackFrom(owner.position))
             {
-                Vector3 enemyForward = enemy.transform.forward;
-                enemyForward.y = 0f;
-                enemyForward.Normalize();
-
-                Vector3 attackFromDir = (owner.position - enemy.transform.position);
-                attackFromDir.y = 0f;
-                attackFromDir.Normalize();
-
-                float facingDot = Vector3.Dot(enemyForward, attackFromDir);
-
-                bool hitFromFront = facingDot > 0f;
-
-                if (hitFromFront)
-                {
-                    if (logDebug)
-                        Debug.Log("🛡️ BLOCK (front)!", this);
-
-                    // light pushback for feedback, no damage
-                    var motor = enemy.GetComponent<EnemyMotor>();
-                    if (motor)
-                        motor.DoKnockback(dir, 0.5f, 0.1f);
-
-                    DoHitStop();
-                    PlayBlockOrHitSfx(enemy.transform.position, blocked: true);
-                    return;
-                }
-
                 if (logDebug)
-                    Debug.Log("⚔️ BACKSTAB through defense!", this);
-                // back hit: fall through to normal damage
+                    Debug.Log("🛡️ BLOCK!", this);
+
+                ai.NotifyBlockedHit();
+
+                var motor = enemy.GetComponent<EnemyMotor>();
+                if (motor)
+                    motor.DoKnockback(dir, blockEnemyPushForce, blockEnemyPushTime);
+
+                Vector3 pushPlayer = owner.position - enemy.transform.position;
+                pushPlayer.y = 0f;
+                PlayerMotor playerMotor = owner.GetComponentInParent<PlayerMotor>();
+                if (playerMotor != null)
+                    playerMotor.BeginKnockback(pushPlayer, blockPlayerPushSpeed, blockPlayerPushTime);
+
+                DoHitStop();
+                PlayBlockOrHitSfx(enemy.transform.position, blocked: true);
+                return;
             }
 
             // ======================

@@ -1,5 +1,13 @@
+using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Shared brain for every enemy, including Soldier-Melee and Soldier-Defender.
+/// Those two prefabs use this same script. The animator controller on the body
+/// is what changes their clips. Turning Can Defend on is what makes an enemy
+/// raise a guard: it shows Defend on the reaction chart, and a Defend roll
+/// calls StartDefense. Soldier-Melee can defend if that toggle is switched on.
+/// </summary>
 public class EnemyAI : MonoBehaviour
 {
     public EnemyMotor motor;
@@ -10,10 +18,17 @@ public class EnemyAI : MonoBehaviour
     EnemyRangedCombatController ranged;
     EnemyPatrol patrol;
     EnemyReactionChart reactions;
-    PlayerCombatController playerCombat;
 
     [Header("Distances")]
+    [Tooltip("Notice range in the front half. The back half uses Detect Back Distance.")]
     public float detectDistance = 6f;
+
+    [Tooltip("Notice range in the back half. Kept shorter than the front so the enemy is easier to approach from behind.")]
+    public float detectBackDistance = 3f;
+
+    [Tooltip("After the enemy has noticed the player, they keep chasing until the player is this far away.")]
+    public float disengageDistance = 12f;
+
     public float stopDistance = 1.5f;
 
     [Tooltip("If true, this enemy takes a slot on a circle around the player " +
@@ -31,18 +46,27 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Speed used while chasing the player. 0 or less = use EnemyMotor.moveSpeed.")]
     public float chaseSpeed = 0f;
 
-    [Header("Defense")]
-    public bool canDefend = true;
-    [Range(0, 1)] public float defendChance = 0.3f;
-    public float defendCooldown = 3f;
-    [HideInInspector] public float lastDefendTime;
+    public enum DefendCoverage
+    {
+        Front,
+        AllDirections
+    }
 
-    [Header("Defense Range")]
-    public float defendDistance = 2f;
+    [Header("Defense")]
+    [Tooltip("Shows Defend on the reaction chart. A Defend roll raises the guard. Off, and that column is hidden and its points fold back into Hold.")]
+    public bool canDefend = true;
+    [Tooltip("Front blocks the half in front of the direction they set the guard. All Directions blocks a hit from anywhere.")]
+    public DefendCoverage defendCoverage = DefendCoverage.Front;
 
     [Header("Defense State")]
     public bool isDefending;
     public float defendDuration = 1.5f;
+
+    [Tooltip("How long the sprite jitters when a hit is blocked.")]
+    public float blockShakeDuration = 0.22f;
+
+    [Tooltip("How far the sprite jitters, in local units, when a hit is blocked.")]
+    public float blockShakeDistance = 0.24f;
 
     [Header("Alert (Spotted Player)")]
     [Tooltip("If true, the enemy freezes and shows alertIcon for alertDuration seconds the first time the player enters detectDistance.")]
@@ -70,16 +94,33 @@ public class EnemyAI : MonoBehaviour
     float exitCombatAt;
 
     float defendTimer;
-    bool playerWasAttackingLastFrame;
+    Vector3 defendFacing;
+    Coroutine blockShakeRoutine;
+    Vector3 blockShakeRestLocal;
+    bool blockShakeHasRest;
 
     Transform lastRegisteredPlayer; // who we're currently registered with in EnemySurroundGroup
+
+    bool chasing;
+    bool strafing;
+    float strafeSign = 1f;
+    float strafePhase;
+    float strafeFlipAt;
+    float strafeStuck;
+
+    public bool IsChasing => chasing;
 
     void Awake()
     {
         if (!motor)
             motor = GetComponent<EnemyMotor>();
 
-        animator = GetComponentInChildren<Animator>();
+        // The alert marker has its own Animator. The body driver points at the
+        // sprite that plays Idle, Walk, Attack, Hurt, and Defend.
+        EnemyTopDownAnimDriver driver = GetComponentInChildren<EnemyTopDownAnimDriver>();
+        animator = driver != null && driver.animator != null
+            ? driver.animator
+            : GetComponentInChildren<Animator>();
 
         melee = GetComponent<EnemyCombatController>();
         ranged = GetComponent<EnemyRangedCombatController>();
@@ -91,9 +132,6 @@ public class EnemyAI : MonoBehaviour
         // FindWithTag for legacy setups without PersistentPlayer.
         if (!player)
             player = ResolvePlayerTransform();
-
-        if (player)
-            playerCombat = player.GetComponent<PlayerCombatController>();
 
         PropagatePlayerToCombat();
 
@@ -135,10 +173,7 @@ public class EnemyAI : MonoBehaviour
             player = ResolvePlayerTransform();
 
             if (player != null)
-            {
-                playerCombat = player.GetComponent<PlayerCombatController>();
                 PropagatePlayerToCombat();
-            }
         }
 
         if (!player)
@@ -158,11 +193,8 @@ public class EnemyAI : MonoBehaviour
         if (lastRegisteredPlayer != null && lastRegisteredPlayer != player)
             EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
 
-        if (playerCombat == null)
-            playerCombat = player.GetComponent<PlayerCombatController>();
-
-        float dist = Vector3.Distance(transform.position, player.position);
-        bool seesPlayer = dist <= detectDistance;
+        float dist = FlatDistance(player.position, transform.position);
+        bool seesPlayer = UpdateChase(player.position, dist);
 
         // ===== COMBAT STATE =====
         bool combatActionActive =
@@ -219,38 +251,28 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        // ===== DEFENSE TIMER =====
+        // While the guard is up, hold still and do not roll again, including the
+        // frame it ends. The chart samples again on the next frame.
         if (isDefending)
         {
             defendTimer -= Time.deltaTime;
-
-            motor.Stop();
+            HoldDefendFacing();
 
             if (defendTimer <= 0f)
-            {
                 EndDefense();
-            }
 
             return;
         }
 
-        // ===== REACTIVE DEFENSE =====
-        // Roll once when the player transitions from idle to attacking.
-        bool playerIsAttacking = playerCombat != null && playerCombat.IsAttacking();
-        bool playerJustStartedAttack = playerIsAttacking && !playerWasAttackingLastFrame;
-        playerWasAttackingLastFrame = playerIsAttacking;
+        // Once per frame. Combat also calls Tick, and the chart ignores a second
+        // call in the same frame, so script order does not change the roll.
+        if (reactions != null)
+            reactions.Tick();
 
-        if (canDefend &&
-            playerJustStartedAttack &&
-            Time.time >= lastDefendTime + defendCooldown &&
-            dist <= defendDistance &&
-            dist > stopDistance * 0.8f)
+        if (canDefend && reactions != null && reactions.WantsDefend)
         {
-            if (Random.value < defendChance)
-            {
-                StartDefense();
-                return;
-            }
+            StartDefense();
+            return;
         }
 
         // ===== FIXED ENEMY =====
@@ -260,7 +282,7 @@ public class EnemyAI : MonoBehaviour
         {
             motor.Stop();
 
-            if (dist <= detectDistance)
+            if (seesPlayer)
             {
                 Vector3 toPlayer = player.position - transform.position;
                 toPlayer.y = 0f;
@@ -274,7 +296,7 @@ public class EnemyAI : MonoBehaviour
 
         // ===== NORMAL AI (Mobile) =====
 
-        if (dist > detectDistance)
+        if (!seesPlayer)
         {
             // Out of detect range → patrol if a route is set, otherwise stay idle.
             motor.activeSpeedOverride = patrolSpeed;
@@ -305,17 +327,25 @@ public class EnemyAI : MonoBehaviour
         // Apply chase speed (or fall back to motor.moveSpeed if not configured).
         if (chaseSpeed > 0f)
             motor.activeSpeedOverride = chaseSpeed;
-
-        if (reactions != null)
-            reactions.Tick();
+        else
+            motor.activeSpeedOverride = -1f;
 
         if (reactions != null && reactions.WantsHold)
         {
-            motor.Stop();
-            if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
-                motor.agent.ResetPath();
+            if (!strafing)
+            {
+                strafing = true;
+                strafeSign = Random.value < 0.5f ? -1f : 1f;
+                strafePhase = Random.Range(0f, Mathf.PI * 2f);
+                strafeFlipAt = 0f;
+                strafeStuck = 0f;
+            }
+
+            LooseStrafe(player.position, reactions.HoldStrafeSpeed);
             return;
         }
+
+        strafing = false;
 
         if (reactions != null && reactions.WantsStepBack)
         {
@@ -370,8 +400,205 @@ public class EnemyAI : MonoBehaviour
         motor.SetMoveDirection(moveDir);
     }
 
+    bool UpdateChase(Vector3 playerPos, float dist)
+    {
+        if (!chasing)
+        {
+            if (InsideNoticeShape(playerPos, dist))
+                chasing = true;
+        }
+        else if (dist > disengageDistance)
+        {
+            chasing = false;
+        }
+
+        return chasing;
+    }
+
+    void LooseStrafe(Vector3 playerPos, float speedScale)
+    {
+        Vector3 toPlayer = playerPos - transform.position;
+        toPlayer.y = 0f;
+        float d = toPlayer.magnitude;
+        Vector3 radial = d > 0.05f ? toPlayer / d : transform.forward;
+        Vector3 side = Vector3.Cross(Vector3.up, radial) * strafeSign;
+
+        if (Time.time >= strafeFlipAt && ShouldFlipStrafe(side))
+        {
+            strafeSign = -strafeSign;
+            strafeFlipAt = Time.time + 0.45f;
+            strafeStuck = 0f;
+            side = -side;
+        }
+
+        // Preferred distance slowly breathes, and the pull toward it is weak,
+        // so the path wanders instead of riding stopDistance.
+        float breathe = Mathf.Sin(Time.time * 0.45f + strafePhase);
+        float preferred = stopDistance * Mathf.Lerp(0.75f, 1.6f, (breathe + 1f) * 0.5f);
+        float inward = Mathf.Clamp((d - preferred) * 0.1f, -0.3f, 0.3f);
+        Vector3 move = side + radial * inward;
+
+        float baseSpeed = chaseSpeed > 0f ? chaseSpeed : motor.moveSpeed;
+        motor.activeSpeedOverride = Mathf.Max(0.2f, baseSpeed * Mathf.Clamp(speedScale, 0.15f, 1f));
+        motor.SetMoveAndFacing(move, radial);
+
+        if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
+            motor.agent.ResetPath();
+    }
+
+    bool ShouldFlipStrafe(Vector3 side)
+    {
+        side.y = 0f;
+        if (side.sqrMagnitude < 0.0001f)
+            return false;
+        side.Normalize();
+
+        // Already grinding against something: turn around even if the probe misses.
+        if (motor.GetSpeed() < 0.2f)
+        {
+            strafeStuck += Time.deltaTime;
+            if (strafeStuck > 0.2f && !StrafeBlocked(-side))
+                return true;
+        }
+        else
+        {
+            strafeStuck = 0f;
+        }
+
+        return StrafeBlocked(side) && !StrafeBlocked(-side);
+    }
+
+    bool StrafeBlocked(Vector3 dir)
+    {
+        float body = 0.35f;
+        if (motor.controller != null)
+        {
+            float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z);
+            body = motor.controller.radius * scale + 0.12f;
+        }
+
+        Vector3 origin = transform.position + Vector3.up * 0.45f + dir * body;
+        int count = Physics.RaycastNonAlloc(origin, dir, StrafeHits, 0.55f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Transform hit = StrafeHits[i].transform;
+            if (hit == null || hit == transform || hit.IsChildOf(transform))
+                continue;
+            if (player != null && (hit == player || hit.IsChildOf(player)))
+                continue;
+            return true;
+        }
+
+        return false;
+    }
+
+    static readonly RaycastHit[] StrafeHits = new RaycastHit[8];
+
+    bool InsideNoticeShape(Vector3 playerPos, float dist)
+    {
+        Vector3 to = playerPos - transform.position;
+        to.y = 0f;
+        if (to.sqrMagnitude < 0.0001f)
+            return true;
+
+        Vector3 fwd = transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f)
+            fwd = Vector3.forward;
+
+        bool inFront = Vector3.Dot(fwd.normalized, to.normalized) >= 0f;
+        float range = inFront ? detectDistance : detectBackDistance;
+        return dist <= range;
+    }
+
+    static float FlatDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
+    }
+
+    void OnValidate()
+    {
+        detectDistance = Mathf.Max(0.1f, detectDistance);
+        detectBackDistance = Mathf.Clamp(detectBackDistance, 0.1f, detectDistance);
+        disengageDistance = Mathf.Max(detectDistance, disengageDistance);
+
+        EnemyReactionChart chart = GetComponent<EnemyReactionChart>();
+        if (chart != null)
+            chart.RefreshShares();
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        Vector3 origin = transform.position;
+        Vector3 fwd = transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f)
+            fwd = Vector3.forward;
+        fwd.Normalize();
+
+        Gizmos.color = new Color(1f, 0.45f, 0.2f, 0.9f);
+        DrawArc(origin, fwd, detectDistance, -90f, 90f);
+        Gizmos.color = new Color(0.3f, 0.75f, 1f, 0.9f);
+        DrawArc(origin, fwd, detectBackDistance, 90f, 270f);
+        Gizmos.color = new Color(1f, 0.9f, 0.25f, 0.35f);
+        DrawArc(origin, fwd, Mathf.Max(detectDistance, disengageDistance), 0f, 360f);
+    }
+
+    static void DrawArc(Vector3 origin, Vector3 forward, float radius, float fromDeg, float toDeg)
+    {
+        const int seg = 24;
+        float span = toDeg - fromDeg;
+        Vector3 prev = origin + (Quaternion.AngleAxis(fromDeg, Vector3.up) * forward) * radius;
+        for (int i = 1; i <= seg; i++)
+        {
+            float ang = fromDeg + span * (i / (float)seg);
+            Vector3 next = origin + (Quaternion.AngleAxis(ang, Vector3.up) * forward) * radius;
+            Gizmos.DrawLine(prev, next);
+            prev = next;
+        }
+    }
+
+    /// <summary>
+    /// True when this guard absorbs a hit from sourceWorldPosition.
+    /// MeleeHitbox and EnemyHealth both call this, so a block is decided in one place.
+    /// Front uses the facing captured when this guard started, not the current sprite facing.
+    /// </summary>
+    public bool BlocksAttackFrom(Vector3 sourceWorldPosition)
+    {
+        if (!isDefending)
+            return false;
+
+        if (defendCoverage == DefendCoverage.AllDirections)
+            return true;
+
+        Vector3 fwd = defendFacing;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f)
+            fwd = transform.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f)
+            return true;
+
+        Vector3 from = sourceWorldPosition - transform.position;
+        from.y = 0f;
+        if (from.sqrMagnitude < 0.001f)
+            return true;
+
+        return Vector3.Dot(fwd.normalized, from.normalized) > 0f;
+    }
+
+    public Vector3 DefendFacing => defendFacing.sqrMagnitude > 0.001f ? defendFacing : transform.forward;
+
     void OnDisable()
     {
+        if (isDefending)
+            EndDefense();
+
+        StopBlockShake();
+
+        chasing = false;
         if (lastRegisteredPlayer != null)
         {
             EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
@@ -403,11 +630,81 @@ public class EnemyAI : MonoBehaviour
             alertIcon.SetActive(false);
     }
 
+    /// <summary>A hit was blocked. Jitters the sprite. Real damage does not call this.</summary>
+    public void NotifyBlockedHit()
+    {
+        if (!isDefending || animator == null)
+            return;
+
+        if (blockShakeRoutine != null)
+            StopCoroutine(blockShakeRoutine);
+
+        blockShakeRoutine = StartCoroutine(BlockShake());
+    }
+
+    IEnumerator BlockShake()
+    {
+        Transform body = animator.transform;
+        if (!blockShakeHasRest)
+        {
+            blockShakeRestLocal = body.localPosition;
+            blockShakeHasRest = true;
+        }
+
+        float duration = Mathf.Max(0.01f, blockShakeDuration);
+        float distance = Mathf.Max(0f, blockShakeDistance);
+        float t = 0f;
+
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float damp = 1f - Mathf.Clamp01(t / duration);
+            Vector2 offset = Random.insideUnitCircle * distance * damp;
+            body.localPosition = blockShakeRestLocal + new Vector3(offset.x, offset.y, 0f);
+            yield return null;
+        }
+
+        body.localPosition = blockShakeRestLocal;
+        blockShakeHasRest = false;
+        blockShakeRoutine = null;
+    }
+
+    void StopBlockShake()
+    {
+        if (blockShakeRoutine != null)
+        {
+            StopCoroutine(blockShakeRoutine);
+            blockShakeRoutine = null;
+        }
+
+        if (blockShakeHasRest && animator != null)
+            animator.transform.localPosition = blockShakeRestLocal;
+
+        blockShakeHasRest = false;
+    }
+
+    /// <summary>
+    /// A hit that got through the guard ends it so the hurt reaction can play.
+    /// The same swing does not raise the guard again.
+    /// </summary>
+    public void BreakDefense()
+    {
+        if (reactions != null)
+            reactions.CancelReaction();
+
+        if (isDefending)
+            EndDefense();
+    }
+
     void StartDefense()
     {
         isDefending = true;
         defendTimer = defendDuration;
-        lastDefendTime = Time.time;
+
+        Vector3 facing = transform.forward;
+        facing.y = 0f;
+        defendFacing = facing.sqrMagnitude > 0.001f ? facing.normalized : Vector3.forward;
+        HoldDefendFacing();
 
         if (animator)
             animator.SetBool("isDefending", true);
@@ -417,7 +714,25 @@ public class EnemyAI : MonoBehaviour
     {
         isDefending = false;
 
+        if (motor != null)
+            motor.lockFacing = false;
+
         if (animator)
             animator.SetBool("isDefending", false);
+    }
+
+    /// <summary>
+    /// Keeps the root yaw on the direction chosen for this guard.
+    /// The sprite still billboards. DefendFacing only picks which defend pose plays.
+    /// The next StartDefense captures a new direction.
+    /// </summary>
+    void HoldDefendFacing()
+    {
+        if (motor == null)
+            return;
+
+        motor.Stop();
+        motor.lockFacing = true;
+        motor.ForceFacing(defendFacing);
     }
 }
