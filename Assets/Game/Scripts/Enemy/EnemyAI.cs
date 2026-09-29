@@ -7,6 +7,8 @@ using UnityEngine;
 /// is what changes their clips. Turning Can Defend on is what makes an enemy
 /// raise a guard: it shows Defend on the reaction chart, and a Defend roll
 /// calls StartDefense. Soldier-Melee can defend if that toggle is switched on.
+/// Long Range Attacker shows the shot and the directional muzzle. Melee Attack
+/// chooses whether this enemy also swings: always, only up close, or never.
 /// </summary>
 public class EnemyAI : MonoBehaviour
 {
@@ -46,6 +48,10 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Speed used while chasing the player. 0 or less = use EnemyMotor.moveSpeed.")]
     public float chaseSpeed = 0f;
 
+    [Tooltip("Fraction of chase speed when the enemy is not closing in. That covers circling a surround slot, the hold sidestep, and stepping away.")]
+    [Range(0.15f, 1f)]
+    public float strafeSpeedScale = 0.4f;
+
     public enum DefendCoverage
     {
         Front,
@@ -67,6 +73,53 @@ public class EnemyAI : MonoBehaviour
 
     [Tooltip("How far the sprite jitters, in local units, when a hit is blocked.")]
     public float blockShakeDistance = 0.24f;
+
+    public enum MeleeAttackMode
+    {
+        Yes,
+        [InspectorName("Only When Close")]
+        OnlyWhenClose,
+        No
+    }
+
+    [Header("Melee Attack")]
+    [Tooltip("Yes swings at the melee attack distance. Only When Close swings inside Melee Close Distance. No never swings.")]
+    public MeleeAttackMode meleeAttack = MeleeAttackMode.Yes;
+
+    [Tooltip("Swing range when Melee Attack is Only When Close.")]
+    public float meleeCloseDistance = 1.5f;
+
+    public enum LongRangeFireMode
+    {
+        [InspectorName("Timed")]
+        Timed,
+        [InspectorName("Timed+Reactive")]
+        Reactive
+    }
+
+    [Header("Long Range")]
+    [Tooltip("Shows the ranged attack and the directional shoot point. Mobile or Fixed stays on the motor.")]
+    public bool longRangeAttacker;
+
+    [Tooltip("Timed shoots on the cooldown and ignores the reaction chart. Timed+Reactive keeps that cooldown, and the chart allows or blocks the shot.")]
+    public LongRangeFireMode longRangeFire = LongRangeFireMode.Timed;
+
+    public bool ReactiveShooter => longRangeAttacker && longRangeFire == LongRangeFireMode.Reactive;
+
+    public bool UsesMelee => meleeAttack != MeleeAttackMode.No;
+
+    public float MeleeRange(EnemyCombatController combat)
+    {
+        if (meleeAttack == MeleeAttackMode.OnlyWhenClose)
+            return meleeCloseDistance;
+
+        return combat != null ? combat.attackDistance : meleeCloseDistance;
+    }
+
+    public bool MeleeOwnsDistance(float dist, EnemyCombatController combat)
+    {
+        return UsesMelee && dist <= MeleeRange(combat);
+    }
 
     [Header("Alert (Spotted Player)")]
     [Tooltip("If true, the enemy freezes and shows alertIcon for alertDuration seconds the first time the player enters detectDistance.")]
@@ -166,6 +219,9 @@ public class EnemyAI : MonoBehaviour
 
     void Update()
     {
+        if (motor != null)
+            motor.speedScale = 1f;
+
         // No player found yet → patrol if we have a route, otherwise stay idle.
         // (Doesn't return — keeps trying to re-find the player next frame.)
         if (!player)
@@ -330,7 +386,10 @@ public class EnemyAI : MonoBehaviour
         else
             motor.activeSpeedOverride = -1f;
 
-        if (reactions != null && reactions.WantsHold)
+        bool holding = reactions != null && (reactions.CloseActive ? reactions.WantsCloseHold : reactions.WantsHold);
+        bool steppingBack = reactions != null && (reactions.CloseActive ? reactions.WantsCloseStepBack : reactions.WantsStepBack);
+
+        if (holding)
         {
             if (!strafing)
             {
@@ -341,13 +400,14 @@ public class EnemyAI : MonoBehaviour
                 strafeStuck = 0f;
             }
 
-            LooseStrafe(player.position, reactions.HoldStrafeSpeed);
+            LooseStrafe(player.position);
+            motor.speedScale = StrafeScale(true);
             return;
         }
 
         strafing = false;
 
-        if (reactions != null && reactions.WantsStepBack)
+        if (steppingBack)
         {
             float backTo = stopDistance + reactions.StepBackDistance;
             if (dist >= backTo)
@@ -360,6 +420,7 @@ public class EnemyAI : MonoBehaviour
 
             Vector3 away = transform.position - player.position;
             away.y = 0f;
+            motor.speedScale = StrafeScale(false);
             motor.SetMoveDirection(away);
             return;
         }
@@ -397,7 +458,36 @@ public class EnemyAI : MonoBehaviour
                 moveDir = desired;
         }
 
+        if (MoveIsStrafe(moveDir))
+            motor.speedScale = StrafeScale(false);
+
         motor.SetMoveDirection(moveDir);
+    }
+
+    /// <summary>
+    /// Closing in stays at chase speed. Sidesteps, backing away, and orbiting a slot do not.
+    /// Hold can be slower still when the chart's hold fraction is below Strafe Speed.
+    /// </summary>
+    float StrafeScale(bool holding)
+    {
+        float scale = strafeSpeedScale;
+        if (holding && reactions != null)
+            scale = Mathf.Min(scale, reactions.HoldStrafeSpeed);
+        return Mathf.Clamp(scale, 0.15f, 1f);
+    }
+
+    bool MoveIsStrafe(Vector3 moveDir)
+    {
+        moveDir.y = 0f;
+        if (moveDir.sqrMagnitude < 0.0001f || player == null)
+            return false;
+
+        Vector3 toPlayer = player.position - transform.position;
+        toPlayer.y = 0f;
+        if (toPlayer.sqrMagnitude < 0.0001f)
+            return false;
+
+        return Vector3.Dot(moveDir.normalized, toPlayer.normalized) < 0.45f;
     }
 
     bool UpdateChase(Vector3 playerPos, float dist)
@@ -415,7 +505,7 @@ public class EnemyAI : MonoBehaviour
         return chasing;
     }
 
-    void LooseStrafe(Vector3 playerPos, float speedScale)
+    void LooseStrafe(Vector3 playerPos)
     {
         Vector3 toPlayer = playerPos - transform.position;
         toPlayer.y = 0f;
@@ -438,8 +528,6 @@ public class EnemyAI : MonoBehaviour
         float inward = Mathf.Clamp((d - preferred) * 0.1f, -0.3f, 0.3f);
         Vector3 move = side + radial * inward;
 
-        float baseSpeed = chaseSpeed > 0f ? chaseSpeed : motor.moveSpeed;
-        motor.activeSpeedOverride = Mathf.Max(0.2f, baseSpeed * Mathf.Clamp(speedScale, 0.15f, 1f));
         motor.SetMoveAndFacing(move, radial);
 
         if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)

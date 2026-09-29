@@ -186,9 +186,13 @@ public class EnemyCombatController : MonoBehaviour
         if (motor != null && motor.IsMovementLocked())
             return;
 
-        float dist = Vector3.Distance(transform.position, player.position);
+        if (ai != null && !ai.UsesMelee)
+            return;
 
-        if (dist > attackDistance)
+        float dist = Vector3.Distance(transform.position, player.position);
+        float range = ai != null ? ai.MeleeRange(this) : attackDistance;
+
+        if (dist > range)
             return;
 
         if (Time.time < nextAttackTime)
@@ -197,7 +201,12 @@ public class EnemyCombatController : MonoBehaviour
         if (reactions != null)
         {
             reactions.Tick();
-            if (!reactions.AllowsAttack)
+            if (reactions.CloseActive)
+            {
+                if (!reactions.WantsCloseMelee)
+                    return;
+            }
+            else if (!reactions.AllowsAttack)
                 return;
         }
 
@@ -229,6 +238,8 @@ public class EnemyCombatController : MonoBehaviour
             dir = transform.forward;
 
         attackStepDirection = dir.normalized;
+        if (reactions != null && reactions.WantsCloseMelee && reactions.WantsCloseStepBack)
+            attackStepDirection = -attackStepDirection;
 
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();

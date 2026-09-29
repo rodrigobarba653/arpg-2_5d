@@ -6,6 +6,7 @@ public class EnemyRangedCombatController : MonoBehaviour
     public Animator animator;
     public EnemyMotor motor;
     EnemyAI ai;
+    EnemyCombatController melee;
     EnemyReactionChart reactions;
 
     public Transform player;
@@ -13,6 +14,21 @@ public class EnemyRangedCombatController : MonoBehaviour
     [Header("Projectile")]
     public GameObject projectilePrefab;
     public Transform shootPoint;
+
+    [Tooltip("Damage when the projectile is a player fireball (AxFireball). EnemyProjectile prefabs use their own damage.")]
+    public int projectileDamage = 5;
+
+    [Tooltip("World units per second for a fireball shot. 0 keeps the Speed on the fireball prefab. EnemyProjectile prefabs use their own speed.")]
+    public float projectileSpeed = 12f;
+
+    [Tooltip("Played at the shoot point when the projectile spawns. Cartoon FX Flash by default.")]
+    public GameObject muzzleFlashPrefab;
+
+    [Tooltip("World scale of the muzzle flash.")]
+    public float muzzleFlashScale = 0.4f;
+
+    [Tooltip("How much faster the flash plays. 1 is the prefab's own speed.")]
+    public float muzzleFlashSpeed = 0.5f;
 
     [Header("Attack")]
     public float attackDistance = 6f;
@@ -66,6 +82,7 @@ public class EnemyRangedCombatController : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
 
         ai = GetComponent<EnemyAI>();
+        melee = GetComponent<EnemyCombatController>();
         reactions = GetComponent<EnemyReactionChart>();
     }
 
@@ -93,7 +110,9 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (ai != null && ai.isAlerting)
             return;
 
-        if (ai != null && ai.isDefending)
+        bool reactive = ai != null && ai.ReactiveShooter;
+
+        if (reactive && ai.isDefending)
             return;
 
         if (isAttacking)
@@ -105,18 +124,27 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (motor != null && motor.IsMovementLocked())
             return;
 
+        if (ai != null && !ai.longRangeAttacker)
+            return;
+
         float dist = Vector3.Distance(transform.position, player.position);
 
         if (dist > attackDistance)
             return;
 
+        // A close swing owns this range, so a shooter does not fire and melee together.
+        if (ai != null && ai.MeleeOwnsDistance(dist, melee))
+            return;
+
         if (Time.time < nextAttackTime)
             return;
 
-        if (reactions != null)
+        if (reactive && reactions != null)
         {
             reactions.Tick();
-            if (!reactions.AllowsAttack)
+            if (reactions.CloseActive)
+                return;
+            if (!reactions.AllowsRangedAttack)
                 return;
         }
 
@@ -185,6 +213,9 @@ public class EnemyRangedCombatController : MonoBehaviour
             dir = transform.forward;
 
         dir.y = 0f;
+        dir.Normalize();
+
+        PlayMuzzleFlash(dir);
 
         GameObject p = Instantiate(
             projectilePrefab,
@@ -193,9 +224,38 @@ public class EnemyRangedCombatController : MonoBehaviour
         );
 
         EnemyProjectile proj = p.GetComponent<EnemyProjectile>();
-
         if (proj)
+        {
             proj.Launch(dir);
+            return;
+        }
+
+        ProjectileSpellEffect fireball = p.GetComponent<ProjectileSpellEffect>();
+        if (fireball != null)
+            fireball.LaunchFromEnemy(dir, projectileDamage, transform, projectileSpeed);
+    }
+
+    void PlayMuzzleFlash(Vector3 dir)
+    {
+        if (muzzleFlashPrefab == null || shootPoint == null)
+            return;
+
+        Quaternion rot = dir.sqrMagnitude > 0.001f ? Quaternion.LookRotation(dir) : Quaternion.identity;
+        float scale = Mathf.Max(0.05f, muzzleFlashScale);
+        GameObject flash = Instantiate(muzzleFlashPrefab, shootPoint.position, rot);
+        flash.transform.localScale = Vector3.one * scale;
+
+        float speed = Mathf.Max(0.1f, muzzleFlashSpeed);
+        ParticleSystem[] systems = flash.GetComponentsInChildren<ParticleSystem>();
+        for (int i = 0; i < systems.Length; i++)
+        {
+            ParticleSystem.MainModule main = systems[i].main;
+            main.simulationSpeed = speed;
+        }
+
+        Light[] lights = flash.GetComponentsInChildren<Light>();
+        for (int i = 0; i < lights.Length; i++)
+            lights[i].range *= scale;
     }
 
     // Can be triggered by timer (default) or animation event.

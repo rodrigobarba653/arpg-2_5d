@@ -29,9 +29,13 @@ public class EnemyProjectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            Destroy(gameObject);
-        }
+        if (!other.CompareTag("Player"))
+            return;
+
+        PlayerHealth health = other.GetComponentInParent<PlayerHealth>();
+        if (health != null)
+            health.TakeDamage(damage, transform.forward);
+
+        Destroy(gameObject);
     }
 }

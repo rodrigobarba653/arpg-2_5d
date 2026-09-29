@@ -14,6 +14,9 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
     Vector3 lastMoveDir = Vector3.forward;
 
+    /// <summary>Flat facing the blend tree is showing. Same vector as MoveX / MoveY.</summary>
+    public Vector3 SpriteFacing { get; private set; } = Vector3.forward;
+
     static readonly int IsMovingHash   = Animator.StringToHash("IsMoving");
     static readonly int IsInCombatHash = Animator.StringToHash("IsInCombat");
     static readonly int MoveXHash      = Animator.StringToHash("MoveX");
@@ -124,6 +127,7 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
         Vector2 dir2D =
             new Vector2(finalDir.x, finalDir.z).normalized;
+        SpriteFacing = new Vector3(dir2D.x, 0f, dir2D.y);
 
         if (hasIsMoving)   animator.SetBool(IsMovingHash, isMoving);
         if (hasIsInCombat) animator.SetBool(IsInCombatHash, ai != null && ai.isInCombat);

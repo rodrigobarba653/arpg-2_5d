@@ -26,9 +26,14 @@ public class EnemyMotor : MonoBehaviour
     [HideInInspector]
     public float activeSpeedOverride = -1f;
 
+    /// <summary>1 is full speed. Enemy AI lowers this while strafing, holding, or stepping away.</summary>
+    [HideInInspector]
+    public float speedScale = 1f;
+
     public float GetActiveSpeed()
     {
-        return activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
+        float speed = activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
+        return speed * Mathf.Clamp(speedScale, 0f, 1f);
     }
 
     [Header("Knockback")]
@@ -75,6 +80,18 @@ public class EnemyMotor : MonoBehaviour
         {
             agent.updatePosition = false;
             agent.updateRotation = false;
+        }
+
+        // A planted enemy stays put. A non-kinematic body would still slide when the player hits it.
+        if (moveType == EnemyMoveType.Fixed)
+        {
+            Rigidbody body = GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.isKinematic = true;
+            }
         }
     }
 
@@ -307,6 +324,7 @@ public class EnemyMotor : MonoBehaviour
 
     public void DoKnockback(Vector3 dir, float force, float time)
     {
+        // Fixed enemies take the hit, but they do not slide.
         if (moveType == EnemyMoveType.Fixed)
             return;
 

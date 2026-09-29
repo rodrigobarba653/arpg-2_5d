@@ -39,7 +39,36 @@ public class ProjectileSpellEffect : SpellEffect
     Vector3 direction;
     PlayerHealth casterRef;
     int resolvedDamage;
+    bool firedByEnemy;
     readonly System.Collections.Generic.HashSet<EnemyHealth> hitEnemies = new System.Collections.Generic.HashSet<EnemyHealth>();
+
+    /// <summary>
+    /// Enemy shots use the same fireball prefab. This flies along direction and
+    /// damages the player. A player cast still goes through Init and hits enemies.
+    /// </summary>
+    public void LaunchFromEnemy(Vector3 worldDirection, int damage, Transform ignoreRoot, float speedOverride = 0f)
+    {
+        firedByEnemy = true;
+        resolvedDamage = Mathf.Max(0, damage);
+        if (speedOverride > 0f)
+            speed = speedOverride;
+
+        worldDirection.y = 0f;
+        direction = worldDirection.sqrMagnitude > 0.001f ? worldDirection.normalized : Vector3.forward;
+        transform.rotation = Quaternion.LookRotation(direction);
+
+        if (ignoreRoot != null)
+        {
+            Collider[] mine = GetComponentsInChildren<Collider>();
+            Collider[] theirs = ignoreRoot.GetComponentsInChildren<Collider>();
+            for (int i = 0; i < mine.Length; i++)
+                for (int j = 0; j < theirs.Length; j++)
+                    if (mine[i] != null && theirs[j] != null)
+                        Physics.IgnoreCollision(mine[i], theirs[j], true);
+        }
+
+        Destroy(gameObject, lifetime);
+    }
 
     public override void Init(PlayerHealth caster, SpellItem spell)
     {
@@ -125,6 +154,22 @@ public class ProjectileSpellEffect : SpellEffect
     {
         if (other == null) return;
 
+        if (firedByEnemy)
+        {
+            PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
+            if (playerHealth != null)
+            {
+                Vector3 hitDir = direction.sqrMagnitude > 0.001f ? direction : transform.forward;
+                playerHealth.TakeDamage(resolvedDamage, hitDir);
+                Explode();
+                return;
+            }
+
+            // Don't blow up on the turret or other enemies. Still stop on scenery.
+            if (other.GetComponentInParent<EnemyHealth>() != null)
+                return;
+        }
+
         // Layer mask filter — the projectile only reacts to layers in the mask.
         if (((1 << other.gameObject.layer) & hitLayerMask.value) == 0) return;
 
@@ -150,7 +195,11 @@ public class ProjectileSpellEffect : SpellEffect
         // wall behind an already-damaged enemy.
         if (!destroyOnHit && !didDamage) return;
 
-        // Explode: spawn impact FX + sound, then destroy on hit if configured.
+        Explode();
+    }
+
+    void Explode()
+    {
         if (impactVfxPrefab != null)
             Instantiate(impactVfxPrefab, transform.position, Quaternion.identity);
         if (impactSound != null)
