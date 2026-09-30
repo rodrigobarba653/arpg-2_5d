@@ -143,6 +143,7 @@ public class PlayerCombatController : MonoBehaviour
     private static readonly int InCombatHash    = Animator.StringToHash("InCombat");
     private static readonly int AttackTrigger   = Animator.StringToHash("Attack");
     private static readonly int IsRollingHash   = Animator.StringToHash("IsRolling");
+    private static readonly int IsMovingHash    = Animator.StringToHash("IsMoving");
     private static readonly int RollTrigger     = Animator.StringToHash("Roll");
 
     private int comboIndex = 0;
@@ -150,6 +151,10 @@ public class PlayerCombatController : MonoBehaviour
 
     private float comboBufferUntil = 0f;
     private bool buffered = false;
+
+    // True after a swing's link point when the next hit was not buffered.
+    // Roll can cancel the rest of the combo until EndAttack.
+    private bool comboLinkOpen;
 
     private float lockoutUntil = 0f;
 
@@ -329,12 +334,15 @@ public class PlayerCombatController : MonoBehaviour
 
         if (!ctx.performed) return;
         if (!enableRoll) return;
-        if (isAttacking) return;
+        if (isAttacking && !comboLinkOpen) return;
 
         if (jump != null && !jump.IsGrounded)
             return;
 
         if (Time.time < rollCooldownUntil) return;
+
+        if (isAttacking)
+            EndCombo();
 
         StartRoll();
     }
@@ -468,12 +476,14 @@ public class PlayerCombatController : MonoBehaviour
 
         if (buffered && Time.time <= comboBufferUntil && comboIndex < maxCombo)
         {
+            comboLinkOpen = false;
             AdvanceCombo();
             return;
         }
 
         lockoutUntil = Time.time + missComboCooldown;
         buffered = false;
+        comboLinkOpen = true;
     }
 
     public void EndAttack()
@@ -491,6 +501,7 @@ public class PlayerCombatController : MonoBehaviour
         isAttacking = false;
         comboIndex = 0;
         buffered = false;
+        comboLinkOpen = false;
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
@@ -663,6 +674,7 @@ public class PlayerCombatController : MonoBehaviour
         motor?.BeginRoll(rollDir2D, rollSpeed, rollDuration);
 
         spriteAnimator?.SetBool(IsRollingHash, true);
+        spriteAnimator?.SetBool(IsMovingHash, false);
         spriteAnimator?.ResetTrigger(RollTrigger);
         spriteAnimator?.SetTrigger(RollTrigger);
 
@@ -727,6 +739,7 @@ public class PlayerCombatController : MonoBehaviour
 
         comboIndex = 0;
         buffered = false;
+        comboLinkOpen = false;
 
         softTargeting?.ClearComboTarget();
 
