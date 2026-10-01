@@ -11,7 +11,7 @@ public class PlayerClimbing : MonoBehaviour
     PlayerCombatController combat;
 
     [Header("Climb Settings")]
-    public float climbSpeed = 2f;
+    public float climbSpeed = 1.7f;
 
     [Tooltip("Vertical input magnitude needed to start climbing while standing inside a ladder.")]
     [Range(0.05f, 1f)]
@@ -39,9 +39,14 @@ public class PlayerClimbing : MonoBehaviour
     public float jumpOffForce = 4f;
 
     [Header("Animation")]
-    public string climbStateName = "ClimbingUp";
+    public string climbStateName = "Climb-Up";
+    public string climbEndStateName = "ClimbEnd";
     public string isClimbingBool = "isClimbing";
     public string climbSpeedFloat = "ClimbSpeed";
+    public string climbEndSpeedFloat = "ClimbEndSpeed";
+
+    [Tooltip("How long the climb-off move takes if the clip length cannot be read.")]
+    public float climbEndDuration = 0.6f;
 
     [Tooltip("Print the ClimbSpeed value to the console each frame while climbing.")]
     public bool debugClimbSpeed = false;
@@ -55,12 +60,37 @@ public class PlayerClimbing : MonoBehaviour
     float originalGravity;
 
     int climbStateHash;
+    int climbEndStateHash;
     int isClimbingHash;
     int climbSpeedHash;
+    int climbEndSpeedHash;
 
     InputAction defaultJumpOff;
+    InputAction climbDownAction;
+
+    Ladder topMountLadder;
+    bool topMountReady;
+    bool topMountFromLanding;
+    float topMountSettleTimer;
+    Ladder bottomApproach;
+    Coroutine climbEndRoutine;
+    bool playingClimbEnd;
+    float dismountIdleTimer;
+    Vector2 dismountIdleDir;
 
     public bool IsClimbing() => isClimbing;
+
+    public bool TryGetDismountIdle(out Vector2 dir)
+    {
+        if (dismountIdleTimer <= 0f)
+        {
+            dir = default;
+            return false;
+        }
+
+        dir = dismountIdleDir;
+        return true;
+    }
 
     void Awake()
     {
@@ -73,15 +103,31 @@ public class PlayerClimbing : MonoBehaviour
         if (motor != null)
             originalGravity = motor.gravity;
 
-        climbStateHash  = Animator.StringToHash(climbStateName);
-        isClimbingHash  = Animator.StringToHash(isClimbingBool);
-        climbSpeedHash  = Animator.StringToHash(climbSpeedFloat);
+        climbStateHash    = Animator.StringToHash(climbStateName);
+        climbEndStateHash = Animator.StringToHash(climbEndStateName);
+        isClimbingHash    = Animator.StringToHash(isClimbingBool);
+        climbSpeedHash    = Animator.StringToHash(climbSpeedFloat);
+        climbEndSpeedHash = Animator.StringToHash(climbEndSpeedFloat);
     }
 
     void OnEnable()
     {
         if (jumpOffAction != null && jumpOffAction.action != null)
             jumpOffAction.action.Enable();
+
+        if (climbDownAction == null)
+        {
+            // Keyboard I, PlayStation Triangle (buttonNorth). Xbox Y uses the same button.
+            climbDownAction = new InputAction("ClimbDown", InputActionType.Button);
+            climbDownAction.AddBinding("<Keyboard>/i");
+            climbDownAction.AddBinding("<Gamepad>/buttonNorth");
+        }
+        climbDownAction.Enable();
+    }
+
+    void OnDisable()
+    {
+        climbDownAction?.Disable();
     }
 
     void Update()
@@ -94,8 +140,25 @@ public class PlayerClimbing : MonoBehaviour
                 ignoreLadder = false;
         }
 
+        if (dismountIdleTimer > 0f)
+        {
+            dismountIdleTimer -= Time.deltaTime;
+            ApplyDismountIdle();
+            if (motor != null)
+                motor.LockMovement(true);
+            if (dismountIdleTimer <= 0f && motor != null)
+                motor.LockMovement(false);
+        }
+
+        if (topMountSettleTimer > 0f)
+            topMountSettleTimer -= Time.deltaTime;
+
+        if (playingClimbEnd)
+            return;
+
         if (!isClimbing)
         {
+            TryStartClimbDown();
             TryStartClimb();
             return;
         }
@@ -112,6 +175,41 @@ public class PlayerClimbing : MonoBehaviour
     // =========================
     // CANDIDATE TRACKING (called by Ladder)
     // =========================
+    public void SetTopMount(Ladder ladder, bool entered)
+    {
+        // Climbing off toggles the controller and re-fires this trigger.
+        // Keep tracking the overlap, but do not treat it as walking onto the ledge.
+        if (topMountSettleTimer > 0f)
+        {
+            if (entered)
+                topMountLadder = ladder;
+            else if (topMountLadder == ladder)
+                topMountLadder = null;
+            topMountReady = false;
+            return;
+        }
+
+        if (entered)
+        {
+            topMountLadder = ladder;
+            topMountReady = !topMountFromLanding;
+        }
+        else if (topMountLadder == ladder)
+        {
+            topMountLadder = null;
+            topMountReady = false;
+            topMountFromLanding = false;
+        }
+    }
+
+    public void SetBottomApproach(Ladder ladder, bool entered)
+    {
+        if (entered)
+            bottomApproach = ladder;
+        else if (bottomApproach == ladder)
+            bottomApproach = null;
+    }
+
     public void SetCandidateLadder(Ladder ladder, bool entered)
     {
         if (entered)
@@ -133,14 +231,67 @@ public class PlayerClimbing : MonoBehaviour
     // =========================
     void TryStartClimb()
     {
-        if (candidateLadder == null) return;
         if (ignoreLadder) return;
         if (motor == null) return;
 
-        Vector2 input = motor.GetRawInput();
-        if (input.y < enterUpThreshold) return;
+        bool action = WasClimbActionPressed();
+        bool up = motor.GetRawInput().y >= enterUpThreshold;
 
-        EnterClimb(candidateLadder);
+        // Overlapping the rungs: push up to grab. The action only starts a
+        // climb from the bottom, so it does not fight the climb-down at the top.
+        if (candidateLadder != null && up)
+        {
+            EnterClimb(candidateLadder);
+            return;
+        }
+
+        if (!action)
+            return;
+
+        if (bottomApproach != null)
+            EnterClimb(bottomApproach);
+        else if (candidateLadder != null && NearBottom(candidateLadder))
+            EnterClimb(candidateLadder);
+    }
+
+    bool NearBottom(Ladder ladder)
+    {
+        if (ladder == null || ladder.bottomPoint == null)
+            return true;
+        return transform.position.y <= ladder.bottomPoint.position.y + 1.25f;
+    }
+
+    bool WasClimbActionPressed()
+    {
+        if (WasClimbDownPressed())
+            return true;
+
+        // Same button doors and pickups use: E / Enter, Cross on PlayStation.
+        return InteractInput.WasPressedThisFrame(null);
+    }
+
+    void TryStartClimbDown()
+    {
+        if (topMountLadder == null) return;
+        if (playingClimbEnd) return;
+        if (motor == null) return;
+
+        // Finishing a climb leaves the player inside this trigger. That stay
+        // does not reverse. Pushing down, or leaving and stepping back on, does.
+        bool movingBack = motor.GetRawInput().y <= -enterUpThreshold;
+        if (topMountFromLanding && !movingBack) return;
+        if (!topMountReady && !movingBack) return;
+
+        topMountReady = false;
+        topMountFromLanding = false;
+        if (climbEndRoutine != null)
+            StopCoroutine(climbEndRoutine);
+        climbEndRoutine = StartCoroutine(PlayClimbEnd(topMountLadder, true));
+    }
+
+    bool WasClimbDownPressed()
+    {
+        return climbDownAction != null && climbDownAction.WasPressedThisFrame();
     }
 
     public void EnterClimb(Ladder ladder)
@@ -150,6 +301,7 @@ public class PlayerClimbing : MonoBehaviour
 
         isClimbing = true;
         currentLadder = ladder;
+        IgnoreLadderSolids(ladder, true);
 
         motor.SetVerticalVelocity(0f);
 
@@ -179,13 +331,10 @@ public class PlayerClimbing : MonoBehaviour
 
             // Write facing into MoveX/MoveY so any directional blend (Idle/Walk/Climb)
             // shows the correct sprite, then go straight into the climb state.
-            Vector2 face = ladder.GetClimbFacing2D();
-            animator.SetFloat("MoveX", face.x);
-            animator.SetFloat("MoveY", face.y);
+            ApplyClimbFacing(ladder);
             animator.SetBool("IsMoving", false);
 
-            if (HasState(climbStateHash))
-                animator.Play(climbStateHash, 0, 0f);
+            PlayState(ResolveClimbState(), 0f);
 
             animator.SetBool(isClimbingHash, true);
             animator.SetFloat(climbSpeedHash, 0f);
@@ -197,11 +346,12 @@ public class PlayerClimbing : MonoBehaviour
     IEnumerator SnapToLadder(Ladder ladder)
     {
         Vector3 startPos  = transform.position;
-        Vector3 targetXZ  = new Vector3(ladder.transform.position.x, startPos.y, ladder.transform.position.z);
+        Vector3 line = ladder.bottomPoint != null ? ladder.bottomPoint.position : ladder.transform.position;
+        Vector3 targetXZ  = new Vector3(line.x, startPos.y, line.z);
 
         if (snapDuration <= 0f)
         {
-            transform.position = targetXZ;
+            PlaceFeet(targetXZ);
             yield break;
         }
 
@@ -213,7 +363,7 @@ public class PlayerClimbing : MonoBehaviour
 
             Vector3 cur = transform.position;
             Vector3 newPos = Vector3.Lerp(startPos, new Vector3(targetXZ.x, cur.y, targetXZ.z), k);
-            transform.position = new Vector3(newPos.x, cur.y, newPos.z);
+            PlaceFeet(new Vector3(newPos.x, cur.y, newPos.z));
 
             yield return null;
         }
@@ -228,8 +378,10 @@ public class PlayerClimbing : MonoBehaviour
     {
         if (!isClimbing) return;
 
+        Ladder leaving = currentLadder;
         isClimbing = false;
         currentLadder = null;
+        IgnoreLadderSolids(leaving, false);
 
         if (snapRoutine != null) { StopCoroutine(snapRoutine); snapRoutine = null; }
 
@@ -261,13 +413,46 @@ public class PlayerClimbing : MonoBehaviour
         else                 v =  0f;
 
         Vector3 move = Vector3.up * v * climbSpeed;
-        motor.GetCharacterController().Move(move * Time.deltaTime);
+        CharacterController cc = motor.GetCharacterController();
+        if (cc == null || !CanDriveController())
+            return;
+
+        if (!cc.enabled)
+            cc.enabled = true;
+
+        cc.Move(move * Time.deltaTime);
+
+        if (currentLadder != null)
+        {
+            // Leaving the top starts in front of the column, and Move can slide off it.
+            Vector3 onLine = ClimbPointAtHeight(currentLadder, transform.position.y);
+            if ((onLine - transform.position).sqrMagnitude > 0.0001f)
+                PlaceFeet(onLine);
+        }
 
         if (animator != null)
             animator.SetFloat(climbSpeedHash, v);
 
         if (debugClimbSpeed)
             Debug.Log($"[PlayerClimbing] input.y={input.y:F2}  ClimbSpeed={v:F2}");
+    }
+
+    void IgnoreLadderSolids(Ladder ladder, bool ignore)
+    {
+        if (ladder == null || motor == null)
+            return;
+
+        CharacterController cc = motor.GetCharacterController();
+        if (cc == null)
+            return;
+
+        Collider[] cols = ladder.GetComponentsInChildren<Collider>(true);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            if (cols[i] == null || cols[i].isTrigger || cols[i] == cc)
+                continue;
+            Physics.IgnoreCollision(cc, cols[i], ignore);
+        }
     }
 
     void CheckTopExit()
@@ -297,10 +482,43 @@ public class PlayerClimbing : MonoBehaviour
         Vector2 input = motor.GetRawInput();
         if (input.y > 0.1f) return; // still wants to go up
 
+        Vector2 stepIdle = -currentLadder.GetClimbFacing2D();
         ExitClimb();
         ApplyIgnoreCooldown();
+        HoldDismountIdle(stepIdle);
+
+        int idle = Animator.StringToHash("Idle");
+        if (animator != null && HasState(idle))
+        {
+            animator.Play(idle, 0, 0f);
+            animator.Update(0f);
+        }
     }
 
+    void HoldDismountIdle(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = Vector2.down;
+
+        dismountIdleDir = dir;
+        dismountIdleTimer = 0.08f;
+        if (motor != null)
+        {
+            motor.SetFacing(dir);
+            motor.LockMovement(true);
+        }
+        ApplyDismountIdle();
+    }
+
+    void ApplyDismountIdle()
+    {
+        if (animator == null)
+            return;
+
+        animator.SetBool("IsMoving", false);
+        animator.SetFloat("MoveX", dismountIdleDir.x);
+        animator.SetFloat("MoveY", dismountIdleDir.y);
+    }
     void CheckJumpOff()
     {
         bool pressed = WasJumpOffPressed();
@@ -327,29 +545,207 @@ public class PlayerClimbing : MonoBehaviour
     // =========================
     void ExitAtTop()
     {
-        Ladder ladderRef = currentLadder;
+        if (playingClimbEnd || currentLadder == null)
+            return;
 
-        if (ladderRef != null && ladderRef.ladderTrigger != null)
-            ladderRef.ladderTrigger.enabled = false;
+        if (climbEndRoutine != null)
+            StopCoroutine(climbEndRoutine);
+        climbEndRoutine = StartCoroutine(PlayClimbEnd(currentLadder, false));
+    }
 
-        ApplyIgnoreCooldown();
-        ExitClimb();
+    IEnumerator PlayClimbEnd(Ladder ladder, bool reverse)
+    {
+        playingClimbEnd = true;
+        IgnoreLadderSolids(ladder, true);
 
-        if (ladderRef != null)
+        if (!isClimbing)
         {
-            CharacterController cc = motor.GetCharacterController();
-
-            // 1) small vertical lift to clear the ledge edge
-            if (ladderRef.topExitLift > 0f)
-                cc.Move(Vector3.up * ladderRef.topExitLift);
-
-            // 2) push along the ladder's exit direction (NOT player.forward)
-            Vector3 exitDir = ladderRef.GetTopExitDir();
-            if (ladderRef.topExitForward > 0f)
-                cc.Move(exitDir * ladderRef.topExitForward);
-
-            StartCoroutine(ReenableLadder(ladderRef));
+            isClimbing = true;
+            currentLadder = ladder;
+            motor.gravity = 0f;
+            motor.SetVerticalVelocity(0f);
+            motor.LockMovement(true);
+            combat?.CancelCombatImmediate();
+            jump?.ForceExitAirState();
         }
+
+        ApplyClimbFacing(ladder);
+
+        Vector3 from = transform.position;
+        Vector3 to = reverse ? FeetOnLadder(ladder) : FeetOnPlatform(ladder);
+
+        if (reverse)
+            PlaceFeet(FeetOnPlatform(ladder));
+
+        from = transform.position;
+
+        if (animator != null)
+        {
+            animator.SetFloat(climbEndSpeedHash, reverse ? -1f : 1f);
+            animator.SetBool(isClimbingHash, true);
+            PlayState(ResolveEndState(), reverse ? 1f : 0f);
+            animator.Update(0f);
+        }
+
+        float duration = climbEndDuration;
+        if (animator != null)
+        {
+            float clip = animator.GetCurrentAnimatorStateInfo(0).length;
+            if (clip > 0.05f)
+                duration = clip;
+        }
+
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            PlaceFeet(Vector3.Lerp(from, to, Mathf.Clamp01(t / duration)));
+            motor.SetVerticalVelocity(0f);
+            yield return null;
+        }
+
+        PlaceFeet(to);
+
+        if (reverse)
+        {
+            yield return EaseOntoRungs(ladder, to);
+            playingClimbEnd = false;
+            climbEndRoutine = null;
+            yield break;
+        }
+
+        playingClimbEnd = false;
+        climbEndRoutine = null;
+
+        if (ladder.ladderTrigger != null)
+            ladder.ladderTrigger.enabled = false;
+
+        ExitClimb();
+        PlaceFeet(to);
+        ApplyIgnoreCooldown();
+        topMountFromLanding = true;
+        topMountSettleTimer = ignoreDuration;
+        StartCoroutine(ReenableLadder(ladder));
+    }
+
+    IEnumerator EaseOntoRungs(Ladder ladder, Vector3 from)
+    {
+        Vector3 onRungs = from;
+        if (ladder.topPoint != null)
+            onRungs.y = ladder.topPoint.position.y - topExitYThreshold - 0.08f;
+        onRungs = ClimbPointAtHeight(ladder, onRungs.y);
+
+        currentLadder = ladder;
+        isClimbing = true;
+        ApplyClimbFacing(ladder);
+
+        const float blend = 0.16f;
+        if (animator != null)
+        {
+            int climb = ResolveClimbState();
+            if (climb != 0)
+                animator.CrossFade(climb, blend, 0, 0f);
+            animator.SetBool(isClimbingHash, true);
+            animator.SetFloat(climbSpeedHash, 0f);
+        }
+
+        float u = 0f;
+        while (u < blend)
+        {
+            u += Time.deltaTime;
+            PlaceFeet(Vector3.Lerp(from, onRungs, Mathf.Clamp01(u / blend)));
+            if (motor != null)
+                motor.SetVerticalVelocity(0f);
+            yield return null;
+        }
+
+        PlaceFeet(onRungs);
+    }
+
+    Vector3 FeetOnPlatform(Ladder ladder)
+    {
+        return ladder.GetTopDismount();
+    }
+
+    Vector3 FeetOnLadder(Ladder ladder)
+    {
+        if (ladder.topPoint != null)
+            return ClimbPointAtHeight(ladder, ladder.topPoint.position.y);
+        return transform.position;
+    }
+
+    Vector3 ClimbPointAtHeight(Ladder ladder, float y)
+    {
+        Vector3 bottom = ladder.bottomPoint != null
+            ? ladder.bottomPoint.position
+            : ladder.transform.position;
+        Vector3 top = ladder.topPoint != null
+            ? ladder.topPoint.position
+            : bottom;
+
+        float span = top.y - bottom.y;
+        float k = Mathf.Abs(span) > 0.01f ? Mathf.InverseLerp(bottom.y, top.y, y) : 0f;
+        Vector3 point = Vector3.Lerp(bottom, top, Mathf.Clamp01(k));
+        point.y = y;
+        return point;
+    }
+
+    void ApplyClimbFacing(Ladder ladder)
+    {
+        if (ladder == null)
+            return;
+
+        Vector2 face = ladder.GetClimbFacing2D();
+        motor.LockFacing(face);
+        if (animator == null)
+            return;
+
+        animator.SetFloat("MoveX", face.x);
+        animator.SetFloat("MoveY", face.y);
+    }
+
+    void PlaceFeet(Vector3 feet)
+    {
+        CharacterController cc = motor != null ? motor.GetCharacterController() : null;
+        if (cc == null)
+        {
+            transform.position = feet;
+            return;
+        }
+
+        if (cc.enabled)
+            cc.enabled = false;
+        transform.position = feet;
+        if (CanDriveController())
+            cc.enabled = true;
+    }
+
+    bool CanDriveController()
+    {
+        var control = GetComponent<PartyMemberControl>();
+        return control == null || control.isControlled;
+    }
+
+    void PlayState(int hash, float normalizedTime)
+    {
+        if (animator != null && hash != 0 && HasState(hash))
+            animator.Play(hash, 0, normalizedTime);
+    }
+
+    int ResolveClimbState()
+    {
+        if (HasState(climbStateHash))
+            return climbStateHash;
+        int fallback = Animator.StringToHash("Climb-Up");
+        return HasState(fallback) ? fallback : 0;
+    }
+
+    int ResolveEndState()
+    {
+        if (HasState(climbEndStateHash))
+            return climbEndStateHash;
+        int fallback = Animator.StringToHash("ClimbEnd");
+        return HasState(fallback) ? fallback : 0;
     }
 
     IEnumerator ReenableLadder(Ladder ladderRef)
@@ -364,6 +760,7 @@ public class PlayerClimbing : MonoBehaviour
     {
         ignoreLadder = true;
         ignoreTimer = ignoreDuration;
+        topMountReady = false;
     }
 
     bool HasState(int stateHash)
