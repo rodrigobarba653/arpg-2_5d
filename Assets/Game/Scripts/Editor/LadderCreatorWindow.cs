@@ -20,7 +20,7 @@ public class LadderCreatorWindow : EditorWindow
     float ladderDepth = 0.6f;
 
     // Climb facing
-    ClimbFacingDir climbFacing = ClimbFacingDir.Up;
+    ClimberLook climberLook = ClimberLook.North;
 
     // Bottom point
     bool createBottomPoint = true;
@@ -63,9 +63,8 @@ public class LadderCreatorWindow : EditorWindow
 
         // --- Climb facing ---
         EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
-        climbFacing = (ClimbFacingDir)EditorGUILayout.EnumPopup("Climb Facing Direction", climbFacing);
-        EditorGUILayout.LabelField("Direction the player sprite faces while climbing " +
-                                    "(feeds the animator's MoveX/MoveY directly).",
+        climberLook = (ClimberLook)EditorGUILayout.EnumPopup("Climber Look", climberLook);
+        EditorGUILayout.LabelField("Which climb sprite plays: North, North East, or North West.",
                                     EditorStyles.wordWrappedMiniLabel);
         EditorGUILayout.Space();
 
@@ -110,7 +109,7 @@ public class LadderCreatorWindow : EditorWindow
     // ============================================================
     void CreateLadder()
     {
-        string rootName = $"Ladder_{climbFacing}";
+        string rootName = $"Ladder_{climberLook}";
         var root = new GameObject(rootName);
         Undo.RegisterCreatedObjectUndo(root, "Create Ladder");
 
@@ -131,7 +130,8 @@ public class LadderCreatorWindow : EditorWindow
 
         // Ladder component
         var ladder = Undo.AddComponent<Ladder>(root);
-        ladder.climbFacing = climbFacing;
+        ladder.climberLook = climberLook;
+        ladder.climberLookSet = true;
         ladder.topExitLift = topExitLift;
         ladder.topExitForward = topExitForward;
 
