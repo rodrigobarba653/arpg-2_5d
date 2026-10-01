@@ -39,6 +39,14 @@ public class TopDownAnimDriver : MonoBehaviour
         if (climbing != null && climbing.IsClimbing())
             return;
 
+        if (climbing != null && climbing.TryGetDismountIdle(out Vector2 dismountIdle))
+        {
+            animator.SetBool("IsMoving", false);
+            animator.SetFloat("MoveX", dismountIdle.x);
+            animator.SetFloat("MoveY", dismountIdle.y);
+            return;
+        }
+
         bool rolling = motor.rollActive;
 
         Vector2 inputDir = motor.GetMoveInput2D();
