@@ -7,6 +7,7 @@ public class PlayerJump : MonoBehaviour
     public PlayerMotor motor;
     public Animator animator;
     PlayerSwimming swim;
+    PlayerClimbing climbing;
 
     [Header("Jump")]
     public float jumpForce = 7f;
@@ -90,6 +91,7 @@ public class PlayerJump : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
 
         swim = GetComponent<PlayerSwimming>();
+        climbing = GetComponent<PlayerClimbing>();
     }
 
     void Update()
@@ -105,6 +107,13 @@ public class PlayerJump : MonoBehaviour
 
     void CheckGround()
     {
+        // While climbing we own vertical motion — don't treat CC contacts as ground.
+        if (climbing != null && climbing.IsClimbing())
+        {
+            isGrounded = false;
+            return;
+        }
+
         CharacterController cc = motor != null ? motor.GetCharacterController() : null;
 
         if (cc == null)
@@ -156,6 +165,10 @@ public class PlayerJump : MonoBehaviour
         if (!ctx.started)
             return;
 
+        // No jump, attack, roll, etc. while climbing. Leave the ladder first.
+        if (climbing != null && climbing.IsClimbing())
+            return;
+
         if (!isGrounded)
             return;
 
@@ -188,6 +201,9 @@ public class PlayerJump : MonoBehaviour
     void Jump()
     {
         if (swim != null && swim.IsSwimming())
+            return;
+
+        if (climbing != null && climbing.IsClimbing())
             return;
 
         if (debugLog)

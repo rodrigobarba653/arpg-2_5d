@@ -18,6 +18,7 @@ public class PlayerCombatController : MonoBehaviour
     PlayerSwimming swim;
     PlayerHealth health;
     PlayerEquipment equipment;
+    PlayerClimbing climbing;
 
     [Header("Combo")]
     [SerializeField] private int maxCombo = 3;
@@ -216,6 +217,7 @@ public class PlayerCombatController : MonoBehaviour
         swim = GetComponent<PlayerSwimming>();
         health = GetComponent<PlayerHealth>();
         equipment = GetComponent<PlayerEquipment>();
+        climbing = GetComponent<PlayerClimbing>();
 
         if (!softTargeting)
             softTargeting = GetComponent<MeleeSoftTargeting>();
@@ -298,6 +300,9 @@ public class PlayerCombatController : MonoBehaviour
         if (swim != null && swim.IsSwimming())
             return;
 
+        if (climbing != null && climbing.IsClimbing())
+            return;
+
         if (!ctx.performed) return;
 
         if (jump != null && !jump.IsGrounded)
@@ -330,6 +335,9 @@ public class PlayerCombatController : MonoBehaviour
             return;
 
         if (swim != null && swim.IsSwimming())
+            return;
+
+        if (climbing != null && climbing.IsClimbing())
             return;
 
         if (!ctx.performed) return;
