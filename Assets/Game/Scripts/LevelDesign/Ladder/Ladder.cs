@@ -43,7 +43,7 @@ public class Ladder : MonoBehaviour
              "with the ledge if the ladder gets longer. The climb-off animation walks here.")]
     public Transform platformPoint;
 
-    [Tooltip("Where the player stands in front of the ladder after climbing all the way down.")]
+    [Tooltip("Where the player stands after climbing all the way down. Used when Place At Bottom Stand is on.")]
     public Transform bottomStand;
 
     [Header("Exit (Top)")]
@@ -56,6 +56,22 @@ public class Ladder : MonoBehaviour
 
     [Tooltip("Horizontal distance the player is pushed onto the floor above.")]
     public float topExitForward = 0.5f;
+
+    [Tooltip("Extra offset added to the top dismount after Platform Point / look swing. " +
+             "Useful for fine-tuning without moving the markers.")]
+    public Vector3 topDismountOffset;
+
+    [Header("Exit (Bottom)")]
+    [Tooltip("If on, the player is placed at Bottom Stand (plus offset / look swing) when leaving the bottom.")]
+    public bool placeAtBottomStand = true;
+
+    [Tooltip("Extra offset added to the bottom dismount after Bottom Stand / look swing.")]
+    public Vector3 bottomDismountOffset;
+
+    [Header("Remount Cooldown")]
+    [Tooltip("Seconds before this ladder can be grabbed again after a dismount. " +
+             "Negative = use the player's Ignore Duration.")]
+    public float remountCooldown = -1f;
 
     [Header("Trigger")]
     [Tooltip("Trigger collider that detects the player. Defaults to a Collider on this object.")]
@@ -117,26 +133,39 @@ public class Ladder : MonoBehaviour
 
     public Vector3 GetTopDismount()
     {
+        Vector3 point;
         if (platformPoint != null && topPoint != null)
-            return SwingDismount(topPoint.position, platformPoint.position);
-        if (platformPoint != null)
-            return platformPoint.position;
-        if (topPoint == null)
-            return transform.position;
+            point = SwingDismount(topPoint.position, platformPoint.position);
+        else if (platformPoint != null)
+            point = platformPoint.position;
+        else if (topPoint == null)
+            point = transform.position;
+        else
+            point = topPoint.position + SwingDirection(GetTopExitDir()) * topExitForward
+                    + Vector3.up * topExitLift;
 
-        return topPoint.position + SwingDirection(GetTopExitDir()) * topExitForward
-               + Vector3.up * topExitLift;
+        return point + transform.TransformVector(topDismountOffset);
     }
 
     public Vector3 GetBottomDismount()
     {
+        Vector3 point;
         if (bottomStand != null && bottomPoint != null)
-            return SwingDismount(bottomPoint.position, bottomStand.position, true);
-        if (bottomStand != null)
-            return bottomStand.position;
+            point = SwingDismount(bottomPoint.position, bottomStand.position, true);
+        else if (bottomStand != null)
+            point = bottomStand.position;
+        else
+        {
+            Vector3 anchor = bottomPoint != null ? bottomPoint.position : transform.position;
+            point = anchor - SwingDirection(GetTopExitDir()) * 0.45f;
+        }
 
-        Vector3 anchor = bottomPoint != null ? bottomPoint.position : transform.position;
-        return anchor - SwingDirection(GetTopExitDir()) * 0.45f;
+        return point + transform.TransformVector(bottomDismountOffset);
+    }
+
+    public float GetRemountCooldown(float playerDefault)
+    {
+        return remountCooldown >= 0f ? remountCooldown : playerDefault;
     }
 
     Vector3 SwingDismount(Vector3 anchor, Vector3 stand, bool keepOutwardReach = false)

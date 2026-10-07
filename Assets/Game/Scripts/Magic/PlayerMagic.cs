@@ -62,6 +62,7 @@ public class PlayerMagic : MonoBehaviour
     PlayerHealth health;
     PlayerInventory inventory;
     Animator animator;
+    PlayerClimbing climbing;
 
     void Awake()
     {
@@ -78,6 +79,7 @@ public class PlayerMagic : MonoBehaviour
 
         health = GetComponent<PlayerHealth>();
         inventory = GetComponent<PlayerInventory>();
+        climbing = GetComponent<PlayerClimbing>();
         animator = GetComponentInChildren<Animator>();
     }
 
@@ -230,6 +232,7 @@ public class PlayerMagic : MonoBehaviour
     // ============================================================
     public string GetCastBlockReason(int slotIndex)
     {
+        if (climbing != null && climbing.IsClimbing()) return "climbing";
         if (slotIndex < 0 || slotIndex >= SlotCount) return "bad slot";
         var spell = equippedSlots[slotIndex];
         if (spell == null) return "empty slot";

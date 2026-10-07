@@ -20,8 +20,12 @@ public class PlayerClimbing : MonoBehaviour
     [Tooltip("How long the player smoothly aligns to the ladder's X/Z center on enter.")]
     public float snapDuration = 0.08f;
 
-    [Tooltip("Cooldown after exiting a ladder before it can grab the player again.")]
+    [Tooltip("Cooldown after exiting a ladder before it can grab the player again. " +
+             "A ladder can override this with its Remount Cooldown.")]
     public float ignoreDuration = 0.5f;
+
+    [Tooltip("How long the opposite idle is held after a bottom dismount before stick input resumes.")]
+    public float dismountIdleDuration = 0.08f;
 
     [Header("Top Exit")]
     [Tooltip("Y threshold relative to ladder topPoint at which the player is auto-ejected to the floor above.")]
@@ -78,7 +82,7 @@ public class PlayerClimbing : MonoBehaviour
     float dismountIdleTimer;
     Vector2 dismountIdleDir;
 
-    public bool IsClimbing() => isClimbing;
+    public bool IsClimbing() => isClimbing || playingClimbEnd;
 
     public bool TryGetDismountIdle(out Vector2 dir)
     {
@@ -483,8 +487,11 @@ public class PlayerClimbing : MonoBehaviour
         if (input.y > 0.1f) return; // still wants to go up
 
         Vector2 stepIdle = -currentLadder.GetClimbFacing2D();
+        Ladder leaving = currentLadder;
         ExitClimb();
-        ApplyIgnoreCooldown();
+        if (leaving != null && leaving.placeAtBottomStand)
+            PlaceFeet(leaving.GetBottomDismount());
+        ApplyIgnoreCooldown(leaving);
         HoldDismountIdle(stepIdle);
 
         int idle = Animator.StringToHash("Idle");
@@ -501,7 +508,7 @@ public class PlayerClimbing : MonoBehaviour
             dir = Vector2.down;
 
         dismountIdleDir = dir;
-        dismountIdleTimer = 0.08f;
+        dismountIdleTimer = Mathf.Max(0f, dismountIdleDuration);
         if (motor != null)
         {
             motor.SetFacing(dir);
@@ -524,8 +531,9 @@ public class PlayerClimbing : MonoBehaviour
         bool pressed = WasJumpOffPressed();
         if (!pressed) return;
 
+        Ladder leaving = currentLadder;
         ExitClimb();
-        ApplyIgnoreCooldown();
+        ApplyIgnoreCooldown(leaving);
 
         if (motor != null && jumpOffForce > 0f)
             motor.SetVerticalVelocity(jumpOffForce);
@@ -622,10 +630,10 @@ public class PlayerClimbing : MonoBehaviour
 
         ExitClimb();
         PlaceFeet(to);
-        ApplyIgnoreCooldown();
+        float cooldown = ApplyIgnoreCooldown(ladder);
         topMountFromLanding = true;
-        topMountSettleTimer = ignoreDuration;
-        StartCoroutine(ReenableLadder(ladder));
+        topMountSettleTimer = cooldown;
+        StartCoroutine(ReenableLadder(ladder, cooldown));
     }
 
     IEnumerator EaseOntoRungs(Ladder ladder, Vector3 from)
@@ -748,19 +756,24 @@ public class PlayerClimbing : MonoBehaviour
         return HasState(fallback) ? fallback : 0;
     }
 
-    IEnumerator ReenableLadder(Ladder ladderRef)
+    IEnumerator ReenableLadder(Ladder ladderRef, float delay)
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(Mathf.Max(0f, delay));
 
         if (ladderRef != null && ladderRef.ladderTrigger != null)
             ladderRef.ladderTrigger.enabled = true;
     }
 
-    void ApplyIgnoreCooldown()
+    float ApplyIgnoreCooldown(Ladder ladder = null)
     {
+        float duration = ladder != null
+            ? ladder.GetRemountCooldown(ignoreDuration)
+            : ignoreDuration;
+
         ignoreLadder = true;
-        ignoreTimer = ignoreDuration;
+        ignoreTimer = duration;
         topMountReady = false;
+        return duration;
     }
 
     bool HasState(int stateHash)

@@ -16,8 +16,7 @@ Material:
   - _METALLICSPECGLOSSMAP
   - _NORMALMAP
   - _OCCLUSIONMAP
-  m_InvalidKeywords:
-  - _METALLICGLOSSMAP
+  m_InvalidKeywords: []
   m_LightmapFlags: 1
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -66,6 +65,14 @@ Material:
         m_Texture: {fileID: 2800000, guid: 1efea95da476d49019092d03faa7a7a4, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _MetallicMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
         m_Texture: {fileID: 2800000, guid: 5339f542a8cc843f2aae6ea178a07834, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -104,6 +111,8 @@ Material:
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
+    - _DitherFade: 0
+    - _DitherScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _EmissionLM: 0
@@ -114,6 +123,7 @@ Material:
     - _GlossyReflections: 0
     - _Metallic: 0
     - _Mode: 0
+    - _NormalStrength: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.0125
     - _QueueOffset: 0

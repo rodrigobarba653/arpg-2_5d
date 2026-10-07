@@ -57,6 +57,9 @@ public class PartySwapInput : MonoBehaviour
     [Tooltip("Block swap while swimming.")]
     public bool blockWhileSwimming = true;
 
+    [Tooltip("Block swap while climbing a ladder.")]
+    public bool blockWhileClimbing = true;
+
     [Header("Audio (optional)")]
     [Tooltip("Played when the swap succeeds.")]
     public AudioClip swapSound;
@@ -253,6 +256,12 @@ public class PartySwapInput : MonoBehaviour
         {
             var swim = active.GetComponent<PlayerSwimming>();
             if (swim != null && swim.IsSwimming()) return "swimming";
+        }
+
+        if (blockWhileClimbing)
+        {
+            var climbing = active.GetComponent<PlayerClimbing>();
+            if (climbing != null && climbing.IsClimbing()) return "climbing";
         }
 
         return null;
