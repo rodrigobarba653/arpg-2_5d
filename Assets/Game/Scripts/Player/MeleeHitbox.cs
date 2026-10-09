@@ -25,6 +25,29 @@ public class MeleeHitbox : MonoBehaviour
     [Tooltip("Optional separate sound played when the hit is blocked by an enemy's guard.")]
     [SerializeField] private AudioClip blockSound;
 
+    [Header("Hit VFX")]
+    [Tooltip("Spawned at the enemy when a player melee hit deals damage. Leave empty for no effect.")]
+    [SerializeField] private GameObject hitVfxPrefab;
+
+    [Tooltip("Scale multiplier for the spawned effect. 1 is the prefab's own size.")]
+    [SerializeField] private float hitVfxScale = 1f;
+
+    [Tooltip("Multiplied into the spawned effect's colors. White leaves the prefab colors alone.")]
+    [ColorUsage(true, true)]
+    [SerializeField] private Color hitVfxTint = Color.white;
+
+    [Tooltip("How long the spawned effect stays before it is destroyed.")]
+    [SerializeField] private float hitVfxLifetime = 2f;
+
+    [Header("Hit Camera Shake")]
+    [Tooltip("Small shake when this hit deals damage. Defenders and blocked hits do not shake.")]
+    [SerializeField] private bool shakeCameraOnHit = true;
+    [SerializeField] private float hitShakeDuration = 0.16f;
+    [SerializeField] private float hitShakeAmplitude = 2.5f;
+    [SerializeField] private float hitShakeFrequency = 1.5f;
+
+    CameraShakeCinemachine cameraShake;
+
     [Header("Block Clash")]
     [SerializeField] private float blockEnemyPushForce = 1.25f;
     [SerializeField] private float blockEnemyPushTime = 0.08f;
@@ -282,6 +305,9 @@ public class MeleeHitbox : MonoBehaviour
             // ======================
             DoHitStop();
             PlayBlockOrHitSfx(enemy.transform.position, blocked: false);
+            SpawnHitVfx(enemy.transform.position, dir);
+            if (!IsDefender(ai))
+                ShakeCameraOnHit();
 
             if (hasAttackerKnockback)
                 enemy.TakeDamage(ResolveDamage(), dir, attackStep, knockbackPush, knockbackForce, knockbackDuration);
@@ -358,6 +384,102 @@ public class MeleeHitbox : MonoBehaviour
         var enemy = other.GetComponentInParent<EnemyHealth>();
         if (enemy == null) return;
         Debug.LogWarning($"[Ax Hitbox] Hit enemy '{enemy.name}' via '{other.name}' (combo step {attackStep}).", this);
+    }
+
+    static bool IsDefender(EnemyAI ai)
+    {
+        return ai != null && ai.canDefend && !ai.UsesMelee && !ai.longRangeAttacker;
+    }
+
+    void ShakeCameraOnHit()
+    {
+        if (!shakeCameraOnHit)
+            return;
+
+        if (cameraShake == null)
+            cameraShake = FindFirstObjectByType<CameraShakeCinemachine>();
+
+        if (cameraShake != null)
+            cameraShake.Shake(hitShakeDuration, hitShakeAmplitude, hitShakeFrequency);
+    }
+
+    void SpawnHitVfx(Vector3 enemyPos, Vector3 hitDir)
+    {
+        if (hitVfxPrefab == null)
+            return;
+
+        Vector3 pos = enemyPos;
+        if (owner != null)
+            pos.y = owner.position.y + 0.55f;
+
+        hitDir.y = 0f;
+        Quaternion rot = hitDir.sqrMagnitude > 0.0001f
+            ? Quaternion.LookRotation(hitDir.normalized, Vector3.up)
+            : Quaternion.identity;
+
+        GameObject vfx = Instantiate(hitVfxPrefab, pos, rot);
+        float scale = Mathf.Max(0.01f, hitVfxScale);
+        vfx.transform.localScale = hitVfxPrefab.transform.localScale * scale;
+        ApplyHitVfxTint(vfx);
+        HitStopVfx.Arm(vfx, hitVfxLifetime);
+    }
+
+    void ApplyHitVfxTint(GameObject vfx)
+    {
+        if (hitVfxTint == Color.white)
+            return;
+
+        ParticleSystem[] systems = vfx.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            var main = systems[i].main;
+            main.startColor = TintMinMaxGradient(main.startColor, hitVfxTint);
+        }
+
+        Light[] lights = vfx.GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+            lights[i].color *= hitVfxTint;
+    }
+
+    static ParticleSystem.MinMaxGradient TintMinMaxGradient(ParticleSystem.MinMaxGradient source, Color tint)
+    {
+        switch (source.mode)
+        {
+            case ParticleSystemGradientMode.Color:
+                source.color *= tint;
+                break;
+            case ParticleSystemGradientMode.TwoColors:
+                source.colorMin *= tint;
+                source.colorMax *= tint;
+                break;
+            case ParticleSystemGradientMode.Gradient:
+                source.gradient = TintGradient(source.gradient, tint);
+                break;
+            case ParticleSystemGradientMode.TwoGradients:
+                source.gradientMin = TintGradient(source.gradientMin, tint);
+                source.gradientMax = TintGradient(source.gradientMax, tint);
+                break;
+        }
+
+        return source;
+    }
+
+    static Gradient TintGradient(Gradient source, Color tint)
+    {
+        if (source == null)
+            return source;
+
+        var gradient = new Gradient();
+        GradientColorKey[] colors = source.colorKeys;
+        for (int i = 0; i < colors.Length; i++)
+            colors[i].color *= tint;
+
+        GradientAlphaKey[] alphas = source.alphaKeys;
+        for (int i = 0; i < alphas.Length; i++)
+            alphas[i].alpha *= tint.a;
+
+        gradient.SetKeys(colors, alphas);
+        return gradient;
     }
 
     void PlayBlockOrHitSfx(Vector3 worldPos, bool blocked)

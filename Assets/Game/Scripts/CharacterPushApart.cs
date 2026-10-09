@@ -120,6 +120,9 @@ public class CharacterPushApart : MonoBehaviour
         if (controller == null || !controller.enabled)
             return;
 
+        if (enemyMotor != null && HitStopperManager.Frozen)
+            return;
+
         // Immovable characters (Fixed-type enemies) never get pushed. Period.
         if (IsImmovable())
             return;

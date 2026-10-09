@@ -138,6 +138,9 @@ public class EnemyCombatController : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (!player)
             return;
 
@@ -146,7 +149,7 @@ public class EnemyCombatController : MonoBehaviour
 
         if (isAttacking && useTimerBasedHitbox)
         {
-            float elapsed = Time.time - attackStartedAt;
+            float elapsed = EnemyClock.time - attackStartedAt;
 
             float enableAt = CurrentEnableDelay();
             float disableAt = CurrentDisableDelay();
@@ -168,7 +171,7 @@ public class EnemyCombatController : MonoBehaviour
                 EndAttack();
         }
 
-        if (isAttacking && Time.time - attackStartedAt > maxAttackDuration)
+        if (isAttacking && EnemyClock.time - attackStartedAt > maxAttackDuration)
             EndAttack();
 
         if (ai != null && ai.isAlerting)
@@ -180,7 +183,7 @@ public class EnemyCombatController : MonoBehaviour
         if (isAttacking)
             return;
 
-        if (Time.time < hitStunUntil)
+        if (EnemyClock.time < hitStunUntil)
             return;
 
         if (motor != null && motor.IsMovementLocked())
@@ -195,7 +198,7 @@ public class EnemyCombatController : MonoBehaviour
         if (dist > range)
             return;
 
-        if (Time.time < nextAttackTime)
+        if (EnemyClock.time < nextAttackTime)
             return;
 
         if (reactions != null)
@@ -219,7 +222,7 @@ public class EnemyCombatController : MonoBehaviour
     void StartAttack()
     {
         isAttacking = true;
-        attackStartedAt = Time.time;
+        attackStartedAt = EnemyClock.time;
         hitboxEnabledByTimer = false;
         hitboxDisabledByTimer = false;
 
@@ -258,7 +261,7 @@ public class EnemyCombatController : MonoBehaviour
 
         float cooldown = attackCooldown;
         if (currentAttack != null) cooldown *= currentAttack.cooldownMultiplier;
-        nextAttackTime = Time.time + cooldown;
+        nextAttackTime = EnemyClock.time + cooldown;
     }
 
     // ============================================================
@@ -338,7 +341,7 @@ public class EnemyCombatController : MonoBehaviour
         if (!useAttackStepForward)
             return;
 
-        float elapsed = Time.time - attackStartedAt;
+        float elapsed = EnemyClock.time - attackStartedAt;
 
         if (!attackStepStarted)
         {
@@ -376,7 +379,7 @@ public class EnemyCombatController : MonoBehaviour
         }
 
         float speed = attackStepDistance / attackStepDuration;
-        float moveAmount = speed * Time.deltaTime;
+        float moveAmount = speed * EnemyClock.deltaTime;
 
         moveAmount = Mathf.Min(moveAmount, remainingStep);
         moveAmount = Mathf.Min(moveAmount, allowedDistance);
@@ -480,8 +483,8 @@ attackStepMoved += moveAmount;
     {
         hitDir.y = 0f;
 
-        hitStunUntil = Time.time + hitStunTime;
-        nextAttackTime = Mathf.Max(nextAttackTime, Time.time + attackDelayAfterHit);
+        hitStunUntil = EnemyClock.time + hitStunTime;
+        nextAttackTime = Mathf.Max(nextAttackTime, EnemyClock.time + attackDelayAfterHit);
 
         attackStepActive = false;
         attackStepStarted = false;

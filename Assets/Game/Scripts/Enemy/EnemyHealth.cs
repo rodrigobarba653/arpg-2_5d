@@ -373,7 +373,7 @@ public class EnemyHealth : MonoBehaviour
         while (hurtTimer < deathHurtPlayTime)
         {
             transform.position = frozenPosition;
-            hurtTimer += Time.deltaTime;
+            hurtTimer += EnemyClock.deltaTime;
             yield return null;
         }
 
@@ -397,7 +397,7 @@ public class EnemyHealth : MonoBehaviour
                 animator.Update(0f);
             }
 
-            t += Time.deltaTime;
+            t += EnemyClock.deltaTime;
 
             float normalized = Mathf.Clamp01(t / dur);
 
@@ -510,7 +510,12 @@ public class EnemyHealth : MonoBehaviour
     {
         if (visuals == null) yield break;
         visuals.SetFlashColor(Color.white * flashIntensity);
-        yield return new WaitForSeconds(flashDuration);
+        float t = 0f;
+        while (t < flashDuration)
+        {
+            t += EnemyClock.deltaTime;
+            yield return null;
+        }
         visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }
@@ -519,7 +524,12 @@ public class EnemyHealth : MonoBehaviour
     {
         if (visuals == null) yield break;
         visuals.SetFlashColor(Color.gray * 2f);
-        yield return new WaitForSeconds(0.05f);
+        float t = 0f;
+        while (t < 0.05f)
+        {
+            t += EnemyClock.deltaTime;
+            yield return null;
+        }
         visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }

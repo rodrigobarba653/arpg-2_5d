@@ -79,6 +79,9 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (!animator || !motor)
             return;
 

@@ -219,6 +219,9 @@ public class EnemyAI : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (motor != null)
             motor.speedScale = 1f;
 
@@ -262,9 +265,9 @@ public class EnemyAI : MonoBehaviour
         if (seesPlayer || combatActionActive)
         {
             isInCombat = true;
-            exitCombatAt = Time.time + combatExitDelay;
+            exitCombatAt = EnemyClock.time + combatExitDelay;
         }
-        else if (isInCombat && Time.time >= exitCombatAt)
+        else if (isInCombat && EnemyClock.time >= exitCombatAt)
         {
             isInCombat = false;
         }
@@ -273,7 +276,7 @@ public class EnemyAI : MonoBehaviour
         bool justSpotted = useAlert && seesPlayer && !sawPlayerLastFrame;
         sawPlayerLastFrame = seesPlayer;
 
-        if (justSpotted && !isAlerting && Time.time >= nextAlertAllowedTime)
+        if (justSpotted && !isAlerting && EnemyClock.time >= nextAlertAllowedTime)
             StartAlert();
 
         if (isAlerting)
@@ -289,7 +292,7 @@ public class EnemyAI : MonoBehaviour
                     motor.RotateToward(toPlayer);
             }
 
-            if (Time.time >= alertEndTime)
+            if (EnemyClock.time >= alertEndTime)
                 EndAlert();
 
             return;
@@ -311,7 +314,7 @@ public class EnemyAI : MonoBehaviour
         // frame it ends. The chart samples again on the next frame.
         if (isDefending)
         {
-            defendTimer -= Time.deltaTime;
+            defendTimer -= EnemyClock.deltaTime;
             HoldDefendFacing();
 
             if (defendTimer <= 0f)
@@ -513,17 +516,17 @@ public class EnemyAI : MonoBehaviour
         Vector3 radial = d > 0.05f ? toPlayer / d : transform.forward;
         Vector3 side = Vector3.Cross(Vector3.up, radial) * strafeSign;
 
-        if (Time.time >= strafeFlipAt && ShouldFlipStrafe(side))
+        if (EnemyClock.time >= strafeFlipAt && ShouldFlipStrafe(side))
         {
             strafeSign = -strafeSign;
-            strafeFlipAt = Time.time + 0.45f;
+            strafeFlipAt = EnemyClock.time + 0.45f;
             strafeStuck = 0f;
             side = -side;
         }
 
         // Preferred distance slowly breathes, and the pull toward it is weak,
         // so the path wanders instead of riding stopDistance.
-        float breathe = Mathf.Sin(Time.time * 0.45f + strafePhase);
+        float breathe = Mathf.Sin(EnemyClock.time * 0.45f + strafePhase);
         float preferred = stopDistance * Mathf.Lerp(0.75f, 1.6f, (breathe + 1f) * 0.5f);
         float inward = Mathf.Clamp((d - preferred) * 0.1f, -0.3f, 0.3f);
         Vector3 move = side + radial * inward;
@@ -544,7 +547,7 @@ public class EnemyAI : MonoBehaviour
         // Already grinding against something: turn around even if the probe misses.
         if (motor.GetSpeed() < 0.2f)
         {
-            strafeStuck += Time.deltaTime;
+            strafeStuck += EnemyClock.deltaTime;
             if (strafeStuck > 0.2f && !StrafeBlocked(-side))
                 return true;
         }
@@ -703,7 +706,7 @@ public class EnemyAI : MonoBehaviour
     void StartAlert()
     {
         isAlerting = true;
-        alertEndTime = Time.time + alertDuration;
+        alertEndTime = EnemyClock.time + alertDuration;
 
         if (alertIcon != null)
             alertIcon.SetActive(true);
@@ -712,7 +715,7 @@ public class EnemyAI : MonoBehaviour
     void EndAlert()
     {
         isAlerting = false;
-        nextAlertAllowedTime = Time.time + reAlertGracePeriod;
+        nextAlertAllowedTime = EnemyClock.time + reAlertGracePeriod;
 
         if (alertIcon != null)
             alertIcon.SetActive(false);
@@ -745,7 +748,7 @@ public class EnemyAI : MonoBehaviour
 
         while (t < duration)
         {
-            t += Time.deltaTime;
+            t += EnemyClock.deltaTime;
             float damp = 1f - Mathf.Clamp01(t / duration);
             Vector2 offset = Random.insideUnitCircle * distance * damp;
             body.localPosition = blockShakeRestLocal + new Vector3(offset.x, offset.y, 0f);

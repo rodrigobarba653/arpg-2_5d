@@ -97,11 +97,17 @@ public class EnemyMotor : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         Move();
     }
 
     void LateUpdate()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (agent != null && agent.enabled)
         {
             agent.speed = GetActiveSpeed();
@@ -117,7 +123,7 @@ public class EnemyMotor : MonoBehaviour
         else if (hitFacingLockTimer > 0f && faceHitSourceDuringKnockback)
         {
             FaceDirectionInstant(hitFacingLockDirection);
-            hitFacingLockTimer -= Time.deltaTime;
+            hitFacingLockTimer -= EnemyClock.deltaTime;
         }
 
         activeSpeedOverride = -1f;
@@ -131,15 +137,15 @@ public class EnemyMotor : MonoBehaviour
         if (controller.isGrounded && verticalVelocity.y < 0f)
             verticalVelocity.y = -2f;
 
-        verticalVelocity.y += gravity * Time.deltaTime;
+        verticalVelocity.y += gravity * EnemyClock.deltaTime;
 
         if (moveType == EnemyMoveType.Fixed)
         {
             if (hitStunTimer > 0f)
-                hitStunTimer -= Time.deltaTime;
+                hitStunTimer -= EnemyClock.deltaTime;
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
@@ -151,7 +157,7 @@ public class EnemyMotor : MonoBehaviour
             if (!lockFacing && faceHitSourceDuringKnockback)
                 FaceDirectionInstant(knockbackFaceDirection);
 
-            knockbackTimer -= Time.deltaTime;
+            knockbackTimer -= EnemyClock.deltaTime;
 
             if (knockbackTimer <= 0f)
             {
@@ -165,29 +171,29 @@ public class EnemyMotor : MonoBehaviour
 
         if (hitStunTimer > 0f)
         {
-            hitStunTimer -= Time.deltaTime;
+            hitStunTimer -= EnemyClock.deltaTime;
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
         if (movementLockTimer > 0f)
         {
-            movementLockTimer -= Time.deltaTime;
+            movementLockTimer -= EnemyClock.deltaTime;
 
             if (!lockFacing && faceHitSourceDuringKnockback)
                 FaceDirectionInstant(knockbackFaceDirection);
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
         Vector3 finalMove = moveDirection * GetActiveSpeed();
         finalMove.y = verticalVelocity.y;
 
-        controller.Move(finalMove * Time.deltaTime);
+        controller.Move(finalMove * EnemyClock.deltaTime);
 
         Rotate();
     }
@@ -197,7 +203,7 @@ public class EnemyMotor : MonoBehaviour
         Vector3 finalMove = knockbackVelocity;
         finalMove.y = verticalVelocity.y;
 
-        controller.Move(finalMove * Time.deltaTime);
+        controller.Move(finalMove * EnemyClock.deltaTime);
     }
 
     void Rotate()
@@ -226,7 +232,7 @@ public class EnemyMotor : MonoBehaviour
         transform.rotation = Quaternion.Slerp(
             transform.rotation,
             targetRot,
-            rotationSpeed * Time.deltaTime
+            rotationSpeed * EnemyClock.deltaTime
         );
     }
 

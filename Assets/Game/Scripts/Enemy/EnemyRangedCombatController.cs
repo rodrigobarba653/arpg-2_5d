@@ -88,13 +88,16 @@ public class EnemyRangedCombatController : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (!player)
             return;
 
         // ===== Timer-based firing =====
         if (isAttacking && useTimerBasedFiring)
         {
-            float elapsed = Time.time - attackStartedAt;
+            float elapsed = EnemyClock.time - attackStartedAt;
 
             if (!shotFired && elapsed >= shootDelay)
                 Shoot();
@@ -104,7 +107,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         }
 
         // Safety: kill stuck attacks (timer + events both failed somehow).
-        if (isAttacking && Time.time - attackStartedAt > maxAttackDuration)
+        if (isAttacking && EnemyClock.time - attackStartedAt > maxAttackDuration)
             EndAttack();
 
         if (ai != null && ai.isAlerting)
@@ -118,7 +121,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (isAttacking)
             return;
 
-        if (Time.time < hitStunUntil)
+        if (EnemyClock.time < hitStunUntil)
             return;
 
         if (motor != null && motor.IsMovementLocked())
@@ -136,7 +139,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (ai != null && ai.MeleeOwnsDistance(dist, melee))
             return;
 
-        if (Time.time < nextAttackTime)
+        if (EnemyClock.time < nextAttackTime)
             return;
 
         if (reactive && reactions != null)
@@ -157,7 +160,7 @@ public class EnemyRangedCombatController : MonoBehaviour
     void StartAttack()
     {
         isAttacking = true;
-        attackStartedAt = Time.time;
+        attackStartedAt = EnemyClock.time;
         shotFired = false;
 
         if (motor != null && lockMovementDuringAttack)
@@ -187,7 +190,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         animator.ResetTrigger(AttackTrigger);
         animator.SetTrigger(AttackTrigger);
 
-        nextAttackTime = Time.time + attackCooldown;
+        nextAttackTime = EnemyClock.time + attackCooldown;
     }
 
     // Can be triggered by timer (default) or animation event.
@@ -270,8 +273,8 @@ public class EnemyRangedCombatController : MonoBehaviour
 
     public void OnTakeDamage(Vector3 hitDir)
     {
-        hitStunUntil = Time.time + hitStunTime;
-        nextAttackTime = Mathf.Max(nextAttackTime, Time.time + attackDelayAfterHit);
+        hitStunUntil = EnemyClock.time + hitStunTime;
+        nextAttackTime = Mathf.Max(nextAttackTime, EnemyClock.time + attackDelayAfterHit);
 
         if (isAttacking)
         {

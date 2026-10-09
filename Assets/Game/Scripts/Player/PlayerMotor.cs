@@ -390,6 +390,12 @@ public class PlayerMotor : MonoBehaviour
         if (movementLocked)
         {
             moveInput = Vector2.zero;
+
+            // Roll (and other locks) keep the body facing fixed, but still
+            // remember stick aim so the next attack/move uses that direction.
+            if (rollActive)
+                TryBufferFacingFromRawInput();
+
             return;
         }
 
@@ -418,6 +424,19 @@ public class PlayerMotor : MonoBehaviour
 
         if (!facingLocked && moveInput.sqrMagnitude > 0.0001f)
             lastNonZeroFacing = moveInput;
+    }
+
+    void TryBufferFacingFromRawInput()
+    {
+        float mag = rawInput.magnitude;
+        if (mag < deadZone)
+            return;
+
+        Vector2 dir = rawInput.normalized;
+        if (snapTo8Directions)
+            dir = SnapTo8(dir);
+
+        lastNonZeroFacing = dir;
     }
 
     public void LockMovement(bool locked)
@@ -506,6 +525,53 @@ public class PlayerMotor : MonoBehaviour
         pendingAttackLungeEaseOutPower = easeOutPower;
         attackLungeDelayTimer = delay;
         attackLungePending = true;
+    }
+
+    /// <summary>
+    /// World-space distance this attack lunge still has to travel, including a lunge
+    /// that is waiting on its delay. Zero once the lunge has finished.
+    /// </summary>
+    public Vector3 GetRemainingAttackLungeDisplacement()
+    {
+        if (attackLungePending)
+        {
+            return LungeTravel(
+                pendingAttackLungeDir,
+                pendingAttackLungeSpeed,
+                pendingAttackLungeDuration,
+                pendingAttackLungeEaseOutPower,
+                0f);
+        }
+
+        if (!attackLungeActive || attackLungeDuration <= 0.0001f)
+            return Vector3.zero;
+
+        float elapsed = attackLungeDuration - attackLungeTimer;
+        float t0 = Mathf.Clamp01(elapsed / attackLungeDuration);
+        return LungeTravel(
+            attackLungeDir,
+            attackLungeSpeed,
+            attackLungeDuration,
+            attackLungeEaseOutPower,
+            t0);
+    }
+
+    static Vector3 LungeTravel(Vector3 dir, float speed, float duration, float easeOutPower, float t0)
+    {
+        if (speed <= 0f || duration <= 0f || dir.sqrMagnitude < 0.0001f)
+            return Vector3.zero;
+
+        t0 = Mathf.Clamp01(t0);
+        float factor;
+        if (easeOutPower < 1f)
+            factor = 1f - t0;
+        else
+        {
+            float p = easeOutPower;
+            factor = (p / (p + 1f)) - t0 + Mathf.Pow(t0, p + 1f) / (p + 1f);
+        }
+
+        return dir * (speed * duration * Mathf.Max(0f, factor));
     }
 
     public void CancelAttackLunge()

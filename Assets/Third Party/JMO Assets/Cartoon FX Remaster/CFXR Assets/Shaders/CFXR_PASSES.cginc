@@ -34,6 +34,14 @@
 			#include "UnityLightingCommon.cginc"
 		#endif
 
+		float _CFXR_EffectTime;
+		float _CFXR_EffectTimeActive;
+		float2 CFXR_EffectTimeYY()
+		{
+			float t = _CFXR_EffectTimeActive > 0.5 ? _CFXR_EffectTime : _Time.y;
+			return float2(t, t);
+		}
+
 		#if defined(_CFXR_LIGHTING_INDIRECT) || defined(_CFXR_LIGHTING_DIRECT) || defined(_CFXR_LIGHTING_ALL)
 			#define LIGHTING
 		#endif
@@ -325,7 +333,7 @@
 
 		#if _CFXR_UV_DISTORTION
 			float2 distortionUvSource = _CFXR_UV2_DISTORTION ? i.custom1.xy : i.uv_random.xy;
-			float2 uvDistortion = tex2D(_DistortTex, distortionUvSource.xy * _DistortScrolling.zw + i.uv_random.zw + frac(_DistortScrolling.xy * _Time.yy)).rg;
+			float2 uvDistortion = tex2D(_DistortTex, distortionUvSource.xy * _DistortScrolling.zw + i.uv_random.zw + frac(_DistortScrolling.xy * CFXR_EffectTimeYY())).rg;
 			uvDistortion = _CFXR_UV_DISTORTION_ADD ? i.uv_random.xy + (uvDistortion * 2.0 - 1.0) * _Distort : lerp(i.uv_random.xy, uvDistortion, _Distort);
 
 			if (_FadeAlongU > 0)
@@ -352,11 +360,11 @@
 		#endif
 
 		#if _CFXR_OVERLAYTEX_1X
-			float2 timeOffset = frac(_Time.yy * _OverlayTex_Scroll.xy);
+			float2 timeOffset = frac(CFXR_EffectTimeYY() * _OverlayTex_Scroll.xy);
 			float2 overlayUv = ((i.uv_random.xy + i.uv_random.zw) * _OverlayTex_Scroll.zz) + timeOffset;
 			half4 overlay = tex2D(_OverlayTex, overlayUv).r;
 		#elif _CFXR_OVERLAYTEX_2X
-			float2 timeOffset = frac(_Time.yy * _OverlayTex_Scroll.xy);
+			float2 timeOffset = frac(CFXR_EffectTimeYY() * _OverlayTex_Scroll.xy);
 			float2 overlayUv = ((i.uv_random.xy + i.uv_random.zw) * _OverlayTex_Scroll.zz) + timeOffset;
 			half4 overlay = tex2D(_OverlayTex, overlayUv).r;
 
@@ -514,7 +522,7 @@
 			// Dissolve
 
 		#if _CFXR_DISSOLVE
-			float2 dissolveUvs = _CFXR_DISSOLVE_ALONG_UV_X ? i.uv_random.xy * _DissolveTex_ST.xy + _DissolveTex_ST.zw + frac(_Time.yy * _DissolveScroll.xy) : i.uv_random.xy;
+			float2 dissolveUvs = _CFXR_DISSOLVE_ALONG_UV_X ? i.uv_random.xy * _DissolveTex_ST.xy + _DissolveTex_ST.zw + frac(CFXR_EffectTimeYY() * _DissolveScroll.xy) : i.uv_random.xy;
 			half dissolveTex = tex2D(_DissolveTex, dissolveUvs.xy).r;
 			if (_CFXR_DISSOLVE_ALONG_UV_X)
 			{

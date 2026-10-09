@@ -555,6 +555,9 @@ namespace CartoonFX
 		int startFrameOffset;
 		void Update()
 		{
+			if (HitStopGate.Frozen)
+				return;
+
 #if !DISABLE_LIGHTS || !DISABLE_CAMERA_SHAKE
 			time += Time.deltaTime;
 

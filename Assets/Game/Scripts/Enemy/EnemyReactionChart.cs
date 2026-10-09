@@ -165,6 +165,9 @@ public class EnemyReactionChart : MonoBehaviour
     /// <summary>Safe to call from combat and movement. Samples once per frame.</summary>
     public void Tick()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (tickedFrame == Time.frameCount)
             return;
         tickedFrame = Time.frameCount;
@@ -211,7 +214,7 @@ public class EnemyReactionChart : MonoBehaviour
 
         UpdateClose(dist);
 
-        if (hasReaction && !tiedToSwing && Time.time >= reactionUntil)
+        if (hasReaction && !tiedToSwing && EnemyClock.time >= reactionUntil)
             Clear();
 
         if (hasReaction && tiedToSwing && !frame.swinging)
@@ -223,7 +226,7 @@ public class EnemyReactionChart : MonoBehaviour
         hasReaction = true;
         reaction = next;
         tiedToSwing = untilSwingEnds;
-        reactionUntil = untilSwingEnds ? 0f : Time.time + Mathf.Max(0.05f, responseWindow);
+        reactionUntil = untilSwingEnds ? 0f : EnemyClock.time + Mathf.Max(0.05f, responseWindow);
     }
 
     void UpdateClose(float dist)
