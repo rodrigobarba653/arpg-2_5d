@@ -426,6 +426,21 @@ public class PlayerMotor : MonoBehaviour
             lastNonZeroFacing = moveInput;
     }
 
+    public bool TryReadStickFacing(out Vector2 facing)
+    {
+        facing = Vector2.zero;
+        float mag = rawInput.magnitude;
+        if (mag < deadZone)
+            return false;
+
+        Vector2 dir = rawInput.normalized;
+        if (snapTo8Directions)
+            dir = SnapTo8(dir);
+
+        facing = dir;
+        return true;
+    }
+
     void TryBufferFacingFromRawInput()
     {
         float mag = rawInput.magnitude;

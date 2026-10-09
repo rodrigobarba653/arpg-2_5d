@@ -177,6 +177,11 @@ public class PlayerCombatController : MonoBehaviour
     // Roll can cancel the rest of the combo until EndAttack.
     private bool comboLinkOpen;
 
+    // Roll pressed during a swing. That swing finishes, then the combo stops and she rolls.
+    private bool rollQueued;
+    private bool rollDirFromStick;
+    private Vector2 queuedRollDir;
+
     private float lockoutUntil = 0f;
 
     private float combatTimer = 0f;
@@ -309,6 +314,9 @@ public class PlayerCombatController : MonoBehaviour
         if (health != null && health.isTakingDamage)
             return;
 
+        if (isAttacking && rollQueued)
+            RememberQueuedRollDirection();
+
         if (buffered && Time.time > comboBufferUntil)
             buffered = false;
 
@@ -373,7 +381,7 @@ public class PlayerCombatController : MonoBehaviour
 
         if (!ctx.performed) return;
         if (!enableRoll) return;
-        if (isAttacking && !comboLinkOpen) return;
+        if (isRolling) return;
 
         if (jump != null && !jump.IsGrounded)
             return;
@@ -381,7 +389,11 @@ public class PlayerCombatController : MonoBehaviour
         if (Time.time < rollCooldownUntil) return;
 
         if (isAttacking)
-            EndCombo();
+        {
+            rollQueued = true;
+            RememberQueuedRollDirection();
+            return;
+        }
 
         StartRoll();
     }
@@ -513,6 +525,9 @@ public class PlayerCombatController : MonoBehaviour
     {
         if (!isAttacking) return;
 
+        if (rollQueued)
+            return;
+
         if (buffered && Time.time <= comboBufferUntil && comboIndex < maxCombo)
         {
             comboLinkOpen = false;
@@ -529,6 +544,17 @@ public class PlayerCombatController : MonoBehaviour
     {
         if (!isAttacking) return;
 
+        if (rollQueued)
+        {
+            Vector2 dir = rollDirFromStick
+                ? queuedRollDir
+                : (motor != null ? motor.GetFacing2D() : Vector2.down);
+            ClearQueuedRoll();
+            EndCombo();
+            StartRoll(dir);
+            return;
+        }
+
         if (comboIndex >= maxCombo)
             lockoutUntil = Time.time + comboEndCooldown;
 
@@ -541,6 +567,7 @@ public class PlayerCombatController : MonoBehaviour
         comboIndex = 0;
         buffered = false;
         comboLinkOpen = false;
+        ClearQueuedRoll();
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
@@ -735,7 +762,33 @@ public class PlayerCombatController : MonoBehaviour
         Physics.SyncTransforms();
     }
 
+    void RememberQueuedRollDirection()
+    {
+        if (motor != null && motor.TryReadStickFacing(out Vector2 dir))
+        {
+            rollDirFromStick = true;
+            queuedRollDir = dir;
+        }
+    }
+
+    void ClearQueuedRoll()
+    {
+        rollQueued = false;
+        rollDirFromStick = false;
+        queuedRollDir = Vector2.zero;
+    }
+
     private void StartRoll()
+    {
+        Vector2 rollDir2D = motor != null ? motor.GetMoveInput2D() : Vector2.zero;
+
+        if (rollDir2D.sqrMagnitude < 0.01f && rollUsesFacingIfNoInput && motor != null)
+            rollDir2D = motor.GetFacing2D();
+
+        StartRoll(rollDir2D);
+    }
+
+    private void StartRoll(Vector2 rollDir2D)
     {
         if (jump != null && !jump.IsGrounded)
             return;
@@ -751,11 +804,6 @@ public class PlayerCombatController : MonoBehaviour
         EnterCombat();
 
         motor?.LockMovement(true);
-
-        Vector2 rollDir2D = motor != null ? motor.GetMoveInput2D() : Vector2.zero;
-
-        if (rollDir2D.sqrMagnitude < 0.01f && rollUsesFacingIfNoInput && motor != null)
-            rollDir2D = motor.GetFacing2D();
 
         if (rollDir2D.sqrMagnitude < 0.01f)
             rollDir2D = Vector2.down;
@@ -834,6 +882,7 @@ public class PlayerCombatController : MonoBehaviour
         comboIndex = 0;
         buffered = false;
         comboLinkOpen = false;
+        ClearQueuedRoll();
 
         softTargeting?.ClearComboTarget();
 
