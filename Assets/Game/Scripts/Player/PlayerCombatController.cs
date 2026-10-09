@@ -811,7 +811,8 @@ public class PlayerCombatController : MonoBehaviour
         rollEndTime = Time.time + rollDuration;
         rollCooldownUntil = rollEndTime + rollCooldown;
 
-        EnterCombat();
+        if (inCombat)
+            combatTimer = combatTimeout;
 
         motor?.LockMovement(true);
 
