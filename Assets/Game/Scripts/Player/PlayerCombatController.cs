@@ -182,6 +182,9 @@ public class PlayerCombatController : MonoBehaviour
     private bool rollDirFromStick;
     private Vector2 queuedRollDir;
 
+    // Attack pressed during a roll. The roll finishes, then she swings in the stick direction.
+    private bool attackQueued;
+
     private float lockoutUntil = 0f;
 
     private float combatTimer = 0f;
@@ -347,7 +350,14 @@ public class PlayerCombatController : MonoBehaviour
         if (jump != null && !jump.IsGrounded)
             return;
 
-        if (isRolling) return;
+        if (isRolling)
+        {
+            if (equipment != null && !equipment.HasWeapon)
+                return;
+
+            attackQueued = true;
+            return;
+        }
 
         // No weapon equipped → can't attack.
         if (equipment != null && !equipment.HasWeapon)
@@ -834,6 +844,12 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetBool(IsRollingHash, false);
 
         combatTimer = combatTimeout;
+
+        if (attackQueued)
+        {
+            attackQueued = false;
+            StartAttack1();
+        }
     }
 
     private void ExitCombat()
@@ -883,6 +899,7 @@ public class PlayerCombatController : MonoBehaviour
         buffered = false;
         comboLinkOpen = false;
         ClearQueuedRoll();
+        attackQueued = false;
 
         softTargeting?.ClearComboTarget();
 
