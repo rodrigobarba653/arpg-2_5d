@@ -1,139 +1,297 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
-/// Segmented "pip" meter — a row of squares/icons instead of a fill bar.
-/// Each pip represents a fixed chunk of points (pointsPerPip). Pips fully
-/// BEFORE the current value are fully filled, pips fully AFTER are fully
-/// empty, and the ONE pip straddling the current value drains VERTICALLY
-/// (top-to-bottom) as damage/cost eats into it — classic "potion vial"
-/// look, not an instant on/off swap.
-///
-/// Colors are flat and fixed — one filledColor (e.g. red for HP, blue for
-/// MP) and one emptyColor, both fully configurable per meter instance. No
-/// gradient, no per-pip variation — every pip uses the same two colors.
-///
-/// Reusable for HP, MP, AP — anything expressed as current/max points. Spawns
-/// its own pips from a prefab (PipVisual) so the pip count adjusts
-/// automatically if max changes (leveling up, equipment, buffs).
+/// Continuous HP/MP bar. One track, one horizontal fill: fill amount is
+/// current / max. The class name stays PipMeterWidget so the HUD prefabs
+/// keep their existing script reference.
 /// </summary>
 public class PipMeterWidget : MonoBehaviour
 {
     [Header("Sprites")]
+    [Tooltip("Optional. Leave empty for a solid bar tinted by the colors below.")]
     public Sprite filledSprite;
     public Sprite emptySprite;
 
-    [Header("Color (flat, no gradient)")]
-    [Tooltip("Color of the filled portion of every pip. E.g. red for HP, " +
-             "blue for MP.")]
-    public Color filledColor = Color.white;
+    [Header("Color")]
+    public Color filledColor = new Color(0.85f, 0.15f, 0.15f, 1f);
+    public Color emptyColor = new Color(0.15f, 0.15f, 0.15f, 1f);
 
-    [Tooltip("Color of the empty portion/background of every pip.")]
-    public Color emptyColor = Color.white;
+    [Header("Unit Dividers")]
+    [Tooltip("Draw a vertical mark every unitsPerDivider points. The mark that would sit on the right end is skipped.")]
+    public bool drawUnitDividers;
 
-    [Header("Size Emphasis")]
-    [Tooltip("If true, the pip currently taking damage grows and pulses, and " +
-             "pips that are fully empty shrink down — makes remaining points " +
-             "readable at a glance. If false (e.g. for MP), every pip stays " +
-             "at a constant size regardless of fill state.")]
-    public bool useSizeEmphasis = false;
-
-    [Header("Spawn")]
-    [Tooltip("Parent for the spawned pips. Add a HorizontalLayoutGroup (or " +
-             "GridLayoutGroup) here so they auto-space themselves.")]
-    public RectTransform container;
-
-    [Tooltip("Prefab for one pip — a PipVisual with a background Image and a " +
-             "Filled/Vertical foreground Image.")]
-    public PipVisual pipPrefab;
-
-    [Header("Value Mapping")]
-    [Tooltip("How many points each pip represents. E.g. max=100 with " +
-             "pointsPerPip=20 → 5 pips. Lower this for more granular (more, " +
-             "smaller) pips; raise it for fewer, chunkier ones.")]
     [Min(1)]
-    public int pointsPerPip = 20;
+    public int unitsPerDivider = 10;
 
-    readonly List<PipVisual> pips = new List<PipVisual>();
-    int spawnedForPipCount = -1;
-    int activePipIndex = -1;
+    [Tooltip("Width of each divider, in UI pixels.")]
+    public float dividerWidth = 2f;
 
-    /// <summary>Push new current/max values — rebuilds the pip row only if the
-    /// pip COUNT changed (i.e. max changed enough to add/remove a pip), and
-    /// always refreshes each pip's vertical fill fraction.</summary>
+    public Color dividerColor = new Color(0.152941f, 0.098039f, 0.160784f, 1f);
+
+    [Header("Damage Trail")]
+    [Tooltip("A white fill sits behind the main bar. On damage it waits, then shrinks down to the new value.")]
+    public bool useDamageTrail;
+    public float damageTrailDelay = 1f;
+    [Tooltip("How long the white bar takes to catch the main bar after the delay.")]
+    public float damageTrailCatchup = 0.35f;
+    public Color damageTrailColor = Color.white;
+
+    Image track;
+    Image fill;
+    Image trail;
+    RectTransform rt;
+    readonly List<Image> dividers = new List<Image>();
+
+    float trailAmount;
+    float trailHoldUntil = -1f;
+    bool trailInitialized;
+    bool ready;
+
+    void Awake()
+    {
+        EnsureBar();
+    }
+
+    /// <summary>Push new current/max. The filled portion stays on the left and
+    /// shortens from the right as the value drops.</summary>
     public void SetValues(int current, int max)
     {
-        int pipCount = Mathf.Max(1, Mathf.CeilToInt(max / (float)pointsPerPip));
+        EnsureBar();
+        if (fill == null)
+            return;
 
-        if (pipCount != spawnedForPipCount)
-            RebuildPips(pipCount);
-
-        // The "active" / front-line pip is whichever one `current` currently
-        // sits within — computed HERE from the overall value, not derived
-        // per-pip from its own fraction. Using (current-1)/pointsPerPip
-        // (instead of current/pointsPerPip) keeps an exact-boundary value on
-        // the LOWER pip: e.g. with pointsPerPip=20, current=100 lands on pip
-        // index 4 (fully filled) rather than a nonexistent pip 5. Without
-        // this, damage dealt in exact multiples of pointsPerPip would make
-        // the front-line pip snap straight from 1.0 to the next pip's 1.0,
-        // never passing through a fractional value — so nothing would ever
-        // pulse, which was the original bug.
-        activePipIndex = current <= 0 ? -1 : Mathf.Clamp((current - 1) / pointsPerPip, 0, pipCount - 1);
-
-        for (int i = 0; i < pips.Count; i++)
-        {
-            if (pips[i] == null) continue;
-
-            // Pip i covers the points range [i*pointsPerPip, (i+1)*pointsPerPip].
-            // How much of THIS pip's own slice is still covered by `current`:
-            //   fully before current → 1 (fully filled)
-            //   fully after current  → 0 (fully drained)
-            //   straddling current   → partial (the vertical drain).
-            float remaining = current - i * pointsPerPip;
-            float fillFraction = Mathf.Clamp01(remaining / pointsPerPip);
-
-            bool isActivePip = i == activePipIndex;
-
-            pips[i].Apply(emptySprite, emptyColor, filledSprite, filledColor, fillFraction, useSizeEmphasis, isActivePip);
-        }
+        float amount = max <= 0 ? 0f : Mathf.Clamp01(current / (float)max);
+        fill.fillAmount = amount;
+        ApplyColors();
+        UpdateDividers(max);
+        NoteTrailTarget(amount);
     }
 
-    /// <summary>Triggers a brief shake on the pip currently representing the
-    /// front line of remaining points (the same one that pulses). Call this
-    /// when actual damage just happened — NOT on every SetValues refresh
-    /// (which also fires on heals/mana spend). See PlayerHudBinder for the
-    /// damage-detection logic that decides when to call this.</summary>
-    public void ShakeActivePip()
-    {
-        if (activePipIndex < 0 || activePipIndex >= pips.Count) return;
-        pips[activePipIndex]?.Shake();
-    }
-
-    /// <summary>Clears the row back to empty/no pips (e.g. on death, or when
-    /// no character is bound). Safe to call repeatedly.</summary>
+    /// <summary>Empties the bar when no character is bound.</summary>
     public void Clear()
     {
-        for (int i = 0; i < pips.Count; i++)
-            if (pips[i] != null) Destroy(pips[i].gameObject);
-        pips.Clear();
-        spawnedForPipCount = -1;
+        EnsureBar();
+        if (fill != null)
+            fill.fillAmount = 0f;
+        trailAmount = 0f;
+        trailHoldUntil = -1f;
+        trailInitialized = false;
+        if (trail != null)
+            trail.fillAmount = 0f;
+        UpdateDividers(0);
     }
 
-    void RebuildPips(int count)
+    void EnsureBar()
     {
-        spawnedForPipCount = count;
+        if (ready)
+            return;
 
-        for (int i = 0; i < pips.Count; i++)
-            if (pips[i] != null) Destroy(pips[i].gameObject);
-        pips.Clear();
+        rt = transform as RectTransform;
 
-        if (container == null || pipPrefab == null) return;
+        var layout = GetComponent<HorizontalLayoutGroup>();
+        if (layout != null)
+            layout.enabled = false;
 
-        for (int i = 0; i < count; i++)
+        var fitter = GetComponent<ContentSizeFitter>();
+        if (fitter != null)
+            fitter.enabled = false;
+
+        // A stretched rect is positioned by its parent (the frame windows).
+        // Only invent a size when this meter is still a loose top-left point.
+        if (rt != null && rt.anchorMin == rt.anchorMax && rt.sizeDelta.x < 8f)
+            rt.sizeDelta = new Vector2(220f, 16f);
+
+        for (int i = 0; i < transform.childCount; i++)
         {
-            var pip = Instantiate(pipPrefab, container);
-            pip.gameObject.SetActive(true);
-            pips.Add(pip);
+            Transform child = transform.GetChild(i);
+            if (child.name == "Background")
+                child.gameObject.SetActive(false);
         }
+
+        track = CreateImage("Track", transform);
+        trail = CreateImage("Trail", track.transform);
+        fill = CreateImage("Fill", track.transform);
+        Stretch(track.rectTransform, 0f);
+        Stretch(trail.rectTransform, 0f);
+        Stretch(fill.rectTransform, 0f);
+        trail.transform.SetSiblingIndex(0);
+        fill.transform.SetAsLastSibling();
+
+        track.type = Image.Type.Simple;
+        trail.type = Image.Type.Filled;
+        trail.fillMethod = Image.FillMethod.Horizontal;
+        trail.fillOrigin = (int)Image.OriginHorizontal.Left;
+        trail.color = damageTrailColor;
+        trail.gameObject.SetActive(useDamageTrail);
+        fill.type = Image.Type.Filled;
+        fill.fillMethod = Image.FillMethod.Horizontal;
+        // Left origin keeps the remaining points on the left. Lowering the
+        // amount eats the bar from the right edge toward the left.
+        fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+
+        ApplyColors();
+        ready = true;
+    }
+
+    void ApplyColors()
+    {
+        // A Filled image with no sprite draws a full rectangle and ignores
+        // fillAmount, so the bar would never follow the current points.
+        Sprite solid = SolidSprite();
+
+        if (track != null)
+        {
+            track.sprite = emptySprite != null ? emptySprite : solid;
+            track.color = emptyColor;
+        }
+
+        if (trail != null)
+        {
+            trail.sprite = filledSprite != null ? filledSprite : solid;
+            trail.color = damageTrailColor;
+            trail.type = Image.Type.Filled;
+            trail.fillMethod = Image.FillMethod.Horizontal;
+            trail.fillOrigin = (int)Image.OriginHorizontal.Left;
+            trail.gameObject.SetActive(useDamageTrail);
+        }
+
+        if (fill != null)
+        {
+            fill.sprite = filledSprite != null ? filledSprite : solid;
+            fill.color = filledColor;
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        }
+    }
+
+    void NoteTrailTarget(float amount)
+    {
+        if (!useDamageTrail || trail == null)
+            return;
+
+        if (!trailInitialized)
+        {
+            trailAmount = amount;
+            trailInitialized = true;
+            trailHoldUntil = -1f;
+        }
+        else if (amount < trailAmount)
+        {
+            trailHoldUntil = Time.unscaledTime + Mathf.Max(0f, damageTrailDelay);
+        }
+        else if (amount > trailAmount)
+        {
+            trailAmount = amount;
+            trailHoldUntil = -1f;
+        }
+
+        trail.fillAmount = trailAmount;
+    }
+
+    void TickTrail()
+    {
+        if (!useDamageTrail || trail == null || fill == null)
+            return;
+
+        float target = fill.fillAmount;
+        if (trailHoldUntil > 0f && Time.unscaledTime < trailHoldUntil)
+        {
+            trail.fillAmount = trailAmount;
+            return;
+        }
+
+        float catchup = Mathf.Max(0.05f, damageTrailCatchup);
+        trailAmount = Mathf.MoveTowards(trailAmount, target, Time.unscaledDeltaTime / catchup);
+        trail.fillAmount = trailAmount;
+    }
+
+    void UpdateDividers(int max)
+    {
+        int count = 0;
+        if (drawUnitDividers && unitsPerDivider > 0 && max > unitsPerDivider)
+            count = (max - 1) / unitsPerDivider;
+
+        Sprite solid = SolidSprite();
+        float width = Mathf.Max(1f, dividerWidth);
+
+        while (dividers.Count < count)
+        {
+            Image mark = CreateImage("Divider" + dividers.Count, transform);
+            mark.raycastTarget = false;
+            dividers.Add(mark);
+        }
+
+        for (int i = 0; i < dividers.Count; i++)
+        {
+            Image mark = dividers[i];
+            if (mark == null)
+                continue;
+
+            bool show = i < count;
+            mark.gameObject.SetActive(show);
+            if (!show)
+                continue;
+
+            mark.sprite = solid;
+            mark.color = dividerColor;
+            mark.type = Image.Type.Simple;
+            mark.transform.SetAsLastSibling();
+
+            // Mark i sits on point (i+1)*units, never on the right end.
+            float fraction = (i + 1) * unitsPerDivider / (float)max;
+            RectTransform markRect = mark.rectTransform;
+            markRect.anchorMin = new Vector2(fraction, 0f);
+            markRect.anchorMax = new Vector2(fraction, 1f);
+            markRect.pivot = new Vector2(0.5f, 0.5f);
+            markRect.sizeDelta = new Vector2(width, 0f);
+            markRect.anchoredPosition = Vector2.zero;
+        }
+    }
+
+    static Sprite solidSprite;
+
+    static Sprite SolidSprite()
+    {
+        if (solidSprite != null)
+            return solidSprite;
+
+        Texture2D tex = Texture2D.whiteTexture;
+        solidSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+        return solidSprite;
+    }
+
+    static Image CreateImage(string name, Transform parent)
+    {
+        Transform existing = parent.Find(name);
+        if (existing != null)
+        {
+            Image found = existing.GetComponent<Image>();
+            if (found != null)
+                return found;
+        }
+
+        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        go.layer = parent.gameObject.layer;
+        go.transform.SetParent(parent, false);
+        Image image = go.GetComponent<Image>();
+        image.raycastTarget = false;
+        return image;
+    }
+
+    static void Stretch(RectTransform rect, float inset)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(inset, inset);
+        rect.offsetMax = new Vector2(-inset, -inset);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+    }
+
+    void Update()
+    {
+        TickTrail();
     }
 }
