@@ -34,6 +34,8 @@ public class PipMeterWidget : MonoBehaviour
     [Tooltip("A white fill sits behind the main bar. On damage it waits, then shrinks down to the new value.")]
     public bool useDamageTrail;
     public float damageTrailDelay = 0.4f;
+    [Tooltip("How long the filled bar takes to slide down to the new value after a hit. Healing snaps.")]
+    public float damageDrainDuration = 0.25f;
     [Tooltip("How long the white bar takes to catch the main bar after the delay.")]
     public float damageTrailCatchup = 0.35f;
     public Color damageTrailColor = Color.white;
@@ -49,6 +51,8 @@ public class PipMeterWidget : MonoBehaviour
 
     Image track;
     Image fill;
+    Image fillBleed;
+    Image fillHighlight;
     Image trail;
     Image trailBleed;
     RectTransform rt;
@@ -57,6 +61,10 @@ public class PipMeterWidget : MonoBehaviour
     float trailAmount;
     float trailHoldUntil = -1f;
     bool trailInitialized;
+    float fillDisplayed;
+    float fillTarget;
+    float fillDrainSpeed;
+    bool fillInitialized;
     bool ready;
 
     void Awake()
@@ -73,8 +81,9 @@ public class PipMeterWidget : MonoBehaviour
             return;
 
         float amount = max <= 0 ? 0f : Mathf.Clamp01(current / (float)max);
-        fill.fillAmount = amount;
+        NoteFillTarget(amount);
         ApplyColors();
+        SetFillAmount(fillDisplayed);
         UpdateDividers(max);
         NoteTrailTarget(amount);
     }
@@ -83,8 +92,11 @@ public class PipMeterWidget : MonoBehaviour
     public void Clear()
     {
         EnsureBar();
-        if (fill != null)
-            fill.fillAmount = 0f;
+        fillDisplayed = 0f;
+        fillTarget = 0f;
+        fillDrainSpeed = 0f;
+        fillInitialized = false;
+        SetFillAmount(0f);
         trailAmount = 0f;
         trailHoldUntil = -1f;
         trailInitialized = false;
@@ -122,10 +134,13 @@ public class PipMeterWidget : MonoBehaviour
         track = CreateImage("Track", transform);
         trailBleed = CreateImage("TrailBleed", track.transform);
         trail = CreateImage("Trail", track.transform);
+        fillBleed = CreateImage("FillShade", track.transform);
+        fillHighlight = CreateImage("FillHighlight", track.transform);
         fill = CreateImage("Fill", track.transform);
         Stretch(track.rectTransform, 0f);
         Stretch(trailBleed.rectTransform, -4f);
         Stretch(trail.rectTransform, 2f);
+        Stretch(fillBleed.rectTransform, 0f);
         Stretch(fill.rectTransform, 0f);
         trailBleed.transform.SetSiblingIndex(0);
         fill.transform.SetAsLastSibling();
@@ -147,6 +162,12 @@ public class PipMeterWidget : MonoBehaviour
         // Left origin keeps the remaining points on the left. Lowering the
         // amount eats the bar from the right edge toward the left.
         fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fillBleed.color = FillShadeColor;
+        fillBleed.material = null;
+        fillBleed.gameObject.SetActive(liquidMaterial != null);
+        fillHighlight.color = Color.white;
+        fillHighlight.material = null;
+        fillHighlight.gameObject.SetActive(liquidMaterial != null);
 
         ApplyColors();
         ready = true;
@@ -194,6 +215,22 @@ public class PipMeterWidget : MonoBehaviour
             else
                 ApplyGloss(fill);
         }
+
+        if (fillBleed != null)
+        {
+            fillBleed.sprite = solid;
+            fillBleed.color = FillShadeColor;
+            fillBleed.material = null;
+            fillBleed.gameObject.SetActive(liquidMaterial != null);
+        }
+
+        if (fillHighlight != null)
+        {
+            fillHighlight.sprite = solid;
+            fillHighlight.color = Color.white;
+            fillHighlight.material = null;
+            fillHighlight.gameObject.SetActive(liquidMaterial != null);
+        }
     }
 
     Material runtimeLiquid;
@@ -235,12 +272,104 @@ public class PipMeterWidget : MonoBehaviour
         image.material = bleedMaterial;
     }
 
+    // The frame covers the outer couple of pixels of the slot, so each band
+    // is tall enough to still show inside the window.
+    static readonly Color FillShadeColor = new Color(0.071f, 0.561f, 0.227f, 1f);
+    const float FillEdgeBand = 5f;
+
+    void SetFillAmount(float amount)
+    {
+        if (fillHighlight == null && track != null && liquidMaterial != null)
+        {
+            fillHighlight = CreateImage("FillHighlight", track.transform);
+            fillHighlight.sprite = SolidSprite();
+            fillHighlight.material = null;
+            fillHighlight.color = Color.white;
+            if (fill != null)
+                fill.transform.SetAsLastSibling();
+        }
+
+        bool edges = fillBleed != null && fillHighlight != null && liquidMaterial != null;
+        if (!edges)
+        {
+            if (fill != null)
+                fill.fillAmount = amount;
+            return;
+        }
+
+        amount = Mathf.Clamp01(amount);
+        PlaceEdgeBand(fillHighlight.rectTransform, amount, top: true);
+        PlaceEdgeBand(fillBleed.rectTransform, amount, top: false);
+        fillHighlight.type = Image.Type.Simple;
+        fillHighlight.fillAmount = 1f;
+        fillHighlight.color = Color.white;
+        fillBleed.type = Image.Type.Simple;
+        fillBleed.fillAmount = 1f;
+        fillBleed.color = FillShadeColor;
+
+        if (fill == null)
+            return;
+
+        RectTransform bar = fill.rectTransform;
+        bar.anchorMin = Vector2.zero;
+        bar.anchorMax = new Vector2(amount, 1f);
+        bar.offsetMin = new Vector2(0f, FillEdgeBand);
+        bar.offsetMax = new Vector2(0f, -FillEdgeBand);
+        fill.type = Image.Type.Simple;
+        fill.fillAmount = 1f;
+    }
+
+    static void PlaceEdgeBand(RectTransform band, float amount, bool top)
+    {
+        band.anchorMin = new Vector2(0f, top ? 1f : 0f);
+        band.anchorMax = new Vector2(amount, top ? 1f : 0f);
+        band.pivot = new Vector2(0.5f, top ? 1f : 0f);
+        band.sizeDelta = new Vector2(0f, FillEdgeBand);
+        band.anchoredPosition = Vector2.zero;
+    }
+
     void SetTrailAmount(float amount)
     {
         if (trail != null)
             trail.fillAmount = amount;
         if (trailBleed != null)
             trailBleed.fillAmount = amount;
+    }
+
+    void NoteFillTarget(float amount)
+    {
+        bool animateDrop = useDamageTrail && fillInitialized && amount < fillDisplayed - 0.0001f;
+        fillTarget = amount;
+
+        if (!fillInitialized || !animateDrop)
+        {
+            fillDisplayed = amount;
+            fillDrainSpeed = 0f;
+            fillInitialized = true;
+            SetFillAmount(amount);
+            return;
+        }
+
+        float duration = Mathf.Max(0.05f, damageDrainDuration);
+        fillDrainSpeed = (fillDisplayed - amount) / duration;
+    }
+
+    void TickFill()
+    {
+        if (fill == null)
+            return;
+
+        if (fillDrainSpeed <= 0f)
+        {
+            fillDisplayed = fillTarget;
+            SetFillAmount(fillDisplayed);
+            return;
+        }
+
+        fillDisplayed = Mathf.MoveTowards(fillDisplayed, fillTarget, fillDrainSpeed * Time.unscaledDeltaTime);
+        SetFillAmount(fillDisplayed);
+        if (Mathf.Approximately(fillDisplayed, fillTarget))
+            fillDrainSpeed = 0f;
     }
 
     void NoteTrailTarget(float amount)
@@ -272,7 +401,7 @@ public class PipMeterWidget : MonoBehaviour
         if (!useDamageTrail || trail == null || fill == null)
             return;
 
-        float target = fill.fillAmount;
+        float target = fillTarget;
         if (trailHoldUntil > 0f && Time.unscaledTime < trailHoldUntil)
         {
             SetTrailAmount(trailAmount);
@@ -368,6 +497,7 @@ public class PipMeterWidget : MonoBehaviour
 
     void Update()
     {
+        TickFill();
         TickTrail();
     }
 }

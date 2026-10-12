@@ -10,6 +10,7 @@ Shader "Game/UI/HealthLiquid"
         _RepeatSize ("Repeat Size", Float) = 70
         _Slice ("Vertical Slice", Float) = 0.22
         _RippleColor ("Ripple", Color) = (0.113725, 0.533333, 0.572549, 1)
+        _RippleStrength ("Ripple Strength", Range(0, 1)) = 0
 
         _StencilComp ("Stencil Comparison", Float) = 8
         _Stencil ("Stencil ID", Float) = 0
@@ -89,6 +90,7 @@ Shader "Game/UI/HealthLiquid"
             float _RepeatSize;
             float _Slice;
             float4 _RippleColor;
+            float _RippleStrength;
 
             v2f vert(appdata_t v)
             {
@@ -119,7 +121,7 @@ Shader "Game/UI/HealthLiquid"
                 // The rest of the bar stays the vertex color (the teal).
                 float lines = saturate((caustic - 0.35) / 0.36);
                 lines = pow(lines, 0.78);
-                col.rgb = lerp(col.rgb, _RippleColor.rgb, lines);
+                col.rgb = lerp(col.rgb, _RippleColor.rgb, lines * saturate(_RippleStrength));
 
                 float y = saturate(i.texcoord.y);
                 float band = smoothstep(0.62, 0.74, y) * (1.0 - smoothstep(0.8, 0.94, y));
