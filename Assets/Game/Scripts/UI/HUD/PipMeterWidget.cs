@@ -33,14 +33,24 @@ public class PipMeterWidget : MonoBehaviour
     [Header("Damage Trail")]
     [Tooltip("A white fill sits behind the main bar. On damage it waits, then shrinks down to the new value.")]
     public bool useDamageTrail;
-    public float damageTrailDelay = 1f;
+    public float damageTrailDelay = 0.4f;
     [Tooltip("How long the white bar takes to catch the main bar after the delay.")]
     public float damageTrailCatchup = 0.35f;
     public Color damageTrailColor = Color.white;
 
+    [Tooltip("Optional moving liquid material. Applied only to this bar's fill, not the trail or the other meter.")]
+    public Material liquidMaterial;
+
+    [Tooltip("Soft top highlight for a bar that is not using the liquid material. Also used on the white damage trail.")]
+    public Material glossMaterial;
+
+    [Tooltip("Additive glow behind the white damage trail so the light spills past its edges.")]
+    public Material bleedMaterial;
+
     Image track;
     Image fill;
     Image trail;
+    Image trailBleed;
     RectTransform rt;
     readonly List<Image> dividers = new List<Image>();
 
@@ -78,8 +88,7 @@ public class PipMeterWidget : MonoBehaviour
         trailAmount = 0f;
         trailHoldUntil = -1f;
         trailInitialized = false;
-        if (trail != null)
-            trail.fillAmount = 0f;
+        SetTrailAmount(0f);
         UpdateDividers(0);
     }
 
@@ -111,12 +120,14 @@ public class PipMeterWidget : MonoBehaviour
         }
 
         track = CreateImage("Track", transform);
+        trailBleed = CreateImage("TrailBleed", track.transform);
         trail = CreateImage("Trail", track.transform);
         fill = CreateImage("Fill", track.transform);
         Stretch(track.rectTransform, 0f);
-        Stretch(trail.rectTransform, 0f);
+        Stretch(trailBleed.rectTransform, -4f);
+        Stretch(trail.rectTransform, 2f);
         Stretch(fill.rectTransform, 0f);
-        trail.transform.SetSiblingIndex(0);
+        trailBleed.transform.SetSiblingIndex(0);
         fill.transform.SetAsLastSibling();
 
         track.type = Image.Type.Simple;
@@ -125,6 +136,12 @@ public class PipMeterWidget : MonoBehaviour
         trail.fillOrigin = (int)Image.OriginHorizontal.Left;
         trail.color = damageTrailColor;
         trail.gameObject.SetActive(useDamageTrail);
+        trailBleed.type = Image.Type.Filled;
+        trailBleed.fillMethod = Image.FillMethod.Horizontal;
+        trailBleed.fillOrigin = (int)Image.OriginHorizontal.Left;
+        trailBleed.color = new Color(1f, 1f, 1f, 0.85f);
+        trailBleed.gameObject.SetActive(useDamageTrail);
+        ApplyBleed(trailBleed);
         fill.type = Image.Type.Filled;
         fill.fillMethod = Image.FillMethod.Horizontal;
         // Left origin keeps the remaining points on the left. Lowering the
@@ -155,6 +172,14 @@ public class PipMeterWidget : MonoBehaviour
             trail.fillMethod = Image.FillMethod.Horizontal;
             trail.fillOrigin = (int)Image.OriginHorizontal.Left;
             trail.gameObject.SetActive(useDamageTrail);
+            ApplyGloss(trail);
+        }
+
+        if (trailBleed != null)
+        {
+            trailBleed.sprite = solid;
+            trailBleed.gameObject.SetActive(useDamageTrail);
+            ApplyBleed(trailBleed);
         }
 
         if (fill != null)
@@ -164,7 +189,58 @@ public class PipMeterWidget : MonoBehaviour
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
             fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            if (liquidMaterial != null)
+                ApplyLiquid(fill);
+            else
+                ApplyGloss(fill);
         }
+    }
+
+    Material runtimeLiquid;
+
+    void ApplyLiquid(Image image)
+    {
+        if (image == null || liquidMaterial == null)
+            return;
+
+        Shader shader = liquidMaterial.shader;
+        if (shader == null || shader.name == "Hidden/InternalErrorShader")
+            shader = Shader.Find("Game/UI/HealthLiquid");
+        if (shader == null)
+            return;
+
+        if (runtimeLiquid == null || runtimeLiquid.shader != shader)
+        {
+            runtimeLiquid = new Material(shader);
+            if (liquidMaterial.shader == shader)
+                runtimeLiquid.CopyPropertiesFromMaterial(liquidMaterial);
+        }
+
+        image.material = runtimeLiquid;
+    }
+
+    void ApplyGloss(Image image)
+    {
+        if (image == null || glossMaterial == null)
+            return;
+
+        image.material = glossMaterial;
+    }
+
+    void ApplyBleed(Image image)
+    {
+        if (image == null || bleedMaterial == null)
+            return;
+
+        image.material = bleedMaterial;
+    }
+
+    void SetTrailAmount(float amount)
+    {
+        if (trail != null)
+            trail.fillAmount = amount;
+        if (trailBleed != null)
+            trailBleed.fillAmount = amount;
     }
 
     void NoteTrailTarget(float amount)
@@ -188,7 +264,7 @@ public class PipMeterWidget : MonoBehaviour
             trailHoldUntil = -1f;
         }
 
-        trail.fillAmount = trailAmount;
+        SetTrailAmount(trailAmount);
     }
 
     void TickTrail()
@@ -199,13 +275,13 @@ public class PipMeterWidget : MonoBehaviour
         float target = fill.fillAmount;
         if (trailHoldUntil > 0f && Time.unscaledTime < trailHoldUntil)
         {
-            trail.fillAmount = trailAmount;
+            SetTrailAmount(trailAmount);
             return;
         }
 
         float catchup = Mathf.Max(0.05f, damageTrailCatchup);
         trailAmount = Mathf.MoveTowards(trailAmount, target, Time.unscaledDeltaTime / catchup);
-        trail.fillAmount = trailAmount;
+        SetTrailAmount(trailAmount);
     }
 
     void UpdateDividers(int max)

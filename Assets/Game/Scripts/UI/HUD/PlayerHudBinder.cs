@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Keeps the HUD's HP/MP bars in sync with whichever party member is
@@ -7,7 +8,8 @@ using UnityEngine;
 ///
 /// Also detects actual HP loss (as opposed to healing, or OnStatsChanged
 /// firing for an unrelated reason like mana spend) and shakes this whole
-/// HUD group: frame, health bar, and mana bar together.
+/// HUD group: frame, health bar, and mana bar together. The plate behind
+/// the bars flashes for the same hold as the white damage trail.
 ///
 /// Place ONE of these in the HUD canvas, wire the two bars.
 /// </summary>
@@ -23,10 +25,20 @@ public class PlayerHudBinder : MonoBehaviour
     [Range(0.05f, 1f)] public float shakeDuration = 0.3f;
     [Range(1f, 30f)] public float shakeFrequency = 18f;
 
+    [Header("Hit Flash")]
+    [Tooltip("Plate behind the bars. Painted while the white damage trail is holding.")]
+    public Image hitFlashImage;
+    [Tooltip("Draws the plate's shape in Hit Flash Color. A normal tint leaves the dark plate looking unchanged.")]
+    public Material hitFlashMaterial;
+    public Color hitFlashColor = new Color(0.890196f, 0.180392f, 0.164706f, 1f);
+
     PlayerHealth boundHealth;
     RectTransform rt;
     float shakeTimeLeft;
     Vector2 shakeBasePosition;
+    Color hitFlashRest = Color.white;
+    float hitFlashTimeLeft;
+    bool hitFlashRestSaved;
 
     // Tracks the last known HP so Refresh() can tell "took damage" (HP went
     // down) apart from any other reason OnStatsChanged fires (healing, mana
@@ -49,6 +61,7 @@ public class PlayerHudBinder : MonoBehaviour
     {
         Party.OnActiveChanged -= HandleActiveChanged;
         Unbind();
+        EndHitFlash();
     }
 
     void Update()
@@ -61,6 +74,7 @@ public class PlayerHudBinder : MonoBehaviour
             RebindToActive();
 
         TickShake();
+        TickHitFlash();
     }
 
     void HandleActiveChanged(PlayerHealth _) => RebindToActive();
@@ -103,7 +117,10 @@ public class PlayerHudBinder : MonoBehaviour
         int hp = boundHealth.currentHealth;
 
         if (lastHp != int.MinValue && hp < lastHp)
+        {
             BeginShake();
+            BeginHitFlash();
+        }
 
         lastHp = hp;
 
@@ -135,5 +152,66 @@ public class PlayerHudBinder : MonoBehaviour
         float damper = shakeTimeLeft / shakeDuration;
         float offsetX = Mathf.Sin(Time.unscaledTime * shakeFrequency) * shakeMagnitude * damper;
         rt.anchoredPosition = shakeBasePosition + new Vector2(offsetX, 0f);
+    }
+
+    void BeginHitFlash()
+    {
+        if (hitFlashImage == null)
+        {
+            Transform plate = transform.Find("HPBarBg");
+            if (plate != null)
+                hitFlashImage = plate.GetComponent<Image>();
+        }
+
+        if (hitFlashImage == null)
+            return;
+
+        if (!hitFlashRestSaved)
+        {
+            hitFlashRest = hitFlashImage.color;
+            hitFlashRestSaved = true;
+        }
+
+        EnsureFlashMaterial();
+        if (hitFlashMaterial != null)
+            hitFlashImage.material = hitFlashMaterial;
+
+        hitFlashImage.color = hitFlashColor;
+        float delay = hpMeter != null ? hpMeter.damageTrailDelay : 0.4f;
+        hitFlashTimeLeft = Mathf.Max(0f, delay);
+    }
+
+    void EnsureFlashMaterial()
+    {
+        if (hitFlashMaterial != null && hitFlashMaterial.shader != null
+            && hitFlashMaterial.shader.name != "Hidden/InternalErrorShader")
+            return;
+
+        Shader shader = Shader.Find("Game/UI/SpritePaint");
+        if (shader == null)
+            return;
+
+        hitFlashMaterial = new Material(shader);
+    }
+
+    void TickHitFlash()
+    {
+        if (hitFlashImage == null || hitFlashTimeLeft <= 0f)
+            return;
+
+        hitFlashTimeLeft -= Time.unscaledDeltaTime;
+        if (hitFlashTimeLeft <= 0f)
+            EndHitFlash();
+    }
+
+    void EndHitFlash()
+    {
+        hitFlashTimeLeft = 0f;
+        if (hitFlashImage == null || !hitFlashRestSaved)
+            return;
+
+        hitFlashImage.color = hitFlashRest;
+        hitFlashImage.material = null;
+        hitFlashRestSaved = false;
     }
 }
