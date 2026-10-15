@@ -90,6 +90,8 @@ public class EnemyRangedCombatController : MonoBehaviour
     bool isAttacking;
     bool shotFired;
     Vector3 lockedAimDir;
+    Vector3 lockedAimPoint;
+    bool hasLockedAimPoint;
     GameObject chargeInstance;
 
     static readonly int AttackTrigger = Animator.StringToHash("RangeAttack");
@@ -191,13 +193,16 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();
 
-        // Lock aim direction at the moment of attack commit.
-        // The projectile in Shoot() will use this direction regardless of where
-        // the player moves during the wind-up — keeps anim and trajectory aligned.
+        // Lock aim when the wind-up starts. The beam fires at that spot, so the
+        // player can step off it during the charge.
         lockedAimDir = Vector3.zero;
+        hasLockedAimPoint = false;
 
         if (player != null)
         {
+            lockedAimPoint = BodyAimPoint(player);
+            hasLockedAimPoint = true;
+
             Vector3 toPlayer = player.position - transform.position;
             toPlayer.y = 0f;
 
@@ -310,13 +315,10 @@ public class EnemyRangedCombatController : MonoBehaviour
             fireball.LaunchFromEnemy(dir, projectileDamage, transform, projectileSpeed);
     }
 
-    Vector3 PlayerAimPoint()
+    Vector3 BodyAimPoint(Transform target)
     {
-        if (player == null)
-            return shootPoint.position + transform.forward;
-
-        Vector3 point = player.position;
-        CharacterController body = player.GetComponent<CharacterController>();
+        Vector3 point = target.position;
+        CharacterController body = target.GetComponent<CharacterController>();
         if (body != null)
             point += body.center;
         else
@@ -327,17 +329,15 @@ public class EnemyRangedCombatController : MonoBehaviour
     void FireBeam(Vector3 fallbackDir)
     {
         Vector3 origin = shootPoint.position;
-        Vector3 aim = PlayerAimPoint();
+        Vector3 aim = hasLockedAimPoint ? lockedAimPoint : origin + fallbackDir * attackDistance;
         Vector3 toAim = aim - origin;
         float dist = toAim.magnitude;
         Vector3 dir = dist > 0.001f ? toAim / dist : fallbackDir;
         float range = Mathf.Max(dist, 0.5f);
         Vector3 end = origin + dir * range;
-        bool blocked = false;
-        bool damaged = false;
 
-        // The muzzle sits above the player's capsule, so a flat ray flies over
-        // them. Cast along the line into the body, with a little thickness.
+        // Aimed at the body point saved when the charge began. A player who
+        // stepped off that line is missed; one who stayed there is hit.
         RaycastHit[] hits = Physics.SphereCastAll(origin, 0.2f, dir, range, ~0, QueryTriggerInteraction.Ignore);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
@@ -355,30 +355,13 @@ public class EnemyRangedCombatController : MonoBehaviour
 
                 end = hits[i].point;
                 health.TakeDamage(projectileDamage, dir);
-                damaged = true;
                 break;
             }
 
             if (!hits[i].collider.isTrigger)
             {
                 end = hits[i].point;
-                blocked = true;
                 break;
-            }
-        }
-
-        if (!damaged && !blocked && player != null)
-        {
-            Vector3 flat = player.position - transform.position;
-            flat.y = 0f;
-            if (flat.magnitude <= attackDistance + 0.25f)
-            {
-                end = aim;
-                PlayerHealth health = player.GetComponent<PlayerHealth>();
-                if (health == null)
-                    health = player.GetComponentInParent<PlayerHealth>();
-                if (health != null && (Party.Active == null || health == Party.Active))
-                    health.TakeDamage(projectileDamage, dir);
             }
         }
 
