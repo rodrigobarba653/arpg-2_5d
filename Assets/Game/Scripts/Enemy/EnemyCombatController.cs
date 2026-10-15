@@ -28,6 +28,24 @@ public class EnemyCombatController : MonoBehaviour
     [Tooltip("Enemy will not step closer than this distance from the player.")]
     public float minDistanceToPlayerAfterStep = 1.0f;
 
+    [Header("Dash Attack")]
+    [Tooltip("Charge at the player instead of taking the short attack step. The idle sprite stays on; the motion and the dash effect carry the attack.")]
+    public bool useDashAttack;
+
+    public float dashDistance = 2.6f;
+    public float dashDuration = 0.22f;
+
+    [Tooltip("Closest the dash is allowed to finish from the player. The hitbox still connects inside this gap.")]
+    public float dashMinDistance = 0.4f;
+
+    public GameObject dashVfxPrefab;
+    public float dashVfxScale = 0.55f;
+
+    [Tooltip("After the dash connects, hop back so the enemy does not stay on top of the player.")]
+    public bool hopBackOnHit = true;
+    public float hopBackDistance = 1.15f;
+    public float hopBackDuration = 0.16f;
+
     [Header("Hitbox")]
     public float hitboxForwardDistance = 0.6f;
 
@@ -114,6 +132,10 @@ public class EnemyCombatController : MonoBehaviour
     bool attackStepStarted;
     Vector3 attackStepDirection;
     float attackStepMoved;
+    bool hoppingBack;
+    float hopMoved;
+    Vector3 hopDir;
+    GameObject dashVfxInstance;
 
     static readonly int AttackTrigger = Animator.StringToHash("Attack");
     static readonly int HurtTrigger = Animator.StringToHash("Hurt");
@@ -146,6 +168,8 @@ public class EnemyCombatController : MonoBehaviour
 
         if (isAttacking)
             UpdateAttackStepForward();
+
+        UpdateHopBack();
 
         if (isAttacking && useTimerBasedHitbox)
         {
@@ -229,6 +253,9 @@ public class EnemyCombatController : MonoBehaviour
         attackStepActive = false;
         attackStepStarted = false;
         attackStepMoved = 0f;
+        hoppingBack = false;
+        hopMoved = 0f;
+        EndDashVfx();
 
         // Pick which attack variant to use (if any are configured). Null =
         // fall back to the base fields — legacy behaviour.
@@ -355,13 +382,21 @@ public class EnemyCombatController : MonoBehaviour
         if (!attackStepActive)
             return;
 
-        if (attackStepDuration <= 0f || attackStepDistance <= 0f)
+        float stepDistance = useDashAttack ? dashDistance : attackStepDistance;
+        float stepDuration = useDashAttack ? dashDuration : attackStepDuration;
+
+        if (stepDuration <= 0f || stepDistance <= 0f)
         {
             attackStepActive = false;
             return;
         }
 
-        float remainingStep = attackStepDistance - attackStepMoved;
+        if (useDashAttack && dashVfxInstance == null)
+            BeginDashVfx();
+        else if (dashVfxInstance != null)
+            dashVfxInstance.transform.position = DashVfxPosition();
+
+        float remainingStep = stepDistance - attackStepMoved;
 
         if (remainingStep <= 0f)
         {
@@ -370,7 +405,8 @@ public class EnemyCombatController : MonoBehaviour
         }
 
         float distToPlayer = Vector3.Distance(transform.position, player.position);
-        float allowedDistance = distToPlayer - minDistanceToPlayerAfterStep;
+        float stopGap = useDashAttack ? dashMinDistance : minDistanceToPlayerAfterStep;
+        float allowedDistance = distToPlayer - stopGap;
 
         if (allowedDistance <= 0f)
         {
@@ -378,7 +414,7 @@ public class EnemyCombatController : MonoBehaviour
             return;
         }
 
-        float speed = attackStepDistance / attackStepDuration;
+        float speed = stepDistance / stepDuration;
         float moveAmount = speed * EnemyClock.deltaTime;
 
         moveAmount = Mathf.Min(moveAmount, remainingStep);
@@ -393,7 +429,7 @@ public class EnemyCombatController : MonoBehaviour
             transform.position += attackStepDirection * moveAmount;
         }
 
-attackStepMoved += moveAmount;
+        attackStepMoved += moveAmount;
     }
 
     public void EnableHitbox()
@@ -432,6 +468,7 @@ attackStepMoved += moveAmount;
         isAttacking = false;
         attackStepActive = false;
         attackStepStarted = false;
+        EndDashVfx();
 
         if (animator != null)
             animator.SetBool(IsAttackingHash, false);
@@ -479,6 +516,67 @@ attackStepMoved += moveAmount;
         meleeHitboxTransform.localPosition = finalLocalPosition;
     }
 
+    /// <summary>Called by MeleeHitbox when this enemy's swing connects with the player.</summary>
+    public void NotifyPlayerHit()
+    {
+        if (!useDashAttack || !hopBackOnHit || hoppingBack)
+            return;
+
+        hoppingBack = true;
+        attackStepActive = false;
+        hopMoved = 0f;
+        hopDir = -attackStepDirection;
+        EndDashVfx();
+
+        if (motor != null)
+            motor.AddMovementLock(hopBackDuration + 0.05f);
+    }
+
+    void UpdateHopBack()
+    {
+        if (!hoppingBack)
+            return;
+
+        if (hopBackDuration <= 0f || hopBackDistance <= 0f || hopMoved >= hopBackDistance)
+        {
+            hoppingBack = false;
+            return;
+        }
+
+        float speed = hopBackDistance / hopBackDuration;
+        float moveAmount = Mathf.Min(speed * EnemyClock.deltaTime, hopBackDistance - hopMoved);
+
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(hopDir * moveAmount);
+        else
+            transform.position += hopDir * moveAmount;
+
+        hopMoved += moveAmount;
+    }
+
+    void BeginDashVfx()
+    {
+        if (dashVfxPrefab == null)
+            return;
+
+        dashVfxInstance = Instantiate(dashVfxPrefab, DashVfxPosition(), Quaternion.identity);
+        dashVfxInstance.transform.localScale = Vector3.one * Mathf.Max(0.05f, dashVfxScale);
+    }
+
+    Vector3 DashVfxPosition()
+    {
+        return transform.position + Vector3.up * 0.45f;
+    }
+
+    void EndDashVfx()
+    {
+        if (dashVfxInstance == null)
+            return;
+
+        Destroy(dashVfxInstance, 0.55f);
+        dashVfxInstance = null;
+    }
+
     public void OnTakeDamage(Vector3 hitDir)
     {
         hitDir.y = 0f;
@@ -488,6 +586,8 @@ attackStepMoved += moveAmount;
 
         attackStepActive = false;
         attackStepStarted = false;
+        hoppingBack = false;
+        EndDashVfx();
 
         if (isAttacking)
         {

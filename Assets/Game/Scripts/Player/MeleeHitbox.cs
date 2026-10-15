@@ -240,6 +240,10 @@ public class MeleeHitbox : MonoBehaviour
             DoHitStop();
             Vector3 dir = (player.transform.position - owner.position).normalized;
             player.TakeDamage(ResolveDamage(), dir);
+
+            EnemyCombatController enemyAttack = owner.GetComponent<EnemyCombatController>();
+            if (enemyAttack != null)
+                enemyAttack.NotifyPlayerHit();
             return;
         }
 

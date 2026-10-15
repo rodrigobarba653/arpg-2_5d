@@ -125,15 +125,48 @@ public class PlayerCombatController : MonoBehaviour
         new KnockbackStepProfile { pushEnemy = true,  force = 10f,  duration = 0.28f },
     };
 
+    [System.Serializable]
+    struct FinisherGroundAim
+    {
+        [Tooltip("How far in front of the character this facing places the effect.")]
+        public float forward;
+
+        [Tooltip("Extra shift in this facing's space, on top of the forward distance and the third-hit lunge. X is to the character's right, Y is up, Z is further forward.")]
+        public Vector3 offset;
+    }
+
+    static FinisherGroundAim DefaultFinisherAim()
+    {
+        return new FinisherGroundAim { forward = 0.6f, offset = new Vector3(0f, 0f, -0.2f) };
+    }
+
     [Header("Finisher Ground VFX")]
     [Tooltip("Played on the last combo hit, at the character's feet. Shows even if the swing misses. Leave empty to skip.")]
     [SerializeField] private GameObject finisherGroundVfx;
 
-    [Tooltip("How far in front of the character the effect sits, along the facing direction.")]
-    [SerializeField] private float finisherGroundForward = 0.6f;
+    [Tooltip("Toward the camera.")]
+    [SerializeField] private FinisherGroundAim finisherDown = DefaultFinisherAim();
 
-    [Tooltip("Extra shift in facing space, on top of the forward distance and the third-hit lunge. X is to the character's right, Y is up, Z is further forward.")]
-    [SerializeField] private Vector3 finisherGroundOffset = Vector3.zero;
+    [Tooltip("Diagonal, camera and screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherDownLeft = DefaultFinisherAim();
+
+    [Tooltip("Screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherLeft = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, away from the camera and screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherUpLeft = DefaultFinisherAim();
+
+    [Tooltip("Away from the camera.")]
+    [SerializeField] private FinisherGroundAim finisherUp = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, away from the camera and screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherUpRight = DefaultFinisherAim();
+
+    [Tooltip("Screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherRight = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, camera and screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherDownRight = DefaultFinisherAim();
 
     [Tooltip("Seconds to wait after the last hit starts before the ground effect appears.")]
     [Min(0f)]
@@ -189,6 +222,7 @@ public class PlayerCombatController : MonoBehaviour
 
     private float combatTimer = 0f;
     private float finisherGroundDelayLeft = -1f;
+    private Vector2 finisherGroundFacing;
     private bool inCombat = false;
 
     private bool isRolling = false;
@@ -659,6 +693,8 @@ public class PlayerCombatController : MonoBehaviour
         if (finisherGroundVfx == null || motor == null)
             return;
 
+        finisherGroundFacing = motor.GetFacing2D();
+
         if (finisherGroundDelay <= 0f)
         {
             finisherGroundDelayLeft = -1f;
@@ -669,15 +705,36 @@ public class PlayerCombatController : MonoBehaviour
         finisherGroundDelayLeft = finisherGroundDelay;
     }
 
+    FinisherGroundAim AimForFacing(Vector2 facing)
+    {
+        float angle = Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg;
+        int octant = Mathf.RoundToInt(angle / 45f);
+        octant = (octant % 8 + 8) % 8;
+
+        switch (octant)
+        {
+            case 0: return finisherRight;
+            case 1: return finisherUpRight;
+            case 2: return finisherUp;
+            case 3: return finisherUpLeft;
+            case 4: return finisherLeft;
+            case 5: return finisherDownLeft;
+            case 6: return finisherDown;
+            default: return finisherDownRight;
+        }
+    }
+
     void PlaceFinisherGroundVfx()
     {
         if (finisherGroundVfx == null || motor == null)
             return;
 
-        Vector2 face = motor.GetFacing2D();
-        Vector3 flat = new Vector3(face.x, 0f, face.y);
-        if (flat.sqrMagnitude < 0.0001f)
-            flat = transform.forward;
+        Vector2 facing = finisherGroundFacing.sqrMagnitude > 0.0001f
+            ? finisherGroundFacing
+            : motor.GetFacing2D();
+        FinisherGroundAim aim = AimForFacing(facing);
+
+        Vector3 flat = motor.FacingToWorld(facing);
         flat.y = 0f;
         if (flat.sqrMagnitude < 0.0001f)
             flat = Vector3.forward;
@@ -692,9 +749,9 @@ public class PlayerCombatController : MonoBehaviour
         Vector3 lungeEnd = motor.GetRemainingAttackLungeDisplacement();
         Vector3 pos = transform.position
                       + lungeEnd
-                      + flat * (finisherGroundForward + finisherGroundOffset.z)
-                      + right * finisherGroundOffset.x;
-        pos.y = transform.position.y + finisherGroundOffset.y;
+                      + flat * (aim.forward + aim.offset.z)
+                      + right * aim.offset.x;
+        pos.y = transform.position.y + aim.offset.y;
 
         Quaternion rot = Quaternion.LookRotation(flat, Vector3.up) * finisherGroundVfx.transform.rotation;
         GameObject vfx = Instantiate(finisherGroundVfx, pos, rot);

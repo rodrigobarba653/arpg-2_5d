@@ -58,6 +58,28 @@ public class EnemyRangedCombatController : MonoBehaviour
     [Tooltip("Seconds from StartAttack to the end of the attack (EndAttack). Must be >= shootDelay.")]
     public float attackEndDelay = 0.6f;
 
+    [Header("Charge")]
+    [Tooltip("Play a short muzzle charge during the shot wind-up so the player can see the shot coming. Off leaves other shooters unchanged.")]
+    public bool chargeShot;
+
+    [Tooltip("Looping effect at the muzzle while charging. Destroyed when the shot fires.")]
+    public GameObject chargeVfxPrefab;
+
+    [Tooltip("World scale of the charge at the moment the shot fires. It grows up to this size.")]
+    public float chargeVfxScale = 0.22f;
+
+    [Header("Beam")]
+    [Tooltip("Fire a short laser along the aim instead of spawning a projectile. Uses the idle sprite; the beam is the attack.")]
+    public bool fireBeam;
+
+    public Color beamColor = new Color(1f, 0.35f, 0.28f, 1f);
+    public float beamDuration = 0.14f;
+    public float beamWidth = 0.08f;
+
+    [Tooltip("Played where the beam ends.")]
+    public GameObject beamImpactPrefab;
+    public float beamImpactScale = 0.45f;
+
     [Header("Safety")]
     [Tooltip("If isAttacking persists longer than this, force EndAttack as a hard safety net.")]
     public float maxAttackDuration = 3f;
@@ -68,6 +90,7 @@ public class EnemyRangedCombatController : MonoBehaviour
     bool isAttacking;
     bool shotFired;
     Vector3 lockedAimDir;
+    GameObject chargeInstance;
 
     static readonly int AttackTrigger = Animator.StringToHash("RangeAttack");
     static readonly int IsAttackingHash = Animator.StringToHash("IsAttacking");
@@ -98,6 +121,8 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (isAttacking && useTimerBasedFiring)
         {
             float elapsed = EnemyClock.time - attackStartedAt;
+
+            TickCharge(elapsed);
 
             if (!shotFired && elapsed >= shootDelay)
                 Shoot();
@@ -191,6 +216,44 @@ public class EnemyRangedCombatController : MonoBehaviour
         animator.SetTrigger(AttackTrigger);
 
         nextAttackTime = EnemyClock.time + attackCooldown;
+        BeginCharge();
+    }
+
+    void BeginCharge()
+    {
+        EndCharge();
+        if (!chargeShot || chargeVfxPrefab == null || shootPoint == null)
+            return;
+
+        chargeInstance = Instantiate(chargeVfxPrefab, shootPoint.position, Quaternion.identity);
+        chargeInstance.transform.localScale = Vector3.one * ChargeScale(0f);
+        HitStopVfx.Arm(chargeInstance, Mathf.Max(shootDelay, 0.1f) + 1f);
+    }
+
+    void TickCharge(float elapsed)
+    {
+        if (chargeInstance == null || shootPoint == null)
+            return;
+
+        chargeInstance.transform.position = shootPoint.position;
+        chargeInstance.transform.localScale = Vector3.one * ChargeScale(elapsed);
+    }
+
+    float ChargeScale(float elapsed)
+    {
+        float duration = Mathf.Max(0.05f, shootDelay);
+        float t = Mathf.Clamp01(elapsed / duration);
+        float grown = Mathf.SmoothStep(0.35f, 1f, t);
+        return Mathf.Max(0.05f, chargeVfxScale) * grown;
+    }
+
+    void EndCharge()
+    {
+        if (chargeInstance == null)
+            return;
+
+        Destroy(chargeInstance);
+        chargeInstance = null;
     }
 
     // Can be triggered by timer (default) or animation event.
@@ -198,8 +261,11 @@ public class EnemyRangedCombatController : MonoBehaviour
     {
         if (shotFired) return;
         shotFired = true;
+        EndCharge();
 
-        if (!projectilePrefab || !shootPoint)
+        if (!shootPoint)
+            return;
+        if (!fireBeam && !projectilePrefab)
             return;
 
         // Prefer the direction locked at attack start (so the shot matches the
@@ -220,6 +286,12 @@ public class EnemyRangedCombatController : MonoBehaviour
 
         PlayMuzzleFlash(dir);
 
+        if (fireBeam)
+        {
+            FireBeam(dir);
+            return;
+        }
+
         GameObject p = Instantiate(
             projectilePrefab,
             shootPoint.position,
@@ -236,6 +308,111 @@ public class EnemyRangedCombatController : MonoBehaviour
         ProjectileSpellEffect fireball = p.GetComponent<ProjectileSpellEffect>();
         if (fireball != null)
             fireball.LaunchFromEnemy(dir, projectileDamage, transform, projectileSpeed);
+    }
+
+    Vector3 PlayerAimPoint()
+    {
+        if (player == null)
+            return shootPoint.position + transform.forward;
+
+        Vector3 point = player.position;
+        CharacterController body = player.GetComponent<CharacterController>();
+        if (body != null)
+            point += body.center;
+        else
+            point += Vector3.up * 0.35f;
+        return point;
+    }
+
+    void FireBeam(Vector3 fallbackDir)
+    {
+        Vector3 origin = shootPoint.position;
+        Vector3 aim = PlayerAimPoint();
+        Vector3 toAim = aim - origin;
+        float dist = toAim.magnitude;
+        Vector3 dir = dist > 0.001f ? toAim / dist : fallbackDir;
+        float range = Mathf.Max(dist, 0.5f);
+        Vector3 end = origin + dir * range;
+        bool blocked = false;
+        bool damaged = false;
+
+        // The muzzle sits above the player's capsule, so a flat ray flies over
+        // them. Cast along the line into the body, with a little thickness.
+        RaycastHit[] hits = Physics.SphereCastAll(origin, 0.2f, dir, range, ~0, QueryTriggerInteraction.Ignore);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Transform hitTransform = hits[i].transform;
+            if (hitTransform == transform || hitTransform.IsChildOf(transform))
+                continue;
+
+            PlayerHealth health = hitTransform.GetComponentInParent<PlayerHealth>();
+            if (health != null)
+            {
+                if (Party.Active != null && health != Party.Active)
+                    continue;
+
+                end = hits[i].point;
+                health.TakeDamage(projectileDamage, dir);
+                damaged = true;
+                break;
+            }
+
+            if (!hits[i].collider.isTrigger)
+            {
+                end = hits[i].point;
+                blocked = true;
+                break;
+            }
+        }
+
+        if (!damaged && !blocked && player != null)
+        {
+            Vector3 flat = player.position - transform.position;
+            flat.y = 0f;
+            if (flat.magnitude <= attackDistance + 0.25f)
+            {
+                end = aim;
+                PlayerHealth health = player.GetComponent<PlayerHealth>();
+                if (health == null)
+                    health = player.GetComponentInParent<PlayerHealth>();
+                if (health != null && (Party.Active == null || health == Party.Active))
+                    health.TakeDamage(projectileDamage, dir);
+            }
+        }
+
+        SpawnBeam(origin, end);
+
+        if (beamImpactPrefab != null)
+        {
+            GameObject impact = Instantiate(beamImpactPrefab, end, Quaternion.LookRotation(dir));
+            impact.transform.localScale = Vector3.one * Mathf.Max(0.05f, beamImpactScale);
+            Destroy(impact, 1.5f);
+        }
+    }
+
+    void SpawnBeam(Vector3 origin, Vector3 end)
+    {
+        var go = new GameObject("EnemyBeam");
+        var line = go.AddComponent<LineRenderer>();
+        line.positionCount = 2;
+        line.SetPosition(0, origin);
+        line.SetPosition(1, end);
+        line.startWidth = beamWidth;
+        line.endWidth = beamWidth * 0.35f;
+        line.useWorldSpace = true;
+        line.numCapVertices = 2;
+        Shader shader = Shader.Find("Sprites/Default");
+        if (shader != null)
+        {
+            var mat = new Material(shader);
+            line.material = mat;
+            Destroy(mat, beamDuration);
+        }
+        line.startColor = beamColor;
+        line.endColor = new Color(beamColor.r, beamColor.g, beamColor.b, 0.15f);
+        Destroy(go, beamDuration);
     }
 
     void PlayMuzzleFlash(Vector3 dir)
@@ -267,6 +444,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (!isAttacking) return;
 
         isAttacking = false;
+        EndCharge();
         if (animator != null) animator.SetBool(IsAttackingHash, false);
         EnemyAttackScheduler.ReleaseIfExists(this);
     }
@@ -279,6 +457,7 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (isAttacking)
         {
             isAttacking = false;
+            EndCharge();
             if (animator != null)
             {
                 animator.SetBool(IsAttackingHash, false);
@@ -293,6 +472,7 @@ public class EnemyRangedCombatController : MonoBehaviour
 
     void OnDisable()
     {
+        EndCharge();
         EnemyAttackScheduler.ReleaseIfExists(this);
     }
 
