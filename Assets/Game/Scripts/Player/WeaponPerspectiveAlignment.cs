@@ -8,7 +8,8 @@ using UnityEngine;
 /// Attach to WeaponBody. Does not touch billboard/orientation.
 /// </summary>
 [DisallowMultipleComponent]
-[DefaultExecutionOrder(1000)]
+// After BillboardToCamera (10000) so weapon t/scale use the final sprite pose.
+[DefaultExecutionOrder(10001)]
 public class WeaponPerspectiveAlignment : MonoBehaviour
 {
     [Header("References")]
@@ -38,8 +39,6 @@ public class WeaponPerspectiveAlignment : MonoBehaviour
     [SerializeField] Color rayColor = new Color(0.2f, 0.85f, 1f, 0.9f);
     [SerializeField] Color weaponPointColor = new Color(1f, 0.85f, 0.2f, 0.95f);
 
-    bool appliedThisFrame;
-
     void Reset()
     {
         spriteBody = transform.parent;
@@ -53,8 +52,8 @@ public class WeaponPerspectiveAlignment : MonoBehaviour
 
     void OnEnable()
     {
+        // Only refresh the camera here. Apply in LateUpdate after the billboard.
         CinemachineCore.CameraUpdatedEvent.AddListener(OnCinemachineCameraUpdated);
-        appliedThisFrame = false;
 
         if (calibrateTOnStart && !calibrated)
             TryCalibrateAndApply();
@@ -73,24 +72,16 @@ public class WeaponPerspectiveAlignment : MonoBehaviour
 
     void LateUpdate()
     {
-        // Fallback when no CinemachineBrain is driving the camera this frame.
-        if (!appliedThisFrame)
+        if (calibrateTOnStart && !calibrated)
+            TryCalibrateAndApply();
+        else
             ApplyPerspective();
-
-        appliedThisFrame = false;
     }
 
     void OnCinemachineCameraUpdated(CinemachineBrain brain)
     {
         if (brain != null && brain.OutputCamera != null)
             targetCamera = brain.OutputCamera;
-
-        if (calibrateTOnStart && !calibrated)
-            TryCalibrateAndApply();
-        else
-            ApplyPerspective();
-
-        appliedThisFrame = true;
     }
 
     /// <summary>
