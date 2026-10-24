@@ -141,8 +141,8 @@ Material:
     - _FoamDistance: 0.2
     - _FoamScale: 100
     - _FoamSpeed: 0.5
-    - _Foam_Amount: 0.77
-    - _Foam_Density: 0.17
+    - _Foam_Amount: 1
+    - _Foam_Density: 0.33
     - _Foam_Speed: 0.5
     - _GlossMapScale: 0
     - _Glossiness: 0
@@ -173,13 +173,13 @@ Material:
     - _Ripple_Distance: 5.01
     - _Ripple_Fade: 5.2
     - _Ripple_Slimness: 9.7
-    - _Smoothness: 0
+    - _Smoothness: 0.57
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _Surface: 0
     - _Tiling: 0.5
-    - _Water_Speed: 0.12
+    - _Water_Speed: 0.8
     - _WaveSpeed: 0.5
     - _Wave_Amplitude: 0.03
     - _Wave_Frequency: 0
@@ -198,7 +198,7 @@ Material:
     - _FoamScale: {r: 100, g: 400, b: 0, a: 0}
     - _FoamScale_1: {r: 100, g: 200, b: 0, a: 0}
     - _Foam_Color: {r: 0, g: 0, b: 0, a: 0.9490196}
-    - _Foam_Scale: {r: 100, g: 1000, b: 0, a: 0}
+    - _Foam_Scale: {r: 200, g: 1000, b: 0, a: 0}
     - _RefractionScale: {r: 3, g: 12, b: 0, a: 0}
     - _Refraction_Scale: {r: 140, g: 56, b: 0, a: 0}
     - _RimColor: {r: 1, g: 1, b: 1, a: 1}

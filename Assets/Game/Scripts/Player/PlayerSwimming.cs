@@ -13,6 +13,45 @@ public class PlayerSwimming : MonoBehaviour
     public float swimSpeed = 2.5f;
     public float swimGravity = -2f;
 
+    [Header("Jump Splash")]
+    [Tooltip("Played on the water surface when the player jumps or falls in. Running into the water does not play it.")]
+    public GameObject jumpSplashVfx;
+
+    [Tooltip("Size of the whole splash. 1 is the prefab's own size.")]
+    public float jumpSplashScale = 0.5f;
+
+    [Tooltip("World-space shift from the splash point on the water. Y moves it up or down.")]
+    public Vector3 jumpSplashOffset = Vector3.zero;
+
+    public float jumpSplashLifetime = 1.5f;
+
+    [Header("Water Dip")]
+    [Tooltip("How far the sprite sinks on a short fall, in local units.")]
+    public float dipMin = 0.1f;
+
+    [Tooltip("Deepest the sprite is allowed to sink. Taller falls approach this and then stop.")]
+    public float dipMax = 0.4f;
+
+    [Tooltip("Fall height, from the highest point to the water, that reaches the deepest sink.")]
+    public float dipHeightForMax = 4f;
+
+    [Tooltip("Seconds for the sprite to sink and come back.")]
+    public float dipDuration = 0.5f;
+
+    [Tooltip("How sharp the sink is. 2 is gentle. Higher waits longer at the start and the bottom, and moves faster in between.")]
+    public float dipEase = 4f;
+
+    [Tooltip("How gently the sprite comes back. Lower arrives with less acceleration. 2 settles in softly.")]
+    public float dipReturnEase = 2f;
+
+    [Tooltip("How far the sprite pops above its rest pose before settling. Local units.")]
+    public float dipOvershoot = 0.05f;
+
+    Transform sprite;
+    Vector3 spriteRest;
+    bool spriteRestCached;
+    Coroutine dipRoutine;
+
     bool isSwimming;
     bool hasIsSwimmingParam;
 
@@ -40,6 +79,9 @@ public class PlayerSwimming : MonoBehaviour
         // is equipped — re-check the swim parameter when that happens.
         if (equipment != null)
             equipment.OnWeaponChanged += _ => CacheAnimatorParameter();
+
+        if (animator != null)
+            sprite = animator.transform;
     }
 
     void CacheAnimatorParameter()
@@ -73,11 +115,20 @@ public class PlayerSwimming : MonoBehaviour
         }
     }
 
-    public void EnterWater()
+    public void EnterWater(Collider water = null)
     {
         if (isSwimming) return;
 
         Debug.Log("[PlayerSwimming] EnterWater()", this);
+
+        if (jump != null && jump.WaterSplashPending)
+        {
+            float surfaceY = water != null ? water.bounds.max.y : transform.position.y;
+            float drop = jump.AirborneDrop(surfaceY);
+            jump.ConsumeWaterSplash();
+            SpawnJumpSplash(water);
+            BeginSpriteDip(drop);
+        }
 
         // 🔥 1. CAMBIAR ESTADO PRIMERO
         isSwimming = true;
@@ -133,6 +184,7 @@ public class PlayerSwimming : MonoBehaviour
 
         // 🔺 fix transición
         StartCoroutine(ForceExitTransition());
+        RestoreSprite();
     }
 
     IEnumerator ForceSwimTransition()
@@ -152,5 +204,129 @@ public class PlayerSwimming : MonoBehaviour
     public bool IsSwimming()
     {
         return isSwimming;
+    }
+
+    void BeginSpriteDip(float drop)
+    {
+        if (sprite == null && animator != null)
+            sprite = animator.transform;
+        if (sprite == null)
+            return;
+
+        if (!spriteRestCached)
+        {
+            spriteRest = sprite.localPosition;
+            spriteRestCached = true;
+        }
+
+        float heightSpan = Mathf.Max(0.01f, dipHeightForMax);
+        float t = Mathf.Clamp01(drop / heightSpan);
+        float depth = Mathf.Lerp(Mathf.Min(dipMin, dipMax), Mathf.Max(dipMin, dipMax), t);
+
+        if (dipRoutine != null)
+            StopCoroutine(dipRoutine);
+        dipRoutine = StartCoroutine(DipSprite(depth));
+    }
+
+    IEnumerator DipSprite(float depth)
+    {
+        float duration = Mathf.Max(0.05f, dipDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            if (sprite == null)
+                yield break;
+
+            elapsed += Time.deltaTime;
+            float u = Mathf.Clamp01(elapsed / duration);
+            Vector3 pos = spriteRest;
+            pos.y -= DipOffset(u, depth);
+            sprite.localPosition = pos;
+            yield return null;
+        }
+
+        RestoreSprite();
+        dipRoutine = null;
+    }
+
+    float DipOffset(float u, float depth)
+    {
+        const float sinkEnd = 0.46f;
+        const float riseEnd = 0.78f;
+        float overshoot = Mathf.Max(0f, dipOvershoot);
+
+        if (u <= sinkEnd)
+            return depth * EaseInOut(u / sinkEnd, Mathf.Max(1f, dipEase));
+
+        if (u <= riseEnd)
+        {
+            float leg = (u - sinkEnd) / (riseEnd - sinkEnd);
+            float eased = EaseOut(leg, Mathf.Max(1f, dipReturnEase));
+            return Mathf.Lerp(depth, -overshoot, eased);
+        }
+
+        float settle = (u - riseEnd) / (1f - riseEnd);
+        return Mathf.Lerp(-overshoot, 0f, EaseOut(settle, 2f));
+    }
+
+    static float EaseInOut(float t, float power)
+    {
+        if (t < 0.5f)
+            return 0.5f * Mathf.Pow(t * 2f, power);
+
+        return 1f - 0.5f * Mathf.Pow((1f - t) * 2f, power);
+    }
+
+    static float EaseOut(float t, float power)
+    {
+        return 1f - Mathf.Pow(1f - Mathf.Clamp01(t), power);
+    }
+
+    void RestoreSprite()
+    {
+        if (dipRoutine != null)
+        {
+            StopCoroutine(dipRoutine);
+            dipRoutine = null;
+        }
+
+        if (sprite != null && spriteRestCached)
+            sprite.localPosition = spriteRest;
+    }
+
+    void SpawnJumpSplash(Collider water)
+    {
+        if (jumpSplashVfx == null)
+            return;
+
+        Vector3 pos = transform.position;
+        if (water != null)
+            pos.y = water.bounds.max.y;
+        pos += jumpSplashOffset;
+
+        float scale = Mathf.Max(0.05f, jumpSplashScale);
+
+        // Scale the holder before the effect wakes up. The splash emits on
+        // enable, so changing its scale afterwards does not resize the burst.
+        var holder = new GameObject("JumpSplash");
+        holder.SetActive(false);
+        holder.transform.SetPositionAndRotation(pos, Quaternion.identity);
+        holder.transform.localScale = Vector3.one * scale;
+
+        GameObject splash = Instantiate(jumpSplashVfx, holder.transform);
+        splash.transform.localPosition = Vector3.zero;
+        splash.transform.localRotation = jumpSplashVfx.transform.localRotation;
+
+        ParticleSystem[] systems = splash.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            ParticleSystem.MainModule main = systems[i].main;
+            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+        }
+
+        holder.SetActive(true);
+        if (jumpSplashLifetime > 0f)
+            Destroy(holder, jumpSplashLifetime);
     }
 }

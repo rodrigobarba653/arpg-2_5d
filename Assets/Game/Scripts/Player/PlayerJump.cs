@@ -20,7 +20,11 @@ public class PlayerJump : MonoBehaviour
     public bool debugLog = false;
 
     [Header("Air")]
+    [Tooltip("Seconds after a jump before the falling sprite. Does not affect walking off a ledge.")]
     public float airJumpDelay = 0.08f;
+
+    [Tooltip("Seconds after walking off a ledge before the falling sprite. Kept short so the walk pose does not hang in the air.")]
+    public float ledgeFallDelay = 0.08f;
 
     [Header("Jump Lock")]
     public float jumpCooldown = 0.15f;
@@ -41,6 +45,8 @@ public class PlayerJump : MonoBehaviour
         externalLockCount = 0;
         airTimer = 0f;
         inAir = false;
+        waterSplashPending = false;
+        groundedTime = 0f;
         isGrounded = true;          // CC.Move on the next frame will correct this if not true.
         wasGrounded = true;
         landingLock = false;
@@ -80,7 +86,34 @@ public class PlayerJump : MonoBehaviour
     // so walking off a ledge does NOT play the Jump trigger
     private bool jumpStartedFromGround;
 
+    // Stays on through a jump or a fall until the player has been standing
+    // on the ground again. Entering water reads this so a jump and a fall
+    // share the same splash.
+    bool waterSplashPending;
+    float groundedTime;
+    bool trackingAirPeak;
+    float airPeakY;
+
     public bool IsGrounded => isGrounded;
+
+    /// <summary>True from the jump press until landing. Walking off a ledge does not set this.</summary>
+    public bool JumpedFromGround => jumpStartedFromGround;
+
+    public bool WaterSplashPending => waterSplashPending;
+
+    public void ConsumeWaterSplash()
+    {
+        waterSplashPending = false;
+    }
+
+    /// <summary>How far the player dropped from the highest point of this jump or fall to the water surface.</summary>
+    public float AirborneDrop(float surfaceY)
+    {
+        if (!trackingAirPeak)
+            return 0f;
+
+        return Mathf.Max(0f, airPeakY - surfaceY);
+    }
 
     void Awake()
     {
@@ -102,6 +135,7 @@ public class PlayerJump : MonoBehaviour
     CheckGround();
     HandleLanding();
     HandleAirState();
+    UpdateWaterSplashPending();
     UpdateAnimator();
 }
 
@@ -154,6 +188,12 @@ public class PlayerJump : MonoBehaviour
         if ((ccGrounded || slopeWalkable) && motor.GetVerticalVelocity() <= 0.5f)
             isGrounded = true;
         else
+            isGrounded = false;
+
+        // Walking off a ledge: the body has left the floor, but the downward
+        // probe still hits the lip. Don't keep the grounded pose for that.
+        // Jumps leave jumpStartedFromGround set, so this does not change them.
+        if (!jumpStartedFromGround && !ccGrounded && motor.GetVerticalVelocity() <= 0.5f)
             isGrounded = false;
     }
 
@@ -212,6 +252,8 @@ public class PlayerJump : MonoBehaviour
         motor.SetVerticalVelocity(jumpForce);
         jumpLockTimer = jumpCooldown;
         jumpStartedFromGround = true;
+        waterSplashPending = true;
+        groundedTime = 0f;
 
         if (animator)
         {
@@ -282,15 +324,43 @@ public class PlayerJump : MonoBehaviour
         wasGrounded = isGrounded;
     }
 
+    void UpdateWaterSplashPending()
+    {
+        if (!isGrounded)
+        {
+            waterSplashPending = true;
+            groundedTime = 0f;
+            if (!trackingAirPeak)
+            {
+                trackingAirPeak = true;
+                airPeakY = transform.position.y;
+            }
+            else
+                airPeakY = Mathf.Max(airPeakY, transform.position.y);
+            return;
+        }
+
+        if (jumpStartedFromGround)
+            return;
+
+        groundedTime += Time.deltaTime;
+        if (groundedTime > 0.15f)
+        {
+            waterSplashPending = false;
+            trackingAirPeak = false;
+        }
+    }
+
     void HandleAirState()
     {
         if (!isGrounded)
         {
             airTimer += Time.deltaTime;
 
-            // Only enter InAir after enough real airtime.
-            // This removes animation changes for super tiny drops.
-            if (!inAir && airTimer >= airJumpDelay)
+            // Jumps keep airJumpDelay so the jump clip plays before the fall pose.
+            // A ledge fall uses the shorter delay.
+            float fallDelay = jumpStartedFromGround ? airJumpDelay : ledgeFallDelay;
+            if (!inAir && airTimer >= fallDelay)
             {
                 inAir = true;
 

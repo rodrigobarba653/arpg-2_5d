@@ -55,29 +55,29 @@ Material:
     m_Ints: []
     m_Floats:
     - _AlphaCutoff: 0.5
-    - _Depth: -1.04
+    - _Depth: -6.81
     - _EdgeDistance: 0.1
     - _EdgePower: 1
     - _EnvironmentReflections: 1
-    - _FoamEdgeDistance: 0.293
-    - _FoamEdgeGradContrast: 24.3
-    - _FoamEdgeNoiseContrast: 2.69
+    - _FoamEdgeDistance: 0.243
+    - _FoamEdgeGradContrast: 16.9
+    - _FoamEdgeNoiseContrast: 10
     - _FoamEmissionIntensity: 0.224
-    - _FoamNoiseTiling: 9.7
+    - _FoamNoiseTiling: 20
     - _FoamScale: 5
     - _FoamSpeed: 0.01
     - _FoamTiling: 1
     - _NormalDistanceFadeEnd: 100
-    - _NormalDistanceFadeOpacity: 0.964
+    - _NormalDistanceFadeOpacity: 0.44
     - _NormalDistanceFadeStart: 50
-    - _NormalSpeed: 0.52
+    - _NormalSpeed: 0.11
     - _NormalStrenght: 0.343
-    - _NormalStrength: 0
+    - _NormalStrength: 0.55
     - _NormalTile: 1
-    - _NormalTiling: 1.45
-    - _Opacity: 0.292
-    - _OpacityDistanceFadeEnd: 200
-    - _OpacityDistanceFadeOpacity: 1
+    - _NormalTiling: 1
+    - _Opacity: 0.65
+    - _OpacityDistanceFadeEnd: 193.27
+    - _OpacityDistanceFadeOpacity: 0.84
     - _OpacityDistanceFadeStart: 100
     - _OpacityDistanceFadeToggle: 1
     - _QueueControl: -1
@@ -86,11 +86,11 @@ Material:
     - _RippleDissolve: 5
     - _RippleScale: 10
     - _RippleSpeed: 1
-    - _RipplesDissolve: 0.81
-    - _RipplesNormalMaskValue: 0.968
+    - _RipplesDissolve: 1
+    - _RipplesNormalMaskValue: 1
     - _RipplesSpeed: 0.89
-    - _RipplesTIling: 0.197
-    - _RipplesTransparency: 0.627
+    - _RipplesTIling: 0.09
+    - _RipplesTransparency: 1
     - _Smoothness: 0
     - _SpecularHighlights: 1
     m_Colors:
@@ -103,8 +103,8 @@ Material:
     - _NormalDirection1: {r: 0.4, g: 0, b: 0, a: 0}
     - _NormalDirection2: {r: -0.2, g: 0, b: 0, a: 0}
     - _RipplesEmission: {r: 1, g: 1, b: 1, a: 0}
-    - _WaterColorDeep: {r: 0.6784314, g: 0.5493429, b: 0.27058825, a: 0}
-    - _WaterColorShallow: {r: 0.65882355, g: 0.44058442, b: 0.1098039, a: 0}
+    - _WaterColorDeep: {r: 0.25932688, g: 0.50980395, b: 0.06666665, a: 0}
+    - _WaterColorShallow: {r: 1, g: 0.9039522, b: 0, a: 0.5372549}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &3328265441833236055

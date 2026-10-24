@@ -25,7 +25,7 @@ public class PlayerWaterDetector : MonoBehaviour
             if (swimming == null)
                 Debug.LogWarning("[PlayerWaterDetector] No PlayerSwimming on parent — nothing to call.", this);
             else
-                swimming.EnterWater();
+                swimming.EnterWater(other);
         }
     }
 
