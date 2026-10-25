@@ -31,6 +31,7 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("After the enemy has noticed the player, they keep chasing until the player is this far away.")]
     public float disengageDistance = 12f;
 
+    [Tooltip("Orbit radius. The enemy only approaches until it reaches this, then strafes here and the attack countdown starts. A reaction takes over before that countdown fires.")]
     public float stopDistance = 1.5f;
 
     [Tooltip("If true, this enemy takes a slot on a circle around the player " +
@@ -82,12 +83,30 @@ public class EnemyAI : MonoBehaviour
         No
     }
 
+    public enum HybridEngage
+    {
+        [InspectorName("Keep Distance")]
+        KeepDistance,
+        [InspectorName("Close In")]
+        CloseIn
+    }
+
     [Header("Melee Attack")]
     [Tooltip("Yes swings at the melee attack distance. Only When Close swings inside Melee Close Distance. No never swings.")]
     public MeleeAttackMode meleeAttack = MeleeAttackMode.Yes;
 
     [Tooltip("Swing range when Melee Attack is Only When Close.")]
     public float meleeCloseDistance = 1.5f;
+
+    [Tooltip("Used when this enemy shoots and can also swing. Keep Distance holds the shoot orbit and melees only if the close reaction says so. Close In chases, shoots every attack while the player is outside the punch, and inside the punch rolls melee or shot from Close In Melee Share.")]
+    public HybridEngage hybridEngage = HybridEngage.KeepDistance;
+
+    [Tooltip("Close In only. Out of every 10 attacks while the player is inside the punch, this many are melee. The rest are shots. Outside the punch every attack is a shot.")]
+    [Range(0, 10)]
+    public int closeInMeleeShare = 7;
+
+    bool hasCloseChoice;
+    bool closeChoiceIsMelee;
 
     public enum LongRangeFireMode
     {
@@ -101,12 +120,16 @@ public class EnemyAI : MonoBehaviour
     [Tooltip("Shows the ranged attack and the directional shoot point. Mobile or Fixed stays on the motor.")]
     public bool longRangeAttacker;
 
-    [Tooltip("Timed shoots on the cooldown and ignores the reaction chart. Timed+Reactive keeps that cooldown, and the chart allows or blocks the shot.")]
+    [Tooltip("Both modes shoot only after reaching the orbit, on cooldown. A Hold, Step Back, or Defend cancels a shot that has not started. Timed+Reactive also rolls Shoot on the chart.")]
     public LongRangeFireMode longRangeFire = LongRangeFireMode.Timed;
 
     public bool ReactiveShooter => longRangeAttacker && longRangeFire == LongRangeFireMode.Reactive;
 
     public bool UsesMelee => meleeAttack != MeleeAttackMode.No;
+
+    public bool CanMixRangeAndMelee => longRangeAttacker && UsesMelee;
+
+    public bool ClosesIn => CanMixRangeAndMelee && hybridEngage == HybridEngage.CloseIn;
 
     public float MeleeRange(EnemyCombatController combat)
     {
@@ -119,6 +142,84 @@ public class EnemyAI : MonoBehaviour
     public bool MeleeOwnsDistance(float dist, EnemyCombatController combat)
     {
         return UsesMelee && dist <= MeleeRange(combat);
+    }
+
+    /// <summary>
+    /// Where approach ends and the strafe begins. Kept inside weapon range so the
+    /// countdown that starts here can actually connect.
+    /// </summary>
+    public float OrbitRadius()
+    {
+        if (ClosesIn)
+            return Mathf.Max(0.2f, MeleeRange(melee));
+
+        float radius = stopDistance;
+
+        if (longRangeAttacker && ranged != null)
+            radius = Mathf.Min(radius, ranged.attackDistance);
+        else if (UsesMelee && melee != null)
+            radius = Mathf.Min(radius, MeleeRange(melee));
+
+        return Mathf.Max(0.2f, radius);
+    }
+
+    /// <summary>
+    /// Radius the body is trying to hold this frame. A close reaction keeps the
+    /// enemy at punch range. Otherwise this is the shoot orbit or the chase target.
+    /// </summary>
+    public float EngageBand()
+    {
+        if (reactions != null && reactions.CloseActive && !reactions.WantsCloseStepBack)
+            return Mathf.Max(0.2f, MeleeRange(melee));
+
+        return OrbitRadius();
+    }
+
+    public bool InOrbit(float dist)
+    {
+        return dist <= OrbitRadius();
+    }
+
+    public bool AttackCommitted()
+    {
+        if (melee != null && melee.IsAttacking())
+            return true;
+        if (ranged != null && ranged.IsAttacking())
+            return true;
+        return false;
+    }
+
+    public bool CloseInChoseMelee => hasCloseChoice && closeChoiceIsMelee;
+    public bool CloseInChoseShoot => hasCloseChoice && !closeChoiceIsMelee;
+
+    /// <summary>
+    /// Rolls the next Close In attack once, and keeps it until that attack starts.
+    /// Outside the punch the roll is dropped and every attack is a shot.
+    /// </summary>
+    public void TickCloseInMix(float dist)
+    {
+        if (!ClosesIn)
+        {
+            hasCloseChoice = false;
+            return;
+        }
+
+        if (dist > MeleeRange(melee))
+        {
+            hasCloseChoice = false;
+            return;
+        }
+
+        if (AttackCommitted() || hasCloseChoice)
+            return;
+
+        hasCloseChoice = true;
+        closeChoiceIsMelee = Random.Range(0, 10) < Mathf.Clamp(closeInMeleeShare, 0, 10);
+    }
+
+    public void ConsumeCloseInChoice()
+    {
+        hasCloseChoice = false;
     }
 
     [Header("Alert (Spotted Player)")]
@@ -253,6 +354,7 @@ public class EnemyAI : MonoBehaviour
             EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
 
         float dist = FlatDistance(player.position, transform.position);
+        TickCloseInMix(dist);
         bool seesPlayer = UpdateChase(player.position, dist);
 
         // ===== COMBAT STATE =====
@@ -392,26 +494,23 @@ public class EnemyAI : MonoBehaviour
         bool holding = reactions != null && (reactions.CloseActive ? reactions.WantsCloseHold : reactions.WantsHold);
         bool steppingBack = reactions != null && (reactions.CloseActive ? reactions.WantsCloseStepBack : reactions.WantsStepBack);
 
+        // One owner at a time. A committed attack already returned above.
+        // A reaction (hold or step back) beats orbiting and approaching.
+        // Inside the orbit the enemy strafes and combat counts down the attack.
+        // Outside it, the only job is to close the distance.
         if (holding)
         {
             if (!strafing)
-            {
-                strafing = true;
-                strafeSign = Random.value < 0.5f ? -1f : 1f;
-                strafePhase = Random.Range(0f, Mathf.PI * 2f);
-                strafeFlipAt = 0f;
-                strafeStuck = 0f;
-            }
+                BeginStrafe();
 
-            LooseStrafe(player.position);
+            LooseStrafe(player.position, EngageBand());
             motor.speedScale = StrafeScale(true);
             return;
         }
 
-        strafing = false;
-
         if (steppingBack)
         {
+            strafing = false;
             float backTo = stopDistance + reactions.StepBackDistance;
             if (dist >= backTo)
             {
@@ -428,24 +527,23 @@ public class EnemyAI : MonoBehaviour
             return;
         }
 
-        if (dist <= stopDistance)
+        float orbit = EngageBand();
+        if (dist <= orbit)
         {
-            motor.Stop();
+            if (!strafing)
+                BeginStrafe();
 
-            // Stop the agent path so it doesn't try to drift forward at melee range.
-            if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
-                motor.agent.ResetPath();
-
+            LooseStrafe(player.position, orbit);
+            motor.speedScale = StrafeScale(false);
             return;
         }
 
-        // Move toward the player's surround slot (or their exact position if
-        // surroundPlayer is off / we're the only one engaging). Use NavMeshAgent
-        // for pathfinding if it's set up, otherwise fall back to straight-line
-        // steering.
+        strafing = false;
+
+        // Still outside the orbit. Approach the slot and do not strafe or attack.
         Vector3 targetPos = player.position;
         if (surroundPlayer)
-            targetPos += EnemySurroundGroup.GetSurroundOffset(player, this, stopDistance);
+            targetPos += EnemySurroundGroup.GetSurroundOffset(player, this, orbit);
 
         Vector3 moveDir = targetPos - transform.position;
         moveDir.y = 0f;
@@ -508,7 +606,16 @@ public class EnemyAI : MonoBehaviour
         return chasing;
     }
 
-    void LooseStrafe(Vector3 playerPos)
+    void BeginStrafe()
+    {
+        strafing = true;
+        strafeSign = Random.value < 0.5f ? -1f : 1f;
+        strafePhase = Random.Range(0f, Mathf.PI * 2f);
+        strafeFlipAt = 0f;
+        strafeStuck = 0f;
+    }
+
+    void LooseStrafe(Vector3 playerPos, float radius)
     {
         Vector3 toPlayer = playerPos - transform.position;
         toPlayer.y = 0f;
@@ -524,11 +631,11 @@ public class EnemyAI : MonoBehaviour
             side = -side;
         }
 
-        // Preferred distance slowly breathes, and the pull toward it is weak,
-        // so the path wanders instead of riding stopDistance.
+        // Stay on the orbit. A wide breathe used to walk them out of range,
+        // and the approach would pull them straight back in.
         float breathe = Mathf.Sin(EnemyClock.time * 0.45f + strafePhase);
-        float preferred = stopDistance * Mathf.Lerp(0.75f, 1.6f, (breathe + 1f) * 0.5f);
-        float inward = Mathf.Clamp((d - preferred) * 0.1f, -0.3f, 0.3f);
+        float preferred = radius * Mathf.Lerp(0.92f, 1f, (breathe + 1f) * 0.5f);
+        float inward = Mathf.Clamp((d - preferred) * 0.45f, -0.35f, 0.65f);
         Vector3 move = side + radial * inward;
 
         motor.SetMoveAndFacing(move, radial);

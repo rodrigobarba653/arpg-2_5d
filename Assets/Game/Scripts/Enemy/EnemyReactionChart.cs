@@ -4,8 +4,8 @@ using UnityEngine;
 /// Designer chart for how this enemy answers the player's intent.
 /// Each row is 10 points split across Press, Step Back, and Hold.
 /// Defend shows when this enemy can defend. Shoot shows when it is a long-range attacker.
-/// A long-range enemy that can also swing gets a second block for when the player gets close.
-/// The roll happens once when that moment starts.
+/// A long-range enemy that keeps its distance and can also swing gets a second block for when the player steps in.
+/// Close In does not use that block. Inside the punch it rolls melee or shot. A reaction still cancels an attack that has not started, and a started attack finishes before the reaction plays.
 /// </summary>
 public class EnemyReactionChart : MonoBehaviour
 {
@@ -31,7 +31,8 @@ public class EnemyReactionChart : MonoBehaviour
         Melee,
         Hold,
         StepBack,
-        MeleeAndStepBack
+        MeleeAndStepBack,
+        Shoot
     }
 
     [System.Serializable]
@@ -51,6 +52,7 @@ public class EnemyReactionChart : MonoBehaviour
         [Range(0, 10)] public int hold;
         [Range(0, 10)] public int stepBack;
         [Range(0, 10)] public int meleeAndStepBack;
+        [Range(0, 10)] public int shoot;
     }
 
     [Tooltip("Fills the rows. Editing a number switches this to Custom.")]
@@ -82,7 +84,7 @@ public class EnemyReactionChart : MonoBehaviour
     [Range(0.15f, 1f)]
     public float holdStrafeSpeed = 0.55f;
 
-    [Tooltip("Used by a long-range enemy that can also swing. Rolled once when the player enters melee range.")]
+    [Tooltip("Keep Distance only. Rolled once when the player steps into the punch. Close In ignores this and rolls melee or shot from Close In Melee Share.")]
     public CloseRow playerGetsClose = new CloseRow { melee = 4, hold = 2, stepBack = 2, meleeAndStepBack = 2 };
 
     [SerializeField, HideInInspector] Preset appliedPreset = Preset.Cautious;
@@ -118,6 +120,7 @@ public class EnemyReactionChart : MonoBehaviour
     public bool WantsCloseMelee => CloseActive && (closeReaction == CloseReaction.Melee || closeReaction == CloseReaction.MeleeAndStepBack);
     public bool WantsCloseHold => CloseActive && closeReaction == CloseReaction.Hold;
     public bool WantsCloseStepBack => CloseActive && (closeReaction == CloseReaction.StepBack || closeReaction == CloseReaction.MeleeAndStepBack);
+    public bool WantsCloseShoot => CloseActive && closeReaction == CloseReaction.Shoot;
 
     public bool ShowsDefend
     {
@@ -214,6 +217,17 @@ public class EnemyReactionChart : MonoBehaviour
 
         UpdateClose(dist);
 
+        // A started shot or swing finishes first. If the player's swing ends
+        // during that attack, keep the reaction and play it once the attack ends.
+        if (hasReaction && tiedToSwing && !frame.swinging && ai != null && ai.AttackCommitted())
+        {
+            tiedToSwing = false;
+            reactionUntil = EnemyClock.time + Mathf.Max(0.05f, responseWindow);
+        }
+
+        if (ai != null && ai.AttackCommitted() && hasReaction && !tiedToSwing)
+            reactionUntil = Mathf.Max(reactionUntil, EnemyClock.time + Mathf.Max(0.05f, responseWindow));
+
         if (hasReaction && !tiedToSwing && EnemyClock.time >= reactionUntil)
             Clear();
 
@@ -231,7 +245,8 @@ public class EnemyReactionChart : MonoBehaviour
 
     void UpdateClose(float dist)
     {
-        if (!ShowsCloseModule || ai == null)
+        // Close In mixes the dash and the shot itself. This row is only for Keep Distance.
+        if (!ShowsCloseModule || ai == null || ai.ClosesIn)
         {
             ClearClose();
             wasClose = false;
@@ -240,10 +255,11 @@ public class EnemyReactionChart : MonoBehaviour
 
         float closeRange = ai.MeleeRange(melee);
         bool closeNow = dist <= closeRange;
-        if (closeNow && !wasClose)
-            CommitClose(RollClose(playerGetsClose));
-        else if (!closeNow)
+
+        if (!closeNow)
             ClearClose();
+        else if (!wasClose)
+            CommitClose(RollClose(playerGetsClose));
 
         wasClose = closeNow;
     }
@@ -265,7 +281,8 @@ public class EnemyReactionChart : MonoBehaviour
         int hold = row.hold;
         int step = row.stepBack;
         int both = row.meleeAndStepBack;
-        int total = Mathf.Max(1, meleeShare + hold + step + both);
+        int shoot = row.shoot;
+        int total = Mathf.Max(1, meleeShare + hold + step + both + shoot);
         int roll = Random.Range(0, total);
         if (roll < meleeShare)
             return CloseReaction.Melee;
@@ -273,7 +290,9 @@ public class EnemyReactionChart : MonoBehaviour
             return CloseReaction.Hold;
         if (roll < meleeShare + hold + step)
             return CloseReaction.StepBack;
-        return CloseReaction.MeleeAndStepBack;
+        if (roll < meleeShare + hold + step + both)
+            return CloseReaction.MeleeAndStepBack;
+        return CloseReaction.Shoot;
     }
 
     public void CancelReaction()
@@ -456,13 +475,13 @@ public class EnemyReactionChart : MonoBehaviour
     public static void SetCloseShare(ref CloseRow row, int edited, int value)
     {
         value = Mathf.Clamp(value, 0, 10);
-        int[] points = { row.melee, row.hold, row.stepBack, row.meleeAndStepBack };
-        if (edited < 0 || edited > 3)
+        int[] points = { row.melee, row.hold, row.stepBack, row.meleeAndStepBack, row.shoot };
+        if (edited < 0 || edited > 4)
             return;
 
         points[edited] = value;
-        int sum = points[0] + points[1] + points[2] + points[3];
-        int[] trimOrder = { 1, 2, 3, 0 };
+        int sum = points[0] + points[1] + points[2] + points[3] + points[4];
+        int[] trimOrder = { 1, 2, 3, 4, 0 };
         for (int n = 0; n < trimOrder.Length && sum > 10; n++)
         {
             int i = trimOrder[n];
@@ -482,6 +501,7 @@ public class EnemyReactionChart : MonoBehaviour
         row.hold = points[1];
         row.stepBack = points[2];
         row.meleeAndStepBack = points[3];
+        row.shoot = points[4];
     }
 
     static void Normalize(ref Row row, bool showDefend, bool showShoot)
@@ -525,7 +545,7 @@ public class EnemyReactionChart : MonoBehaviour
 
     static void NormalizeClose(ref CloseRow row)
     {
-        int sum = row.melee + row.hold + row.stepBack + row.meleeAndStepBack;
+        int sum = row.melee + row.hold + row.stepBack + row.meleeAndStepBack + row.shoot;
         if (sum == 0)
         {
             row = new CloseRow { melee = 4, hold = 2, stepBack = 2, meleeAndStepBack = 2 };

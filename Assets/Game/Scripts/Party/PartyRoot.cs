@@ -75,15 +75,9 @@ public class PartyRoot : MonoBehaviour
 
         Instance = this;
 
-        if (transform.parent == null)
-        {
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Debug.LogWarning("[PartyRoot] Not at the root of the scene — " +
-                             "DontDestroyOnLoad will fail. Move it to the root.", this);
-        }
+        if (transform.parent != null)
+            transform.SetParent(null, true);
+        DontDestroyOnLoad(gameObject);
 
         ValidateMemberSlots();
 

@@ -114,7 +114,7 @@ public class EnemyCloseRowDrawer : PropertyDrawer
 {
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
-        int lines = 5;
+        int lines = 6;
         return EditorGUIUtility.singleLineHeight * lines
             + EditorGUIUtility.standardVerticalSpacing * (lines - 1);
     }
@@ -134,19 +134,25 @@ public class EnemyCloseRowDrawer : PropertyDrawer
             melee = property.FindPropertyRelative("melee").intValue,
             hold = property.FindPropertyRelative("hold").intValue,
             stepBack = property.FindPropertyRelative("stepBack").intValue,
-            meleeAndStepBack = property.FindPropertyRelative("meleeAndStepBack").intValue
+            meleeAndStepBack = property.FindPropertyRelative("meleeAndStepBack").intValue,
+            shoot = property.FindPropertyRelative("shoot") != null ? property.FindPropertyRelative("shoot").intValue : 0
         };
 
         Draw(ref row, line, gap, property, "Melee Attack", 0, ref current);
         Draw(ref row, line, gap, property, "Hold", 1, ref current);
         Draw(ref row, line, gap, property, "Step Back", 2, ref current);
         Draw(ref row, line, gap, property, "Melee and Step Back", 3, ref current);
+        Draw(ref row, line, gap, property, "Shoot", 4, ref current);
         EditorGUI.EndProperty();
     }
 
     static void Draw(ref Rect row, float line, float gap, SerializedProperty property, string name, int index, ref EnemyReactionChart.CloseRow current)
     {
-        int value = index == 0 ? current.melee : index == 1 ? current.hold : index == 2 ? current.stepBack : current.meleeAndStepBack;
+        int value = index == 0 ? current.melee
+            : index == 1 ? current.hold
+            : index == 2 ? current.stepBack
+            : index == 3 ? current.meleeAndStepBack
+            : current.shoot;
         EditorGUI.BeginChangeCheck();
         int next = EditorGUI.IntSlider(row, name, value, 0, 10);
         if (EditorGUI.EndChangeCheck())
@@ -156,6 +162,9 @@ public class EnemyCloseRowDrawer : PropertyDrawer
             property.FindPropertyRelative("hold").intValue = current.hold;
             property.FindPropertyRelative("stepBack").intValue = current.stepBack;
             property.FindPropertyRelative("meleeAndStepBack").intValue = current.meleeAndStepBack;
+            SerializedProperty shoot = property.FindPropertyRelative("shoot");
+            if (shoot != null)
+                shoot.intValue = current.shoot;
             property.serializedObject.ApplyModifiedProperties();
         }
 

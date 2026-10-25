@@ -41,6 +41,14 @@ public class EnemyCombatController : MonoBehaviour
     public GameObject dashVfxPrefab;
     public float dashVfxScale = 0.55f;
 
+    [Tooltip("How long the dash waits while the charge effect grows. The lunge and the hitbox start after this. 0 skips the wind-up.")]
+    public float dashWindup;
+
+    [Tooltip("Played on the body during the wind-up. It goes away when the dash starts.")]
+    public GameObject dashChargeVfxPrefab;
+
+    public float dashChargeVfxScale = 0.55f;
+
     [Tooltip("After the dash connects, hop back so the enemy does not stay on top of the player.")]
     public bool hopBackOnHit = true;
     public float hopBackDistance = 1.15f;
@@ -123,6 +131,8 @@ public class EnemyCombatController : MonoBehaviour
 
     float hitStunUntil;
     float nextAttackTime;
+    bool orbitArmed;
+    float orbitReadyAt;
     float attackStartedAt;
     bool isAttacking;
     bool hitboxEnabledByTimer;
@@ -136,6 +146,16 @@ public class EnemyCombatController : MonoBehaviour
     float hopMoved;
     Vector3 hopDir;
     GameObject dashVfxInstance;
+    GameObject dashChargeInstance;
+    MaterialPropertyBlock chargeBlock;
+    Color chargeTintBefore = Color.white;
+    Color chargeFlashBefore = new Color(0f, 0f, 0f, 1f);
+    bool chargeTinted;
+
+    static readonly int TintColorId = Shader.PropertyToID("_TintColor");
+    static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
+    static readonly Color DashChargeTint = new Color(0.35f, 0.62f, 1f, 1f);
+    static readonly Color DashChargeFlash = new Color(0.15f, 0.4f, 1f, 1f);
 
     static readonly int AttackTrigger = Animator.StringToHash("Attack");
     static readonly int HurtTrigger = Animator.StringToHash("Hurt");
@@ -167,7 +187,10 @@ public class EnemyCombatController : MonoBehaviour
             return;
 
         if (isAttacking)
+        {
+            TickDashCharge();
             UpdateAttackStepForward();
+        }
 
         UpdateHopBack();
 
@@ -175,9 +198,10 @@ public class EnemyCombatController : MonoBehaviour
         {
             float elapsed = EnemyClock.time - attackStartedAt;
 
-            float enableAt = CurrentEnableDelay();
-            float disableAt = CurrentDisableDelay();
-            float endAt = CurrentEndDelay();
+            float strikeAt = DashWindup();
+            float enableAt = strikeAt + CurrentEnableDelay();
+            float disableAt = strikeAt + CurrentDisableDelay();
+            float endAt = strikeAt + CurrentEndDelay();
 
             if (!hitboxEnabledByTimer && elapsed >= enableAt)
             {
@@ -199,16 +223,25 @@ public class EnemyCombatController : MonoBehaviour
             EndAttack();
 
         if (ai != null && ai.isAlerting)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (ai != null && ai.isDefending)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (isAttacking)
             return;
 
         if (EnemyClock.time < hitStunUntil)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (motor != null && motor.IsMovementLocked())
             return;
@@ -218,24 +251,72 @@ public class EnemyCombatController : MonoBehaviour
 
         float dist = Vector3.Distance(transform.position, player.position);
         float range = ai != null ? ai.MeleeRange(this) : attackDistance;
+        if (ai != null)
+            ai.TickCloseInMix(dist);
 
         if (dist > range)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
-        if (EnemyClock.time < nextAttackTime)
+        if (ai != null && ai.ClosesIn)
+        {
+            // The mix already picked this attack. A Hold, Step Back, or Defend still waits.
+            DisarmOrbitCountdown();
+            if (reactions != null)
+                reactions.Tick();
+            if (!ai.CloseInChoseMelee)
+                return;
+            if (reactions != null && !reactions.AllowsAttack)
+                return;
+            if (EnemyClock.time < nextAttackTime)
+                return;
+            if (!EnemyAttackScheduler.Instance.TryReserve(this))
+                return;
+            StartAttack();
+            ai.ConsumeCloseInChoice();
             return;
+        }
 
         if (reactions != null)
         {
             reactions.Tick();
             if (reactions.CloseActive)
             {
-                if (!reactions.WantsCloseMelee)
+                // Keep Distance: the close row owns this range. A matrix hold still waits.
+                DisarmOrbitCountdown();
+                if (!reactions.AllowsAttack || !reactions.WantsCloseMelee || EnemyClock.time < nextAttackTime)
                     return;
-            }
-            else if (!reactions.AllowsAttack)
+                if (!EnemyAttackScheduler.Instance.TryReserve(this))
+                    return;
+                StartAttack();
                 return;
+            }
+
+            if (!reactions.AllowsAttack)
+            {
+                DisarmOrbitCountdown();
+                return;
+            }
         }
+
+        // Countdown starts on the orbit, not while still walking in.
+        if (ai != null && !ai.InOrbit(dist))
+        {
+            DisarmOrbitCountdown();
+            return;
+        }
+
+        if (!orbitArmed)
+        {
+            orbitArmed = true;
+            float fresh = EnemyClock.time + attackCooldown;
+            orbitReadyAt = nextAttackTime > EnemyClock.time ? nextAttackTime : fresh;
+        }
+
+        if (EnemyClock.time < orbitReadyAt)
+            return;
 
         if (!EnemyAttackScheduler.Instance.TryReserve(this))
             return;
@@ -243,9 +324,15 @@ public class EnemyCombatController : MonoBehaviour
         StartAttack();
     }
 
+    void DisarmOrbitCountdown()
+    {
+        orbitArmed = false;
+    }
+
     void StartAttack()
     {
         isAttacking = true;
+        orbitArmed = false;
         attackStartedAt = EnemyClock.time;
         hitboxEnabledByTimer = false;
         hitboxDisabledByTimer = false;
@@ -273,6 +360,8 @@ public class EnemyCombatController : MonoBehaviour
 
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();
+
+        BeginDashCharge();
 
         animator.SetBool(IsAttackingHash, true);
         animator.ResetTrigger(HurtTrigger);
@@ -372,11 +461,16 @@ public class EnemyCombatController : MonoBehaviour
 
         if (!attackStepStarted)
         {
-            if (elapsed < attackStepDelay)
+            float startAt = useDashAttack ? Mathf.Max(DashWindup(), attackStepDelay) : attackStepDelay;
+            if (elapsed < startAt)
+            {
+                AimDash();
                 return;
+            }
 
             attackStepStarted = true;
             attackStepActive = true;
+            EndDashCharge();
         }
 
         if (!attackStepActive)
@@ -468,6 +562,7 @@ public class EnemyCombatController : MonoBehaviour
         isAttacking = false;
         attackStepActive = false;
         attackStepStarted = false;
+        EndDashCharge();
         EndDashVfx();
 
         if (animator != null)
@@ -484,6 +579,7 @@ public class EnemyCombatController : MonoBehaviour
     void OnDisable()
     {
         EnemyAttackScheduler.ReleaseIfExists(this);
+        EndDashCharge();
         DisableHitbox();
     }
 
@@ -554,6 +650,122 @@ public class EnemyCombatController : MonoBehaviour
         hopMoved += moveAmount;
     }
 
+    float DashWindup()
+    {
+        if (!useDashAttack)
+            return 0f;
+        return Mathf.Max(0f, dashWindup);
+    }
+
+    void AimDash()
+    {
+        if (player == null)
+            return;
+
+        Vector3 dir = player.position - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            return;
+
+        attackStepDirection = dir.normalized;
+        if (motor != null)
+            motor.RotateToward(attackStepDirection);
+    }
+
+    void BeginDashCharge()
+    {
+        EndDashCharge();
+        if (DashWindup() <= 0f)
+            return;
+
+        SetChargeTint(true);
+        if (dashChargeVfxPrefab == null)
+            return;
+
+        dashChargeInstance = Instantiate(dashChargeVfxPrefab, DashChargePosition(), Quaternion.identity);
+        dashChargeInstance.transform.localScale = Vector3.one * DashChargeScale(0f);
+        HitStopVfx.Arm(dashChargeInstance, DashWindup() + 0.2f);
+    }
+
+    void TickDashCharge()
+    {
+        if (dashChargeInstance == null)
+            return;
+
+        float elapsed = EnemyClock.time - attackStartedAt;
+        if (elapsed >= DashWindup())
+        {
+            EndDashCharge();
+            return;
+        }
+
+        dashChargeInstance.transform.position = DashChargePosition();
+        dashChargeInstance.transform.localScale = Vector3.one * DashChargeScale(elapsed);
+    }
+
+    float DashChargeScale(float elapsed)
+    {
+        float duration = Mathf.Max(0.05f, DashWindup());
+        float t = Mathf.Clamp01(elapsed / duration);
+        float grown = Mathf.SmoothStep(0.35f, 1f, t);
+        return Mathf.Max(0.05f, dashChargeVfxScale) * grown;
+    }
+
+    void EndDashCharge()
+    {
+        SetChargeTint(false);
+        if (dashChargeInstance == null)
+            return;
+
+        Destroy(dashChargeInstance);
+        dashChargeInstance = null;
+    }
+
+    void SetChargeTint(bool on)
+    {
+        SpriteRenderer sprite = BodySprite();
+        if (sprite == null)
+            return;
+
+        if (chargeBlock == null)
+            chargeBlock = new MaterialPropertyBlock();
+
+        if (on)
+        {
+            if (!chargeTinted)
+            {
+                Material mat = sprite.sharedMaterial;
+                if (mat != null && mat.HasProperty(TintColorId))
+                    chargeTintBefore = mat.GetColor(TintColorId);
+                if (mat != null && mat.HasProperty(FlashColorId))
+                    chargeFlashBefore = mat.GetColor(FlashColorId);
+            }
+
+            sprite.GetPropertyBlock(chargeBlock);
+            chargeBlock.SetColor(TintColorId, DashChargeTint);
+            chargeBlock.SetColor(FlashColorId, DashChargeFlash);
+            sprite.SetPropertyBlock(chargeBlock);
+            chargeTinted = true;
+            return;
+        }
+
+        if (!chargeTinted)
+            return;
+
+        sprite.GetPropertyBlock(chargeBlock);
+        chargeBlock.SetColor(TintColorId, chargeTintBefore);
+        chargeBlock.SetColor(FlashColorId, chargeFlashBefore);
+        sprite.SetPropertyBlock(chargeBlock);
+        chargeTinted = false;
+    }
+
+    SpriteRenderer BodySprite()
+    {
+        if (animator == null)
+            return null;
+        return animator.GetComponent<SpriteRenderer>();
+    }
+
     void BeginDashVfx()
     {
         if (dashVfxPrefab == null)
@@ -566,6 +778,18 @@ public class EnemyCombatController : MonoBehaviour
     Vector3 DashVfxPosition()
     {
         return transform.position + Vector3.up * 0.45f;
+    }
+
+    Vector3 DashChargePosition()
+    {
+        if (animator != null)
+        {
+            SpriteRenderer sprite = animator.GetComponent<SpriteRenderer>();
+            if (sprite != null && sprite.sprite != null)
+                return sprite.bounds.center;
+        }
+
+        return transform.position + Vector3.up * 0.57f;
     }
 
     void EndDashVfx()
@@ -587,6 +811,7 @@ public class EnemyCombatController : MonoBehaviour
         attackStepActive = false;
         attackStepStarted = false;
         hoppingBack = false;
+        EndDashCharge();
         EndDashVfx();
 
         if (isAttacking)

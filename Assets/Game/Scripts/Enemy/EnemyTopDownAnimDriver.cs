@@ -61,20 +61,6 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
             if (h == MoveYHash)      hasMoveY = true;
         }
 
-        if (!hasIsInCombat)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is " +
-                             "missing 'IsInCombat' (bool). Without it, the enemy " +
-                             "will never transition to attack state and won't deal damage. " +
-                             "Add it in the Animator Controller's Parameters tab.", this);
-
-        if (!hasIsMoving)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'IsMoving' (bool).", this);
-
-        if (!hasMoveX)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'MoveX' (float).", this);
-
-        if (!hasMoveY)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'MoveY' (float).", this);
     }
 
     void Update()
