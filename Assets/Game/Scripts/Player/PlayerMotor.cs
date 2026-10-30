@@ -31,11 +31,16 @@ public class PlayerMotor : MonoBehaviour
     Vector3 airMoveDirection;
 
     [Header("Slope")]
+    [InspectorName("Disable Custom Slope Movement (DEBUG)")]
+    [Tooltip("Temporary test. Skips slope projection, steep sliding, the slope wall push, and the steep-slope exception to the grounded velocity stick. Gravity, jumping, and horizontal input stay active.")]
+    public bool disableCustomSlopeMovement;
+
     public float slopeSlideSpeed = 6f;
     public float wallPushForce = 4f;
     public float slopeCheckDistance = 0.6f;
 
     bool onSteepSlope;
+    bool slopeSupported;
     Vector3 slopeNormal;
     Vector3 groundNormal = Vector3.up;
 
@@ -61,6 +66,12 @@ public class PlayerMotor : MonoBehaviour
     Vector3 knockbackDir;
 
     Vector3 rollDirection;
+
+    MovementDiagnostics diagnostics;
+    bool slopeProbeHit;
+    string slopeProbeCollider;
+    Vector3 slopeProbePoint;
+    Vector3 slopeProbeNormal;
 
     private Vector2 moveInput;
     private Vector2 lastNonZeroFacing = Vector2.down;
@@ -94,6 +105,8 @@ public class PlayerMotor : MonoBehaviour
 
         if (!mainCam)
             mainCam = Camera.main;
+
+        diagnostics = GetComponent<MovementDiagnostics>();
 
         if (rb != null)
         {
@@ -207,57 +220,115 @@ public class PlayerMotor : MonoBehaviour
         }
 
         // ---------- GRAVITY ----------
+        bool traceMove = diagnostics != null && diagnostics.IsRecording;
+        float vyBeforeGravity = verticalVelocity.y;
+        bool groundedBeforeMove = traceMove && controller.isGrounded;
+
         CheckSlope();
 
-        if (controller.isGrounded && !onSteepSlope && verticalVelocity.y < 0f)
+        // A slope/flat seam often drops CharacterController.isGrounded for several
+        // frames while the feet are still on walkable ground. Keep the stick so
+        // the controller can reacquire the floor instead of staying airborne.
+        bool stickToGround = controller.isGrounded
+            || (slopeSupported && verticalVelocity.y <= 0.5f);
+
+        if (disableCustomSlopeMovement)
+        {
+            if (controller.isGrounded && verticalVelocity.y < 0f)
+                verticalVelocity.y = -2f;
+        }
+        else if (stickToGround && !onSteepSlope && verticalVelocity.y < 0f)
             verticalVelocity.y = -2f;
 
         verticalVelocity.y += gravity * Time.deltaTime;
 
         Vector3 finalMove = moveWorld * speed;
 
-        float groundAngle = Vector3.Angle(groundNormal, Vector3.up);
-        if (controller.isGrounded && !onSteepSlope && groundAngle > 3f && moveWorld.sqrMagnitude > 0.001f)
-        {
-            // Project movement along slope surface so player follows it down instead of floating/stuttering
-            Vector3 slopedMove = Vector3.ProjectOnPlane(finalMove, groundNormal);
-            finalMove = slopedMove;
-            if (verticalVelocity.y < 0f)
-                finalMove.y += verticalVelocity.y;
-        }
-        else
+        if (disableCustomSlopeMovement)
         {
             finalMove.y = verticalVelocity.y;
         }
-
-        if (onSteepSlope)
+        else
         {
-            Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
+            float groundAngle = Vector3.Angle(groundNormal, Vector3.up);
+            // A jump while holding downhill still has the controller grounded for a
+            // frame, and this projection was throwing away the upward velocity.
+            if (stickToGround && !onSteepSlope && groundAngle > 3f
+                && moveWorld.sqrMagnitude > 0.001f && verticalVelocity.y <= 0.5f)
+            {
+                // Follow the surface. Adding world-down on top of this drives the capsule
+                // into the corner where a slope meets flat ground and the controller stops.
+                Vector3 slopedMove = Vector3.ProjectOnPlane(finalMove, groundNormal);
+                slopedMove -= groundNormal * 2f;
+                finalMove = slopedMove;
+            }
+            else
+            {
+                finalMove.y = verticalVelocity.y;
+            }
 
-            horizontal = Vector3.ProjectOnPlane(horizontal, slopeNormal);
+            if (onSteepSlope)
+            {
+                Vector3 horizontal = new Vector3(finalMove.x, 0f, finalMove.z);
 
-            finalMove.x = horizontal.x;
-            finalMove.z = horizontal.z;
+                horizontal = Vector3.ProjectOnPlane(horizontal, slopeNormal);
 
-            Vector3 slideDir = Vector3.ProjectOnPlane(
-                Vector3.down,
-                slopeNormal
-            ).normalized;
+                finalMove.x = horizontal.x;
+                finalMove.z = horizontal.z;
 
-            finalMove += slideDir * slopeSlideSpeed;
+                Vector3 slideDir = Vector3.ProjectOnPlane(
+                    Vector3.down,
+                    slopeNormal
+                ).normalized;
+
+                finalMove += slideDir * slopeSlideSpeed;
+            }
+
+            if (onSteepSlope && !controller.isGrounded)
+            {
+                Vector3 push = Vector3.ProjectOnPlane(
+                    slopeNormal,
+                    Vector3.up
+                ).normalized;
+
+                finalMove += push * wallPushForce;
+            }
         }
 
-        if (onSteepSlope && !controller.isGrounded)
+        Vector3 positionBeforeMove = traceMove ? transform.position : default;
+        CollisionFlags moveFlags = controller.Move(finalMove * Time.deltaTime);
+        if (traceMove)
+            diagnostics.RecordMotor(BuildMoveObservation(positionBeforeMove, finalMove, vyBeforeGravity, groundedBeforeMove, moveFlags));
+    }
+
+    MovementDiagnostics.MotorObservation BuildMoveObservation(
+        Vector3 positionBeforeMove,
+        Vector3 finalMove,
+        float vyBeforeGravity,
+        bool groundedBeforeMove,
+        CollisionFlags moveFlags)
+    {
+        return new MovementDiagnostics.MotorObservation
         {
-            Vector3 push = Vector3.ProjectOnPlane(
-                slopeNormal,
-                Vector3.up
-            ).normalized;
-
-            finalMove += push * wallPushForce;
-        }
-
-        controller.Move(finalMove * Time.deltaTime);
+            input = moveInput,
+            airMoveDirection = airMoveDirection,
+            requestedVelocity = finalMove,
+            requestedStep = finalMove * Time.deltaTime,
+            actualDisplacement = transform.position - positionBeforeMove,
+            verticalVelocityBefore = vyBeforeGravity,
+            verticalVelocityApplied = verticalVelocity.y,
+            controllerGroundedBefore = groundedBeforeMove,
+            controllerGroundedAfter = controller.isGrounded,
+            onSteepSlope = onSteepSlope,
+            groundNormal = groundNormal,
+            groundAngle = Vector3.Angle(groundNormal, Vector3.up),
+            probeHit = slopeProbeHit,
+            probeCollider = slopeProbeCollider,
+            probePoint = slopeProbePoint,
+            probeNormal = slopeProbeNormal,
+            flags = moveFlags,
+            movementLocked = movementLocked
+        };
     }
 
     Vector3 GetMoveWorld(Vector2 input)
@@ -517,13 +588,20 @@ public class PlayerMotor : MonoBehaviour
     void CheckSlope()
     {
         onSteepSlope = false;
+        slopeSupported = false;
         slopeNormal = Vector3.up;
         groundNormal = Vector3.up;
 
         if (!controller)
             return;
 
-        float radius = Mathf.Max(0.05f, controller.radius * 0.9f);
+        bool traceSlope = diagnostics != null && diagnostics.IsRecording;
+        if (traceSlope)
+            slopeProbeHit = false;
+
+        // A sphere almost as wide as the body still hits the ramp after the feet
+        // are on the flat floor, so the move keeps following the old slope.
+        float radius = Mathf.Clamp(controller.radius * 0.4f, 0.05f, 0.1f);
         float castDistance = (controller.height * 0.5f) - controller.radius + slopeCheckDistance;
 
         Vector3 origin = transform.position
@@ -541,11 +619,22 @@ public class PlayerMotor : MonoBehaviour
         {
             groundNormal = hit.normal;
             float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+            float feetReach = 0.1f + controller.height * 0.5f - radius;
 
             if (slopeAngle > controller.slopeLimit)
             {
                 onSteepSlope = true;
                 slopeNormal = hit.normal;
+            }
+            else if (hit.distance <= feetReach + 0.15f)
+                slopeSupported = true;
+
+            if (traceSlope)
+            {
+                slopeProbeHit = true;
+                slopeProbePoint = hit.point;
+                slopeProbeNormal = hit.normal;
+                slopeProbeCollider = hit.collider != null ? hit.collider.name : "(no collider)";
             }
         }
     }

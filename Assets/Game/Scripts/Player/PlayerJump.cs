@@ -96,6 +96,18 @@ public class PlayerJump : MonoBehaviour
 
     public bool IsGrounded => isGrounded;
 
+    MovementDiagnostics diagnostics;
+    bool debugLandedThisFrame;
+    bool jumpProbeHit;
+    bool jumpProbeWalkable;
+    float jumpProbeAngle;
+    string jumpProbeCollider;
+    Vector3 jumpProbePoint;
+    Vector3 jumpProbeNormal;
+    bool animatorParamCached;
+    bool animatorHasInAir;
+    bool animatorHasIsGrounded;
+
     /// <summary>True from the jump press until landing. Walking off a ledge does not set this.</summary>
     public bool JumpedFromGround => jumpStartedFromGround;
 
@@ -125,10 +137,15 @@ public class PlayerJump : MonoBehaviour
 
         swim = GetComponent<PlayerSwimming>();
         climbing = GetComponent<PlayerClimbing>();
+        diagnostics = GetComponent<MovementDiagnostics>();
     }
 
     void Update()
 {
+    bool traceJump = diagnostics != null && diagnostics.IsRecording;
+    if (traceJump)
+        debugLandedThisFrame = false;
+
     if (jumpLockTimer > 0f)
         jumpLockTimer -= Time.deltaTime;
 
@@ -137,10 +154,17 @@ public class PlayerJump : MonoBehaviour
     HandleAirState();
     UpdateWaterSplashPending();
     UpdateAnimator();
+
+    if (traceJump)
+        diagnostics.RecordJump(BuildJumpObservation());
 }
 
     void CheckGround()
     {
+        bool traceGround = diagnostics != null && diagnostics.IsRecording;
+        if (traceGround)
+            jumpProbeHit = false;
+
         // While climbing we own vertical motion — don't treat CC contacts as ground.
         if (climbing != null && climbing.IsClimbing())
         {
@@ -175,26 +199,40 @@ public class PlayerJump : MonoBehaviour
         );
 
         bool slopeWalkable = false;
+        bool supportUnderFeet = false;
 
         if (foundGround)
         {
             float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
             slopeWalkable = slopeAngle <= cc.slopeLimit + 0.5f;
+            Vector3 flat = hit.point - worldCenter;
+            flat.y = 0f;
+            supportUnderFeet = slopeWalkable && flat.sqrMagnitude <= cc.radius * cc.radius;
 
             if (debugLog)
                 Debug.Log($"Ground hit: {hit.collider.name} | slope: {slopeAngle:F2} | walkable: {slopeWalkable}");
         }
 
-        if ((ccGrounded || slopeWalkable) && motor.GetVerticalVelocity() <= 0.5f)
+        if ((ccGrounded || supportUnderFeet) && motor.GetVerticalVelocity() <= 0.5f)
             isGrounded = true;
         else
             isGrounded = false;
 
-        // Walking off a ledge: the body has left the floor, but the downward
-        // probe still hits the lip. Don't keep the grounded pose for that.
-        // Jumps leave jumpStartedFromGround set, so this does not change them.
-        if (!jumpStartedFromGround && !ccGrounded && motor.GetVerticalVelocity() <= 0.5f)
+        // Walking off a ledge: the probe can still hit the lip beside the body.
+        // A slope/flat seam drops CharacterController.isGrounded while the hit
+        // stays under the feet. That contact is still the floor, not a fall.
+        if (!jumpStartedFromGround && !ccGrounded && !supportUnderFeet && motor.GetVerticalVelocity() <= 0.5f)
             isGrounded = false;
+
+        if (traceGround && foundGround)
+        {
+            jumpProbeHit = true;
+            jumpProbeWalkable = slopeWalkable;
+            jumpProbeAngle = Vector3.Angle(hit.normal, Vector3.up);
+            jumpProbePoint = hit.point;
+            jumpProbeNormal = hit.normal;
+            jumpProbeCollider = hit.collider != null ? hit.collider.name : "(no collider)";
+        }
     }
 
     public void OnJump(InputAction.CallbackContext ctx)
@@ -273,10 +311,15 @@ public class PlayerJump : MonoBehaviour
     void HandleLanding()
     {
         bool landedThisFrame = !wasGrounded && isGrounded;
+        if (landedThisFrame && diagnostics != null && diagnostics.IsRecording)
+            debugLandedThisFrame = true;
 
         if (landedThisFrame)
         {
-            if (airTimer >= minAirTimeForLanding)
+            // Walking off a slope onto flat ground drops grounded for a few frames.
+            // That is not a landing, so it must not stop the walk or play the land pose.
+            bool slopeSeam = !jumpStartedFromGround && airTimer < 0.2f;
+            if (!slopeSeam && airTimer >= minAirTimeForLanding)
             {
                 landingLock = true;
                 landingTimer = landingLockTime;
@@ -395,6 +438,61 @@ public class PlayerJump : MonoBehaviour
             return;
 
         animator.SetBool("IsGrounded", isGrounded);
+    }
+
+    MovementDiagnostics.JumpObservation BuildJumpObservation()
+    {
+        MovementDiagnostics.JumpObservation observation = new MovementDiagnostics.JumpObservation
+        {
+            isGrounded = isGrounded,
+            jumpedFromGround = jumpStartedFromGround,
+            fallingPose = inAir,
+            landedThisFrame = debugLandedThisFrame,
+            landingLock = landingLock,
+            probeHit = jumpProbeHit,
+            probeCollider = jumpProbeCollider,
+            probePoint = jumpProbePoint,
+            probeNormal = jumpProbeNormal,
+            probeAngle = jumpProbeAngle,
+            probeWalkable = jumpProbeWalkable
+        };
+
+        if (animator == null)
+            return observation;
+
+        CacheAnimatorParams();
+        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+        observation.animatorNormalizedTime = state.normalizedTime;
+        AnimatorClipInfo[] clips = animator.GetCurrentAnimatorClipInfo(0);
+        if (clips != null && clips.Length > 0 && clips[0].clip != null)
+            observation.animatorClip = clips[0].clip.name;
+
+        if (animatorHasInAir || animatorHasIsGrounded)
+        {
+            observation.animatorParamsRead = true;
+            if (animatorHasInAir)
+                observation.animatorInAir = animator.GetBool("InAir");
+            if (animatorHasIsGrounded)
+                observation.animatorIsGrounded = animator.GetBool("IsGrounded");
+        }
+
+        return observation;
+    }
+
+    void CacheAnimatorParams()
+    {
+        if (animatorParamCached || animator == null)
+            return;
+
+        animatorParamCached = true;
+        AnimatorControllerParameter[] parameters = animator.parameters;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].name == "InAir")
+                animatorHasInAir = true;
+            else if (parameters[i].name == "IsGrounded")
+                animatorHasIsGrounded = true;
+        }
     }
 
     public void ForceExitAirState()
