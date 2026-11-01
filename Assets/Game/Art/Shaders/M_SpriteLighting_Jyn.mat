@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_SpriteLighting_Jyn
+  m_Shader: {fileID: 4800000, guid: 8f3c1a6e5b904d7c9e2a4f81d6c0b357, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _RIMLIMITERENABLED_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AmbientStrength: 0.35
+    - _BacklightRimBias: 1
+    - _BodyColorResponse: 1
+    - _BodyLightStrength: 1
+    - _BodyLightWrap: 0.75
+    - _ClipThreshold: 0.27
+    - _DirectionalResponse: 1
+    - _FadeBodyLighting: 0
+    - _FadeEnd: 0.65
+    - _FadeStart: 0.35
+    - _FlashStrength: 0
+    - _FlipVisibleNormal: 0
+    - _FrontBodyBoost: 1
+    - _InvertProfileRim: 0
+    - _LightCompression: 1
+    - _LocalLightResponse: 0.65
+    - _MasterExposure: 1
+    - _MasterVerticalFade: 0
+    - _MaximumBrightness: 1.5
+    - _NormalWrap: 0.35
+    - _OrientationAwareness: 0
+    - _OrientationSoftness: 0.4
+    - _ProfileBlendEnd: 0.95
+    - _ProfileBlendStart: 0.35
+    - _ProfileBodyResponse: 1
+    - _ProfileEdgeFocus: 2
+    - _ProfileLightThreshold: 0.12
+    - _ProfileNormalTurn: 0.7
+    - _ProfileRimPlacement: 0
+    - _ProfileRimSuppression: 0.85
+    - _ReceiveShadows: 1
+    - _RimBodyGate: 0.08
+    - _RimDirectionalBias: 1
+    - _RimEnabled: 0
+    - _RimExposure: 1
+    - _RimLightResponse: 1
+    - _RimLimiterEnabled: 1
+    - _RimLimiterSoftness: 0.25
+    - _RimMaxBrightness: 2
+    - _RimMinLight: 0.15
+    - _RimStrength: 2
+    - _RimWidth: 1
+    - _SpriteFacingAwareness: 0
+    m_Colors:
+    - _AxFacing: {r: 0, g: -1, b: 0, a: 0}
+    - _FlashColor: {r: 0, g: 0, b: 0, a: 0}
+    - _RimColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SpriteUVRect: {r: 0, g: 0, b: 1, a: 1}
+    - _TintColor: {r: 0.84313726, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
