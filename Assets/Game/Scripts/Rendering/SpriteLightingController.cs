@@ -376,9 +376,12 @@ public class SpriteLightingController : MonoBehaviour
                 0f,
                 0f));
 
-        // Tint, cutoff and flash stay on the material. Combat writes those
-        // directly, and a property block here would erase the hit flash,
-        // the red tint and the death dissolve every frame.
+        // Tint and cutoff stay on the material (combat/death write them).
+        // Flash must also ride on this property block: charge tint and other
+        // systems SetPropertyBlock too, and a block without _FlashColor hides
+        // the material flash. Keep the controller's current flash alive here.
+        properties.SetColor(ID("_FlashColor"), flashColor);
+        properties.SetFloat(ID("_FlashStrength"), flashStrength);
 
         UpdateSpriteUVRect();
         targetRenderer.SetPropertyBlock(properties);
