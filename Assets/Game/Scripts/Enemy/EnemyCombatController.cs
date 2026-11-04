@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class EnemyCombatController : MonoBehaviour
 {
@@ -32,10 +32,11 @@ public class EnemyCombatController : MonoBehaviour
     [Tooltip("Charge at the player instead of taking the short attack step. The idle sprite stays on; the motion and the dash effect carry the attack.")]
     public bool useDashAttack;
 
+    [Tooltip("Max flat distance the dash/leap can travel. The landing is locked at takeoff so the player can roll out.")]
     public float dashDistance = 2.6f;
     public float dashDuration = 0.22f;
 
-    [Tooltip("Closest the dash is allowed to finish from the player. The hitbox still connects inside this gap.")]
+    [Tooltip("For flat dashes: stop this far from the player. For parabolic leaps: gap left from the locked aim point.")]
     public float dashMinDistance = 0.4f;
 
     public GameObject dashVfxPrefab;
@@ -48,6 +49,9 @@ public class EnemyCombatController : MonoBehaviour
     public GameObject dashChargeVfxPrefab;
 
     public float dashChargeVfxScale = 0.55f;
+
+    [Tooltip("If > 0, the dash becomes a parabolic leap toward a locked aim point (dodgeable). 0 keeps a flat lunge.")]
+    public float dashJumpHeight;
 
     [Tooltip("After the dash connects, hop back so the enemy does not stay on top of the player.")]
     public bool hopBackOnHit = true;
@@ -147,6 +151,15 @@ public class EnemyCombatController : MonoBehaviour
     Vector3 hopDir;
     GameObject dashVfxInstance;
     GameObject dashChargeInstance;
+    Transform dashSpriteBody;
+    float dashSpriteBaseLocalY;
+    bool dashSpriteLifted;
+    Vector3 dashLeapOrigin;
+    Vector3 dashLeapLanding;
+    float dashLeapElapsed;
+    bool dashLeapActive;
+    bool windupFacingLocked;
+    bool windupSavedLockFacing;
     MaterialPropertyBlock chargeBlock;
     Color chargeTintBefore = Color.white;
     Color chargeFlashBefore = new Color(0f, 0f, 0f, 1f);
@@ -163,6 +176,8 @@ public class EnemyCombatController : MonoBehaviour
 
     static readonly int HitXHash = Animator.StringToHash("HitX");
     static readonly int HitYHash = Animator.StringToHash("HitY");
+    static readonly int MoveXHash = Animator.StringToHash("MoveX");
+    static readonly int MoveYHash = Animator.StringToHash("MoveY");
 
     void Awake()
     {
@@ -342,7 +357,11 @@ public class EnemyCombatController : MonoBehaviour
         attackStepMoved = 0f;
         hoppingBack = false;
         hopMoved = 0f;
+        dashLeapActive = false;
+        dashLeapElapsed = 0f;
         EndDashVfx();
+        CacheDashSpriteBody();
+        ResetDashSpriteHeight();
 
         // Pick which attack variant to use (if any are configured). Null =
         // fall back to the base fields — legacy behaviour.
@@ -360,6 +379,10 @@ public class EnemyCombatController : MonoBehaviour
 
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();
+
+        // Freeze the attack blend on the wind-up facing. AimDash used to
+        // keep turning toward the player and that restarted the clip.
+        LockWindupFacing(attackStepDirection);
 
         BeginDashCharge();
 
@@ -464,17 +487,35 @@ public class EnemyCombatController : MonoBehaviour
             float startAt = useDashAttack ? Mathf.Max(DashWindup(), attackStepDelay) : attackStepDelay;
             if (elapsed < startAt)
             {
-                AimDash();
+                // Keep the chosen wind-up sprite; retarget only when the leap starts.
                 return;
             }
 
             attackStepStarted = true;
             attackStepActive = true;
             EndDashCharge();
+
+            if (UsesParabolicLeap())
+            {
+                // Leap keeps facing locked on the commit aim so the clip
+                // does not retarget mid-air while the player rolls away.
+                BeginParabolicLeap();
+            }
+            else
+            {
+                ReleaseWindupFacing();
+                AimDash();
+            }
         }
 
         if (!attackStepActive)
             return;
+
+        if (dashLeapActive)
+        {
+            UpdateParabolicLeap();
+            return;
+        }
 
         float stepDistance = useDashAttack ? dashDistance : attackStepDistance;
         float stepDuration = useDashAttack ? dashDuration : attackStepDuration;
@@ -515,15 +556,102 @@ public class EnemyCombatController : MonoBehaviour
         moveAmount = Mathf.Min(moveAmount, allowedDistance);
 
         if (motor != null && motor.controller != null)
-        {
             motor.controller.Move(attackStepDirection * moveAmount);
-        }
         else
-        {
             transform.position += attackStepDirection * moveAmount;
-        }
 
         attackStepMoved += moveAmount;
+    }
+
+    bool UsesParabolicLeap()
+    {
+        return useDashAttack && dashJumpHeight > 0f;
+    }
+
+    void BeginParabolicLeap()
+    {
+        dashLeapActive = true;
+        dashLeapElapsed = 0f;
+        dashLeapOrigin = transform.position;
+
+        // Commit aim once at takeoff — no mid-air homing.
+        Vector3 aim = player != null ? player.position : (dashLeapOrigin + attackStepDirection);
+        aim.y = dashLeapOrigin.y;
+
+        Vector3 toAim = aim - dashLeapOrigin;
+        toAim.y = 0f;
+        float distToAim = toAim.magnitude;
+
+        Vector3 dir = distToAim > 0.001f
+            ? toAim / distToAim
+            : (attackStepDirection.sqrMagnitude > 0.001f ? attackStepDirection.normalized : transform.forward);
+
+        float travel = Mathf.Min(Mathf.Max(0f, dashDistance), distToAim);
+        if (dashMinDistance > 0f && distToAim > dashMinDistance)
+            travel = Mathf.Min(travel, distToAim - dashMinDistance);
+
+        attackStepDirection = dir;
+        dashLeapLanding = dashLeapOrigin + dir * travel;
+        dashLeapLanding.y = dashLeapOrigin.y;
+
+        LockWindupFacing(dir);
+        ResetDashSpriteHeight();
+
+        if (motor != null)
+            motor.suppressLocomotion = true;
+
+        if (useDashAttack && dashVfxInstance == null)
+            BeginDashVfx();
+    }
+
+    void UpdateParabolicLeap()
+    {
+        if (dashDuration <= 0f)
+        {
+            EndParabolicLeap();
+            return;
+        }
+
+        if (dashVfxInstance != null)
+            dashVfxInstance.transform.position = DashVfxPosition();
+
+        dashLeapElapsed += EnemyClock.deltaTime;
+        float t = Mathf.Clamp01(dashLeapElapsed / dashDuration);
+
+        // World-space hop: flat travel toward the locked landing + vertical parabola.
+        Vector3 desired = Vector3.Lerp(dashLeapOrigin, dashLeapLanding, t);
+        desired.y = dashLeapOrigin.y + (4f * t * (1f - t) * Mathf.Max(0f, dashJumpHeight));
+
+        Vector3 delta = desired - transform.position;
+
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(delta);
+        else
+            transform.position = desired;
+
+        if (t >= 1f)
+            EndParabolicLeap();
+    }
+
+    void EndParabolicLeap()
+    {
+        dashLeapActive = false;
+        attackStepActive = false;
+
+        // Snap back onto the ground plane at the locked landing.
+        Vector3 grounded = transform.position;
+        grounded.y = dashLeapLanding.y;
+        Vector3 snap = grounded - transform.position;
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(snap);
+        else
+            transform.position = grounded;
+
+        if (motor != null)
+            motor.suppressLocomotion = false;
+
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
     }
 
     public void EnableHitbox()
@@ -564,6 +692,11 @@ public class EnemyCombatController : MonoBehaviour
         attackStepStarted = false;
         EndDashCharge();
         EndDashVfx();
+        dashLeapActive = false;
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
 
         if (animator != null)
             animator.SetBool(IsAttackingHash, false);
@@ -580,6 +713,10 @@ public class EnemyCombatController : MonoBehaviour
     {
         EnemyAttackScheduler.ReleaseIfExists(this);
         EndDashCharge();
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
         DisableHitbox();
     }
 
@@ -620,12 +757,33 @@ public class EnemyCombatController : MonoBehaviour
 
         hoppingBack = true;
         attackStepActive = false;
+        dashLeapActive = false;
         hopMoved = 0f;
         hopDir = -attackStepDirection;
         EndDashVfx();
+        ResetDashSpriteHeight();
 
         if (motor != null)
             motor.AddMovementLock(hopBackDuration + 0.05f);
+    }
+
+    void CacheDashSpriteBody()
+    {
+        dashSpriteBody = animator != null ? animator.transform : null;
+        if (dashSpriteBody != null)
+            dashSpriteBaseLocalY = dashSpriteBody.localPosition.y;
+        dashSpriteLifted = false;
+    }
+
+    void ResetDashSpriteHeight()
+    {
+        if (!dashSpriteLifted || dashSpriteBody == null)
+            return;
+
+        Vector3 local = dashSpriteBody.localPosition;
+        local.y = dashSpriteBaseLocalY;
+        dashSpriteBody.localPosition = local;
+        dashSpriteLifted = false;
     }
 
     void UpdateHopBack()
@@ -670,6 +828,55 @@ public class EnemyCombatController : MonoBehaviour
         attackStepDirection = dir.normalized;
         if (motor != null)
             motor.RotateToward(attackStepDirection);
+    }
+
+    void LockWindupFacing(Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            dir = transform.forward;
+        dir.Normalize();
+        attackStepDirection = dir;
+
+        if (motor != null)
+        {
+            if (!windupFacingLocked)
+                windupSavedLockFacing = motor.lockFacing;
+            motor.RotateToward(dir);
+            motor.lockFacing = true;
+        }
+
+        if (animator != null)
+        {
+            animator.SetFloat(MoveXHash, dir.x);
+            animator.SetFloat(MoveYHash, dir.z);
+        }
+
+        windupFacingLocked = true;
+    }
+
+    void LateUpdate()
+    {
+        if (HitStopperManager.Frozen)
+            return;
+
+        if (!windupFacingLocked || animator == null)
+            return;
+
+        // After EnemyTopDownAnimDriver so the Attack blend stays on the
+        // wind-up facing instead of restarting when the player strafes.
+        animator.SetFloat(MoveXHash, attackStepDirection.x);
+        animator.SetFloat(MoveYHash, attackStepDirection.z);
+    }
+
+    void ReleaseWindupFacing()
+    {
+        if (!windupFacingLocked)
+            return;
+
+        windupFacingLocked = false;
+        if (motor != null)
+            motor.lockFacing = windupSavedLockFacing;
     }
 
     void BeginDashCharge()
@@ -811,8 +1018,13 @@ public class EnemyCombatController : MonoBehaviour
         attackStepActive = false;
         attackStepStarted = false;
         hoppingBack = false;
+        dashLeapActive = false;
         EndDashCharge();
         EndDashVfx();
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
 
         if (isAttacking)
         {

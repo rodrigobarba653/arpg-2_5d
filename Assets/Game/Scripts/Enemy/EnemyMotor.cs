@@ -65,6 +65,13 @@ public class EnemyMotor : MonoBehaviour
     /// </summary>
     public bool lockFacing;
 
+    /// <summary>
+    /// When true, EnemyMotor skips its own Move (gravity included).
+    /// Used while another system owns the body, e.g. a parabolic leap.
+    /// </summary>
+    [HideInInspector]
+    public bool suppressLocomotion;
+
     public bool AnimFacesAim => !lockFacing && faceMoveSeparately && aimDirection.sqrMagnitude > 0.0001f;
     public Vector3 AnimAimDirection => aimDirection;
 
@@ -132,6 +139,9 @@ public class EnemyMotor : MonoBehaviour
     void Move()
     {
         if (!controller)
+            return;
+
+        if (suppressLocomotion)
             return;
 
         if (controller.isGrounded && verticalVelocity.y < 0f)
