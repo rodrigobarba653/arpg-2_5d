@@ -554,6 +554,14 @@ public class SpriteLightingController : MonoBehaviour
         Material material = targetRenderer.material;
         material.SetColor(ID("_FlashColor"), flashColor);
         material.SetFloat(ID("_FlashStrength"), flashStrength);
+
+        // Property blocks override material values. Charge tint and ApplySettings
+        // keep a block on the renderer, so hit flash must live there too or it
+        // never shows.
+        targetRenderer.GetPropertyBlock(properties);
+        properties.SetColor(ID("_FlashColor"), flashColor);
+        properties.SetFloat(ID("_FlashStrength"), flashStrength);
+        targetRenderer.SetPropertyBlock(properties);
     }
 
     [ContextMenu("Apply Lighting Settings")]
