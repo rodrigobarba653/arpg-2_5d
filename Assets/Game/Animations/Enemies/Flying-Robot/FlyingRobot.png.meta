@@ -40,7 +40,7 @@ TextureImporter:
     wrapU: 0
     wrapV: 0
     wrapW: 0
-  nPOTScale: 1
+  nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
   spriteMode: 2
@@ -48,7 +48,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 128
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -288,12 +288,12 @@ TextureImporter:
     nameFileIdTable:
       FlyingRobot_Down: 2100000001
       FlyingRobot_DownLeft: 2100000002
-      FlyingRobot_Left: 2100000003
-      FlyingRobot_UpLeft: 2100000004
-      FlyingRobot_Up: 2100000005
-      FlyingRobot_UpRight: 2100000006
-      FlyingRobot_Right: 2100000007
       FlyingRobot_DownRight: 2100000008
+      FlyingRobot_Left: 2100000003
+      FlyingRobot_Right: 2100000007
+      FlyingRobot_Up: 2100000005
+      FlyingRobot_UpLeft: 2100000004
+      FlyingRobot_UpRight: 2100000006
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
