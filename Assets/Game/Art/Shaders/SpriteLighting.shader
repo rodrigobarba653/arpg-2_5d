@@ -948,14 +948,17 @@ Shader "Game/Sprite Lighting"
                 finalRGB += ApplyRimLimiter(rimRGB);
             }
 
-            // Combat writes an HDR white. Paint toward plain white instead of
-            // adding it, so the hit does not bloom.
+            // Combat writes an HDR white (or ClearFlash black). Paint toward
+            // plain white instead of adding it, so the hit does not bloom.
+            // Near-black FlashColor must leave lighting untouched.
             float3 flashRGB = max((float3)_FlashColor.rgb, 0.0);
             float flashAmount = saturate(max(flashRGB.r, max(flashRGB.g, flashRGB.b)));
-            if (_FlashStrength > 0.001)
-                flashAmount *= saturate((float)_FlashStrength);
-
-            finalRGB = lerp(finalRGB, float3(1.0, 1.0, 1.0), flashAmount);
+            if (flashAmount > 0.001)
+            {
+                if (_FlashStrength > 0.001)
+                    flashAmount *= saturate((float)_FlashStrength);
+                finalRGB = lerp(finalRGB, float3(1.0, 1.0, 1.0), flashAmount);
+            }
 
             return float4(finalRGB,baseColor.a);
         }
@@ -981,6 +984,149 @@ Shader "Game/Sprite Lighting"
             #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
             #pragma multi_compile _ _FORWARD_PLUS _CLUSTER_LIGHT_LOOP
             #pragma multi_compile _ _SHADOWS_SOFT
+
+            ENDHLSL
+        }
+
+        // Writes sprite depth into _CameraDepthTexture so URP Depth of Field
+        // focuses on the character instead of the wall/sky behind them.
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask R
+            Cull Off
+
+            HLSLPROGRAM
+
+            #pragma target 3.0
+            #pragma vertex DepthOnlyVert
+            #pragma fragment DepthOnlyFrag
+
+            struct DepthOnlyVaryings
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                float2 localSpriteUV : TEXCOORD1;
+                half4 color : COLOR;
+            };
+
+            DepthOnlyVaryings DepthOnlyVert(Attributes v)
+            {
+                DepthOnlyVaryings o;
+
+                VertexPositionInputs p =
+                    GetVertexPositionInputs(v.positionOS.xyz);
+
+                o.positionCS = p.positionCS;
+                o.uv = v.uv;
+                o.color = v.color;
+
+                float2 uvSize = max(
+                    _SpriteUVRect.zw - _SpriteUVRect.xy,
+                    float2(0.00001, 0.00001));
+
+                o.localSpriteUV =
+                    (v.uv - _SpriteUVRect.xy) / uvSize;
+
+                return o;
+            }
+
+            half DepthOnlyFrag(DepthOnlyVaryings i) : SV_Target
+            {
+                half alpha = SAMPLE_TEXTURE2D(
+                    _MainTex,
+                    sampler_MainTex,
+                    i.uv).a;
+
+                alpha *= _TintColor.a * i.color.a;
+                clip(alpha - _ClipThreshold);
+                ClipDeathDither(alpha, i.localSpriteUV);
+
+                return 0;
+            }
+
+            ENDHLSL
+        }
+
+        // SSAO on PC_Renderer requests DepthNormals (Source = DepthNormals).
+        // That prepass fills _CameraDepthTexture. Without this pass, sprites are
+        // missing from depth and DoF blurs them as if they were the far sky.
+        Pass
+        {
+            Name "DepthNormalsOnly"
+            Tags { "LightMode" = "DepthNormalsOnly" }
+
+            ZWrite On
+            ZTest LEqual
+            Cull Off
+
+            HLSLPROGRAM
+
+            #pragma target 3.0
+            #pragma vertex DepthNormalsVert
+            #pragma fragment DepthNormalsFrag
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+
+            struct DepthNormalsVaryings
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                float2 localSpriteUV : TEXCOORD1;
+                float3 normalWS : TEXCOORD2;
+                half4 color : COLOR;
+            };
+
+            DepthNormalsVaryings DepthNormalsVert(Attributes v)
+            {
+                DepthNormalsVaryings o;
+
+                VertexPositionInputs p =
+                    GetVertexPositionInputs(v.positionOS.xyz);
+
+                o.positionCS = p.positionCS;
+                o.uv = v.uv;
+                o.color = v.color;
+                o.normalWS = normalize(
+                    TransformObjectToWorldDir(float3(0, 0, -1)));
+
+                float2 uvSize = max(
+                    _SpriteUVRect.zw - _SpriteUVRect.xy,
+                    float2(0.00001, 0.00001));
+
+                o.localSpriteUV =
+                    (v.uv - _SpriteUVRect.xy) / uvSize;
+
+                return o;
+            }
+
+            void DepthNormalsFrag(
+                DepthNormalsVaryings i,
+                out half4 outNormalWS : SV_Target0)
+            {
+                half alpha = SAMPLE_TEXTURE2D(
+                    _MainTex,
+                    sampler_MainTex,
+                    i.uv).a;
+
+                alpha *= _TintColor.a * i.color.a;
+                clip(alpha - _ClipThreshold);
+                ClipDeathDither(alpha, i.localSpriteUV);
+
+                float3 normalWS = normalize(i.normalWS);
+
+                #if defined(_GBUFFER_NORMALS_OCT)
+                    float2 octNormalWS = PackNormalOctQuadEncode(normalWS);
+                    float2 remappedOctNormalWS = saturate(octNormalWS * 0.5 + 0.5);
+                    half3 packedNormalWS = half3(PackFloat2To888(remappedOctNormalWS));
+                    outNormalWS = half4(packedNormalWS, 0.0);
+                #else
+                    outNormalWS = half4(NormalizeNormalPerPixel(normalWS), 0.0);
+                #endif
+            }
 
             ENDHLSL
         }

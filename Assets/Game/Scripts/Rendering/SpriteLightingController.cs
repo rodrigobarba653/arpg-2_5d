@@ -112,7 +112,9 @@ public class SpriteLightingController : MonoBehaviour
     [Range(0f, 1f)] public float alphaCutoff = 0.27f;
 
     [Header("FLASH EFFECT")]
-    public Color flashColor = Color.white;
+    // Idle must be black. The shader flashes from FlashColor RGB; white here
+    // would bleach the sprite every LateUpdate. Combat calls TriggerFlash/ClearFlash.
+    public Color flashColor = Color.black;
     [Range(0f, 1f)] public float flashStrength = 0f;
 
     [Header("UPDATES")]
@@ -160,6 +162,11 @@ public class SpriteLightingController : MonoBehaviour
     {
         Initialize();
         lastSprite = null;
+
+        // Prefabs/inspector may still carry a leftover white flashColor from an
+        // older default. Idle must never bleach the sprite.
+        flashColor = Color.black;
+        flashStrength = 0f;
 
         RefreshAnimatorParameters();
         UpdateFacing();
