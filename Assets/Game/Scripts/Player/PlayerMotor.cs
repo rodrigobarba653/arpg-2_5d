@@ -121,8 +121,23 @@ public class PlayerMotor : MonoBehaviour
         Vector3 moveWorld = Vector3.zero;
         float speed = moveSpeed;
 
+        // ---------- KNOCKBACK ----------
+        // Hits cancel rolls; knockback must win over leftover roll motion.
+        if (knockbackActive)
+        {
+            knockbackTimer -= Time.deltaTime;
+
+            moveWorld = knockbackDir;
+            speed = knockbackSpeed;
+
+            if (knockbackTimer <= 0f)
+            {
+                knockbackActive = false;
+            }
+        }
+
         // ---------- ROLL ----------
-        if (rollActive)
+        else if (rollActive)
         {
             rollTimer -= Time.deltaTime;
 
@@ -133,20 +148,6 @@ public class PlayerMotor : MonoBehaviour
             {
                 rollActive = false;
                 movementLocked = false;
-            }
-        }
-
-        // ---------- KNOCKBACK ----------
-        else if (knockbackActive)
-        {
-            knockbackTimer -= Time.deltaTime;
-
-            moveWorld = knockbackDir;
-            speed = knockbackSpeed;
-
-            if (knockbackTimer <= 0f)
-            {
-                knockbackActive = false;
             }
         }
 
@@ -611,6 +612,13 @@ public class PlayerMotor : MonoBehaviour
 
     public void BeginKnockback(Vector3 worldDirection, float speed, float duration)
     {
+        // A hit during a roll must stop roll travel so knockback is not
+        // added on top of the remaining roll velocity.
+        if (rollActive)
+            EndRoll();
+
+        CancelAttackLunge();
+
         Vector3 flatDir = new Vector3(worldDirection.x, 0f, worldDirection.z);
 
         if (flatDir.sqrMagnitude < 0.0001f)

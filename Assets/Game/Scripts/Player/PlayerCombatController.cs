@@ -965,8 +965,11 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetBool(IsRollingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
 
+        // Clear motor roll travel so TakeDamage knockback is not stacked on it.
+        // EndRoll also unlocks movement; TakeDamage re-locks for the hit reaction.
+        motor?.EndRoll();
         motor?.CancelAttackLunge();
-        // Don't unlock facing/movement here — TakeDamage re-locks them for the hit reaction.
+        // Don't unlock facing here — TakeDamage re-locks it for the hit reaction.
         DisableHitbox();
 
         // Stay in combat; refresh the combat timeout so HurtCombat keeps weapon sprites.
