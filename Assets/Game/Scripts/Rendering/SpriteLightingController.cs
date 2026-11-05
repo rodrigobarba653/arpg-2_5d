@@ -8,6 +8,16 @@ public class SpriteLightingController : MonoBehaviour
     [Header("TARGET")]
     [SerializeField] private SpriteRenderer targetRenderer;
 
+    [Header("CHILD BODIES")]
+    [Tooltip("Push the same lighting settings to WeaponBody / FeetBody children.")]
+    public bool propagateToChildBodies = true;
+
+    [Tooltip("Assign this body's Sprite Lighting material onto child body renderers.")]
+    public bool syncMaterialToChildren = true;
+
+    [Tooltip("Optional explicit child renderers. Empty = auto-find WeaponBody / FeetBody.")]
+    [SerializeField] private SpriteRenderer[] additionalRenderers;
+
     [Header("MASTER LIGHTING")]
     [Range(0f, 3f)] public float masterExposure = 1f;
     [Range(0f, 3f)] public float directionalResponse = 1f;
@@ -215,6 +225,50 @@ public class SpriteLightingController : MonoBehaviour
 
         if (properties == null)
             properties = new MaterialPropertyBlock();
+
+        if (propagateToChildBodies)
+            CollectChildBodyRenderers();
+    }
+
+    private void CollectChildBodyRenderers()
+    {
+        // Always rescan named children so runtime FeetBody (bootstrap) is picked up.
+        // An explicit inspector list still wins when it already points at live renderers
+        // and covers every current WeaponBody / FeetBody child.
+        if (additionalRenderers != null && additionalRenderers.Length > 0)
+        {
+            int namedChildren = 0;
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                string childName = transform.GetChild(i).name;
+                if (childName == "WeaponBody" || childName == "FeetBody")
+                    namedChildren++;
+            }
+
+            int live = 0;
+            for (int i = 0; i < additionalRenderers.Length; i++)
+            {
+                if (additionalRenderers[i] != null)
+                    live++;
+            }
+
+            if (live > 0 && live >= namedChildren)
+                return;
+        }
+
+        var found = new System.Collections.Generic.List<SpriteRenderer>(2);
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            if (child.name != "WeaponBody" && child.name != "FeetBody")
+                continue;
+
+            SpriteRenderer childRenderer = child.GetComponent<SpriteRenderer>();
+            if (childRenderer != null)
+                found.Add(childRenderer);
+        }
+
+        additionalRenderers = found.ToArray();
     }
 
     private void RefreshAnimatorParameters()
@@ -315,7 +369,40 @@ public class SpriteLightingController : MonoBehaviour
             return;
         }
 
-        targetRenderer.GetPropertyBlock(properties);
+        WriteLightingBlock(targetRenderer, feetClipEnabled: false);
+
+        if (!propagateToChildBodies || additionalRenderers == null)
+            return;
+
+        for (int i = 0; i < additionalRenderers.Length; i++)
+        {
+            SpriteRenderer childRenderer = additionalRenderers[i];
+            if (childRenderer == null || childRenderer == targetRenderer)
+                continue;
+
+            if (syncMaterialToChildren &&
+                childRenderer.sharedMaterial != material)
+            {
+                childRenderer.sharedMaterial = material;
+            }
+
+            Material childMaterial = childRenderer.sharedMaterial;
+            if (childMaterial == null ||
+                !childMaterial.HasProperty(ID("_MasterExposure")))
+            {
+                continue;
+            }
+
+            bool feetClip = childRenderer.gameObject.name == "FeetBody";
+            WriteLightingBlock(childRenderer, feetClipEnabled: feetClip);
+        }
+    }
+
+    private void WriteLightingBlock(
+        SpriteRenderer renderer,
+        bool feetClipEnabled)
+    {
+        renderer.GetPropertyBlock(properties);
 
         // Master lighting.
         SetFloat("_MasterExposure", masterExposure);
@@ -375,6 +462,11 @@ public class SpriteLightingController : MonoBehaviour
         SetFloat("_ProfileLightThreshold", profileLightThreshold);
         SetFloat("_InvertProfileRim", invertProfileRim ? 1f : 0f);
 
+        // Feet overlay: keep only the bottom band (FeetBodyMirror owns fraction).
+        SetFloat("_FeetClipEnabled", feetClipEnabled ? 1f : 0f);
+        if (!feetClipEnabled)
+            SetFloat("_FeetFraction", 1f);
+
         properties.SetVector(
             AxFacingID,
             new Vector4(
@@ -390,13 +482,13 @@ public class SpriteLightingController : MonoBehaviour
         properties.SetColor(ID("_FlashColor"), flashColor);
         properties.SetFloat(ID("_FlashStrength"), flashStrength);
 
-        UpdateSpriteUVRect();
-        targetRenderer.SetPropertyBlock(properties);
+        UpdateSpriteUVRect(renderer);
+        renderer.SetPropertyBlock(properties);
     }
 
-    private void UpdateSpriteUVRect()
+    private void UpdateSpriteUVRect(SpriteRenderer renderer)
     {
-        Sprite sprite = targetRenderer.sprite;
+        Sprite sprite = renderer != null ? renderer.sprite : null;
 
         if (sprite == null)
         {
@@ -568,10 +660,27 @@ public class SpriteLightingController : MonoBehaviour
         // Property blocks override material values. Charge tint and ApplySettings
         // keep a block on the renderer, so hit flash must live there too or it
         // never shows.
-        targetRenderer.GetPropertyBlock(properties);
+        WriteFlashBlock(targetRenderer);
+
+        if (!propagateToChildBodies || additionalRenderers == null)
+            return;
+
+        for (int i = 0; i < additionalRenderers.Length; i++)
+        {
+            SpriteRenderer childRenderer = additionalRenderers[i];
+            if (childRenderer == null || childRenderer == targetRenderer)
+                continue;
+
+            WriteFlashBlock(childRenderer);
+        }
+    }
+
+    void WriteFlashBlock(SpriteRenderer renderer)
+    {
+        renderer.GetPropertyBlock(properties);
         properties.SetColor(ID("_FlashColor"), flashColor);
         properties.SetFloat(ID("_FlashStrength"), flashStrength);
-        targetRenderer.SetPropertyBlock(properties);
+        renderer.SetPropertyBlock(properties);
     }
 
     [ContextMenu("Apply Lighting Settings")]

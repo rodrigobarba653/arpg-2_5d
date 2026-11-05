@@ -30,10 +30,24 @@ public class EnemyMotor : MonoBehaviour
     [HideInInspector]
     public float speedScale = 1f;
 
+    /// <summary>
+    /// Extra cap while move and facing differ (true strafe via SetMoveAndFacing).
+    /// Covers AI orbit and reaction Hold the same way, regardless of script order.
+    /// </summary>
+    [HideInInspector]
+    public float strafeSpeedMultiplier = 0.4f;
+
     public float GetActiveSpeed()
     {
         float speed = activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
-        return speed * Mathf.Clamp(speedScale, 0f, 1f);
+        float scale = Mathf.Clamp(speedScale, 0f, 1f);
+
+        // Sidestepping while looking at the player always slows down, whether
+        // EnemyAI set speedScale this frame or a reaction drove SetMoveAndFacing.
+        if (faceMoveSeparately)
+            scale = Mathf.Min(scale, Mathf.Clamp(strafeSpeedMultiplier, 0.15f, 1f));
+
+        return speed * scale;
     }
 
     [Header("Knockback")]

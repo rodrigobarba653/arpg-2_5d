@@ -70,6 +70,10 @@ Shader "Game/Sprite Lighting"
         [Header(Effects)]
         _FlashColor ("Flash Color", Color) = (0,0,0,0)
         _FlashStrength ("Flash Strength", Range(0,1)) = 0
+
+        [Header(Feet Overlay Clip)]
+        [Toggle] _FeetClipEnabled ("Feet Clip Enabled", Float) = 0
+        _FeetFraction ("Feet Fraction", Range(0.05,1)) = 0.35
     }
 
     SubShader
@@ -153,6 +157,9 @@ Shader "Game/Sprite Lighting"
 
             half4 _FlashColor;
             half _FlashStrength;
+
+            half _FeetClipEnabled;
+            half _FeetFraction;
         CBUFFER_END
 
         struct Attributes
@@ -220,6 +227,13 @@ Shader "Game/Sprite Lighting"
 
             float noise = DissolveNoise(uv);
             clip(alpha - (noise - _ClipThreshold));
+        }
+
+        // FeetBody overlay: keep only the bottom band of the sprite.
+        void ClipFeetOverlay(float2 localSpriteUV)
+        {
+            if (_FeetClipEnabled > 0.5h)
+                clip(_FeetFraction - localSpriteUV.y);
         }
 
         half SampleAlpha(float2 uv)
@@ -684,6 +698,7 @@ Shader "Game/Sprite Lighting"
 
             clip(baseColor.a-_ClipThreshold);
             ClipDeathDither(baseColor.a, i.localSpriteUV);
+            ClipFeetOverlay(i.localSpriteUV);
 
             half3 normalWS = normalize(i.normalWS);
             half3 rightWS = normalize(i.rightWS);
@@ -1045,6 +1060,7 @@ Shader "Game/Sprite Lighting"
                 alpha *= _TintColor.a * i.color.a;
                 clip(alpha - _ClipThreshold);
                 ClipDeathDither(alpha, i.localSpriteUV);
+                ClipFeetOverlay(i.localSpriteUV);
 
                 return 0;
             }
@@ -1115,6 +1131,7 @@ Shader "Game/Sprite Lighting"
                 alpha *= _TintColor.a * i.color.a;
                 clip(alpha - _ClipThreshold);
                 ClipDeathDither(alpha, i.localSpriteUV);
+                ClipFeetOverlay(i.localSpriteUV);
 
                 float3 normalWS = normalize(i.normalWS);
 

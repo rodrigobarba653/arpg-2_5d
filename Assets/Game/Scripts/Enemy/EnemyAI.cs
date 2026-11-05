@@ -324,7 +324,11 @@ public class EnemyAI : MonoBehaviour
             return;
 
         if (motor != null)
+        {
             motor.speedScale = 1f;
+            // Default strafe cap. Hold can tighten it further before LooseStrafe.
+            motor.strafeSpeedMultiplier = strafeSpeedScale;
+        }
 
         // No player found yet → patrol if we have a route, otherwise stay idle.
         // (Doesn't return — keeps trying to re-find the player next frame.)
@@ -503,8 +507,8 @@ public class EnemyAI : MonoBehaviour
             if (!strafing)
                 BeginStrafe();
 
+            ApplyStrafeSpeed(true);
             LooseStrafe(player.position, EngageBand());
-            motor.speedScale = StrafeScale(true);
             return;
         }
 
@@ -522,7 +526,7 @@ public class EnemyAI : MonoBehaviour
 
             Vector3 away = transform.position - player.position;
             away.y = 0f;
-            motor.speedScale = StrafeScale(false);
+            ApplyStrafeSpeed(false);
             motor.SetMoveDirection(away);
             return;
         }
@@ -533,8 +537,8 @@ public class EnemyAI : MonoBehaviour
             if (!strafing)
                 BeginStrafe();
 
+            ApplyStrafeSpeed(false);
             LooseStrafe(player.position, orbit);
-            motor.speedScale = StrafeScale(false);
             return;
         }
 
@@ -560,14 +564,15 @@ public class EnemyAI : MonoBehaviour
         }
 
         if (MoveIsStrafe(moveDir))
-            motor.speedScale = StrafeScale(false);
+            ApplyStrafeSpeed(false);
 
         motor.SetMoveDirection(moveDir);
     }
 
     /// <summary>
     /// Closing in stays at chase speed. Sidesteps, backing away, and orbiting a slot do not.
-    /// Hold can be slower still when the chart's hold fraction is below Strafe Speed.
+    /// Same cap for AI orbit and reaction Hold. Hold can go slower still when the
+    /// chart's hold fraction is below Strafe Speed.
     /// </summary>
     float StrafeScale(bool holding)
     {
@@ -575,6 +580,13 @@ public class EnemyAI : MonoBehaviour
         if (holding && reactions != null)
             scale = Mathf.Min(scale, reactions.HoldStrafeSpeed);
         return Mathf.Clamp(scale, 0.15f, 1f);
+    }
+
+    void ApplyStrafeSpeed(bool holding)
+    {
+        float scale = StrafeScale(holding);
+        motor.speedScale = scale;
+        motor.strafeSpeedMultiplier = scale;
     }
 
     bool MoveIsStrafe(Vector3 moveDir)
