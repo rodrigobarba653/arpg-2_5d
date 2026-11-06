@@ -557,6 +557,9 @@ public class EnemyRangedCombatController : MonoBehaviour
                 continue;
             if (hitTransform.GetComponentInParent<PlayerHealth>() != null)
                 continue;
+            // Enemy shots pass through other enemies; only environment blocks.
+            if (IsOtherEnemyCollider(hitTransform))
+                continue;
             if (hits[i].collider.isTrigger)
                 continue;
 
@@ -568,6 +571,21 @@ public class EnemyRangedCombatController : MonoBehaviour
         }
 
         return false;
+    }
+
+    static bool IsOtherEnemyCollider(Transform hitTransform)
+    {
+        if (hitTransform == null)
+            return false;
+
+        if (hitTransform.GetComponentInParent<EnemyHealth>() != null)
+            return true;
+
+        if (hitTransform.GetComponentInParent<EnemyMotor>() != null)
+            return true;
+
+        Transform root = hitTransform.root;
+        return root != null && root.CompareTag("Enemy");
     }
 
     Vector3 BodyAimPoint(Transform target)
@@ -602,6 +620,10 @@ public class EnemyRangedCombatController : MonoBehaviour
         {
             Transform hitTransform = hits[i].transform;
             if (hitTransform == transform || hitTransform.IsChildOf(transform))
+                continue;
+
+            // Friendly fire off: beams pass through other enemies.
+            if (IsOtherEnemyCollider(hitTransform))
                 continue;
 
             PlayerHealth health = hitTransform.GetComponentInParent<PlayerHealth>();
