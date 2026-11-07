@@ -96,6 +96,18 @@ public class PlayerClimbing : MonoBehaviour
         return true;
     }
 
+    public bool TryGetDismountIdle(out Vector2 dir)
+    {
+        if (dismountIdleTimer <= 0f)
+        {
+            dir = default;
+            return false;
+        }
+
+        dir = dismountIdleDir;
+        return true;
+    }
+
     void Awake()
     {
         if (!motor)    motor    = GetComponent<PlayerMotor>();
