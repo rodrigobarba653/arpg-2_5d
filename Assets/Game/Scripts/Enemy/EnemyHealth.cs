@@ -1,8 +1,13 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class EnemyHealth : MonoBehaviour
 {
+    // Registry for combat queries (soft targeting, AOE, etc.) — mirrors PlayerHealth.All.
+    static readonly List<EnemyHealth> all = new List<EnemyHealth>(64);
+    public static IReadOnlyList<EnemyHealth> All => all;
+
     EnemyAI ai;
     EnemyCombatController combat;
     EnemyMotor motor;
@@ -24,6 +29,13 @@ public class EnemyHealth : MonoBehaviour
     [Header("Default Knockback")]
     public float defaultKnockbackForce = 6f;
     public float defaultKnockbackTime = 0.25f;
+
+    [Header("Knockback Response")]
+    [Tooltip("Multiplies incoming knockback force (and duration). " +
+             "1 = normal, 0 = immovable, 0.3 = heavy/large enemy. " +
+             "Attacker still provides the base intent (Jyn/Ax/combo step).")]
+    [Min(0f)]
+    public float knockbackReceiveMultiplier = 1f;
 
     [Header("Per Hit Knockback (fallback)")]
     [Tooltip("Used when the attacker does NOT send its own knockback " +
@@ -110,6 +122,17 @@ public class EnemyHealth : MonoBehaviour
             visuals = gameObject.AddComponent<EnemySpriteVisuals>();
     }
 
+    void OnEnable()
+    {
+        if (!all.Contains(this))
+            all.Add(this);
+    }
+
+    void OnDisable()
+    {
+        all.Remove(this);
+    }
+
     public void TakeDamage(int amount, Vector3 hitDir, int step)
     {
         TakeDamage(amount, hitDir, step, useAttackerKnockback: false, push: false, force: 0f, duration: 0f);
@@ -143,22 +166,22 @@ public class EnemyHealth : MonoBehaviour
             }
         }
 
-        if (ai != null && ai.isDefending)
+        // Hits that never pass through MeleeHitbox (spells, other damage) land here.
+        // A blocked player swing already returned inside MeleeHitbox, so it does
+        // not flash or shake a second time.
+        if (ai != null && ai.BlocksAttackFrom(transform.position - hitDir))
         {
-            Vector3 dirToPlayer = (ai.player.position - transform.position).normalized;
-            dirToPlayer.y = 0f;
+            ai.NotifyBlockedHit();
 
-            float dot = Vector3.Dot(transform.forward, dirToPlayer);
+            if (flashRoutine != null)
+                StopCoroutine(flashRoutine);
 
-            if (dot > 0.5f)
-            {
-                if (flashRoutine != null)
-                    StopCoroutine(flashRoutine);
-
-                flashRoutine = StartCoroutine(BlockFlash());
-                return;
-            }
+            flashRoutine = StartCoroutine(BlockFlash());
+            return;
         }
+
+        if (ai != null)
+            ai.BreakDefense();
 
         currentHealth -= amount;
         currentHealth = Mathf.Max(currentHealth, 0);
@@ -207,8 +230,7 @@ public class EnemyHealth : MonoBehaviour
         if (motor == null) return false;
         if (!push || force <= 0f || duration <= 0f) return false;
 
-        motor.DoKnockback(hitDir, force, duration);
-        return true;
+        return ApplyScaledKnockback(hitDir, force, duration);
     }
 
     bool ApplyStepKnockback(Vector3 hitDir, int step)
@@ -226,7 +248,15 @@ public class EnemyHealth : MonoBehaviour
 
         if (force <= 0f || time <= 0f) return false;
 
-        motor.DoKnockback(hitDir, force, time);
+        return ApplyScaledKnockback(hitDir, force, time);
+    }
+
+    bool ApplyScaledKnockback(Vector3 hitDir, float force, float duration)
+    {
+        float mul = Mathf.Max(0f, knockbackReceiveMultiplier);
+        if (mul <= 0f) return false;
+
+        motor.DoKnockback(hitDir, force * mul, duration * mul);
         return true;
     }
 
@@ -343,7 +373,7 @@ public class EnemyHealth : MonoBehaviour
         while (hurtTimer < deathHurtPlayTime)
         {
             transform.position = frozenPosition;
-            hurtTimer += Time.deltaTime;
+            hurtTimer += EnemyClock.deltaTime;
             yield return null;
         }
 
@@ -367,7 +397,7 @@ public class EnemyHealth : MonoBehaviour
                 animator.Update(0f);
             }
 
-            t += Time.deltaTime;
+            t += EnemyClock.deltaTime;
 
             float normalized = Mathf.Clamp01(t / dur);
 
@@ -480,7 +510,12 @@ public class EnemyHealth : MonoBehaviour
     {
         if (visuals == null) yield break;
         visuals.SetFlashColor(Color.white * flashIntensity);
-        yield return new WaitForSeconds(flashDuration);
+        float t = 0f;
+        while (t < flashDuration)
+        {
+            t += EnemyClock.deltaTime;
+            yield return null;
+        }
         visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }
@@ -489,7 +524,12 @@ public class EnemyHealth : MonoBehaviour
     {
         if (visuals == null) yield break;
         visuals.SetFlashColor(Color.gray * 2f);
-        yield return new WaitForSeconds(0.05f);
+        float t = 0f;
+        while (t < 0.05f)
+        {
+            t += EnemyClock.deltaTime;
+            yield return null;
+        }
         visuals.SetFlashColor(Color.black);
         flashRoutine = null;
     }

@@ -81,17 +81,17 @@ public class AreaSpellEffect : SpellEffect
         if (targetMode == TargetMode.ForwardOffset)
             return fallback;
 
-        // NearestEnemy: search around the caster.
+        // NearestEnemy: search around the caster via EnemyHealth registry.
         EnemyHealth nearest = null;
         float nearestSqr = targetSearchRadius * targetSearchRadius;
+        Vector3 origin = caster.transform.position;
 
-        var hits = Physics.OverlapSphere(caster.transform.position, targetSearchRadius,
-                                         hitLayerMask.value);
-        for (int i = 0; i < hits.Length; i++)
+        var enemies = EnemyHealth.All;
+        for (int i = 0; i < enemies.Count; i++)
         {
-            var enemy = hits[i].GetComponentInParent<EnemyHealth>();
-            if (enemy == null) continue;
-            float sqr = (enemy.transform.position - caster.transform.position).sqrMagnitude;
+            var enemy = enemies[i];
+            if (enemy == null || enemy.IsDead) continue;
+            float sqr = (enemy.transform.position - origin).sqrMagnitude;
             if (sqr <= nearestSqr)
             {
                 nearestSqr = sqr;

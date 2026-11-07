@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class EnemyCombatController : MonoBehaviour
 {
@@ -6,6 +6,7 @@ public class EnemyCombatController : MonoBehaviour
     public Animator animator;
     public EnemyMotor motor;
     EnemyAI ai;
+    EnemyReactionChart reactions;
 
     public GameObject meleeHitbox;
     public Transform meleeHitboxTransform;
@@ -26,6 +27,36 @@ public class EnemyCombatController : MonoBehaviour
 
     [Tooltip("Enemy will not step closer than this distance from the player.")]
     public float minDistanceToPlayerAfterStep = 1.0f;
+
+    [Header("Dash Attack")]
+    [Tooltip("Charge at the player instead of taking the short attack step. The idle sprite stays on; the motion and the dash effect carry the attack.")]
+    public bool useDashAttack;
+
+    [Tooltip("Max flat distance the dash/leap can travel. The landing is locked at takeoff so the player can roll out.")]
+    public float dashDistance = 2.6f;
+    public float dashDuration = 0.22f;
+
+    [Tooltip("For flat dashes: stop this far from the player. For parabolic leaps: gap left from the locked aim point.")]
+    public float dashMinDistance = 0.4f;
+
+    public GameObject dashVfxPrefab;
+    public float dashVfxScale = 0.55f;
+
+    [Tooltip("How long the dash waits while the charge effect grows. The lunge and the hitbox start after this. 0 skips the wind-up.")]
+    public float dashWindup;
+
+    [Tooltip("Played on the body during the wind-up. It goes away when the dash starts.")]
+    public GameObject dashChargeVfxPrefab;
+
+    public float dashChargeVfxScale = 0.55f;
+
+    [Tooltip("If > 0, the dash becomes a parabolic leap toward a locked aim point (dodgeable). 0 keeps a flat lunge.")]
+    public float dashJumpHeight;
+
+    [Tooltip("After the dash connects, hop back so the enemy does not stay on top of the player.")]
+    public bool hopBackOnHit = true;
+    public float hopBackDistance = 1.15f;
+    public float hopBackDuration = 0.16f;
 
     [Header("Hitbox")]
     public float hitboxForwardDistance = 0.6f;
@@ -104,6 +135,8 @@ public class EnemyCombatController : MonoBehaviour
 
     float hitStunUntil;
     float nextAttackTime;
+    bool orbitArmed;
+    float orbitReadyAt;
     float attackStartedAt;
     bool isAttacking;
     bool hitboxEnabledByTimer;
@@ -113,6 +146,29 @@ public class EnemyCombatController : MonoBehaviour
     bool attackStepStarted;
     Vector3 attackStepDirection;
     float attackStepMoved;
+    bool hoppingBack;
+    float hopMoved;
+    Vector3 hopDir;
+    GameObject dashVfxInstance;
+    GameObject dashChargeInstance;
+    Transform dashSpriteBody;
+    float dashSpriteBaseLocalY;
+    bool dashSpriteLifted;
+    Vector3 dashLeapOrigin;
+    Vector3 dashLeapLanding;
+    float dashLeapElapsed;
+    bool dashLeapActive;
+    bool windupFacingLocked;
+    bool windupSavedLockFacing;
+    MaterialPropertyBlock chargeBlock;
+    Color chargeTintBefore = Color.white;
+    Color chargeFlashBefore = new Color(0f, 0f, 0f, 1f);
+    bool chargeTinted;
+
+    static readonly int TintColorId = Shader.PropertyToID("_TintColor");
+    static readonly int FlashColorId = Shader.PropertyToID("_FlashColor");
+    static readonly Color DashChargeTint = new Color(0.35f, 0.62f, 1f, 1f);
+    static readonly Color DashChargeFlash = new Color(0.15f, 0.4f, 1f, 1f);
 
     static readonly int AttackTrigger = Animator.StringToHash("Attack");
     static readonly int HurtTrigger = Animator.StringToHash("Hurt");
@@ -120,6 +176,8 @@ public class EnemyCombatController : MonoBehaviour
 
     static readonly int HitXHash = Animator.StringToHash("HitX");
     static readonly int HitYHash = Animator.StringToHash("HitY");
+    static readonly int MoveXHash = Animator.StringToHash("MoveX");
+    static readonly int MoveYHash = Animator.StringToHash("MoveY");
 
     void Awake()
     {
@@ -127,6 +185,7 @@ public class EnemyCombatController : MonoBehaviour
             motor = GetComponent<EnemyMotor>();
 
         ai = GetComponent<EnemyAI>();
+        reactions = GetComponent<EnemyReactionChart>();
 
         if (!animator)
             animator = GetComponentInChildren<Animator>();
@@ -136,19 +195,28 @@ public class EnemyCombatController : MonoBehaviour
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (!player)
             return;
 
         if (isAttacking)
+        {
+            TickDashCharge();
             UpdateAttackStepForward();
+        }
+
+        UpdateHopBack();
 
         if (isAttacking && useTimerBasedHitbox)
         {
-            float elapsed = Time.time - attackStartedAt;
+            float elapsed = EnemyClock.time - attackStartedAt;
 
-            float enableAt = CurrentEnableDelay();
-            float disableAt = CurrentDisableDelay();
-            float endAt = CurrentEndDelay();
+            float strikeAt = DashWindup();
+            float enableAt = strikeAt + CurrentEnableDelay();
+            float disableAt = strikeAt + CurrentDisableDelay();
+            float endAt = strikeAt + CurrentEndDelay();
 
             if (!hitboxEnabledByTimer && elapsed >= enableAt)
             {
@@ -166,30 +234,103 @@ public class EnemyCombatController : MonoBehaviour
                 EndAttack();
         }
 
-        if (isAttacking && Time.time - attackStartedAt > maxAttackDuration)
+        if (isAttacking && EnemyClock.time - attackStartedAt > maxAttackDuration)
             EndAttack();
 
         if (ai != null && ai.isAlerting)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (ai != null && ai.isDefending)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (isAttacking)
             return;
 
-        if (Time.time < hitStunUntil)
+        if (EnemyClock.time < hitStunUntil)
+        {
+            DisarmOrbitCountdown();
             return;
+        }
 
         if (motor != null && motor.IsMovementLocked())
             return;
 
-        float dist = Vector3.Distance(transform.position, player.position);
-
-        if (dist > attackDistance)
+        if (ai != null && !ai.UsesMelee)
             return;
 
-        if (Time.time < nextAttackTime)
+        float dist = Vector3.Distance(transform.position, player.position);
+        float range = ai != null ? ai.MeleeRange(this) : attackDistance;
+        if (ai != null)
+            ai.TickCloseInMix(dist);
+
+        if (dist > range)
+        {
+            DisarmOrbitCountdown();
+            return;
+        }
+
+        if (ai != null && ai.ClosesIn)
+        {
+            // The mix already picked this attack. A Hold, Step Back, or Defend still waits.
+            DisarmOrbitCountdown();
+            if (reactions != null)
+                reactions.Tick();
+            if (!ai.CloseInChoseMelee)
+                return;
+            if (reactions != null && !reactions.AllowsAttack)
+                return;
+            if (EnemyClock.time < nextAttackTime)
+                return;
+            if (!EnemyAttackScheduler.Instance.TryReserve(this))
+                return;
+            StartAttack();
+            ai.ConsumeCloseInChoice();
+            return;
+        }
+
+        if (reactions != null)
+        {
+            reactions.Tick();
+            if (reactions.CloseActive)
+            {
+                // Keep Distance: the close row owns this range. A matrix hold still waits.
+                DisarmOrbitCountdown();
+                if (!reactions.AllowsAttack || !reactions.WantsCloseMelee || EnemyClock.time < nextAttackTime)
+                    return;
+                if (!EnemyAttackScheduler.Instance.TryReserve(this))
+                    return;
+                StartAttack();
+                return;
+            }
+
+            if (!reactions.AllowsAttack)
+            {
+                DisarmOrbitCountdown();
+                return;
+            }
+        }
+
+        // Countdown starts on the orbit, not while still walking in.
+        if (ai != null && !ai.InOrbit(dist))
+        {
+            DisarmOrbitCountdown();
+            return;
+        }
+
+        if (!orbitArmed)
+        {
+            orbitArmed = true;
+            float fresh = EnemyClock.time + attackCooldown;
+            orbitReadyAt = nextAttackTime > EnemyClock.time ? nextAttackTime : fresh;
+        }
+
+        if (EnemyClock.time < orbitReadyAt)
             return;
 
         if (!EnemyAttackScheduler.Instance.TryReserve(this))
@@ -198,16 +339,29 @@ public class EnemyCombatController : MonoBehaviour
         StartAttack();
     }
 
+    void DisarmOrbitCountdown()
+    {
+        orbitArmed = false;
+    }
+
     void StartAttack()
     {
         isAttacking = true;
-        attackStartedAt = Time.time;
+        orbitArmed = false;
+        attackStartedAt = EnemyClock.time;
         hitboxEnabledByTimer = false;
         hitboxDisabledByTimer = false;
 
         attackStepActive = false;
         attackStepStarted = false;
         attackStepMoved = 0f;
+        hoppingBack = false;
+        hopMoved = 0f;
+        dashLeapActive = false;
+        dashLeapElapsed = 0f;
+        EndDashVfx();
+        CacheDashSpriteBody();
+        ResetDashSpriteHeight();
 
         // Pick which attack variant to use (if any are configured). Null =
         // fall back to the base fields — legacy behaviour.
@@ -220,9 +374,17 @@ public class EnemyCombatController : MonoBehaviour
             dir = transform.forward;
 
         attackStepDirection = dir.normalized;
+        if (reactions != null && reactions.WantsCloseMelee && reactions.WantsCloseStepBack)
+            attackStepDirection = -attackStepDirection;
 
         if (motor != null && lockMovementDuringAttack)
             motor.Stop();
+
+        // Freeze the attack blend on the wind-up facing. AimDash used to
+        // keep turning toward the player and that restarted the clip.
+        LockWindupFacing(attackStepDirection);
+
+        BeginDashCharge();
 
         animator.SetBool(IsAttackingHash, true);
         animator.ResetTrigger(HurtTrigger);
@@ -238,7 +400,7 @@ public class EnemyCombatController : MonoBehaviour
 
         float cooldown = attackCooldown;
         if (currentAttack != null) cooldown *= currentAttack.cooldownMultiplier;
-        nextAttackTime = Time.time + cooldown;
+        nextAttackTime = EnemyClock.time + cooldown;
     }
 
     // ============================================================
@@ -318,27 +480,58 @@ public class EnemyCombatController : MonoBehaviour
         if (!useAttackStepForward)
             return;
 
-        float elapsed = Time.time - attackStartedAt;
+        float elapsed = EnemyClock.time - attackStartedAt;
 
         if (!attackStepStarted)
         {
-            if (elapsed < attackStepDelay)
+            float startAt = useDashAttack ? Mathf.Max(DashWindup(), attackStepDelay) : attackStepDelay;
+            if (elapsed < startAt)
+            {
+                // Keep the chosen wind-up sprite; retarget only when the leap starts.
                 return;
+            }
 
             attackStepStarted = true;
             attackStepActive = true;
+            EndDashCharge();
+
+            if (UsesParabolicLeap())
+            {
+                // Leap keeps facing locked on the commit aim so the clip
+                // does not retarget mid-air while the player rolls away.
+                BeginParabolicLeap();
+            }
+            else
+            {
+                ReleaseWindupFacing();
+                AimDash();
+            }
         }
 
         if (!attackStepActive)
             return;
 
-        if (attackStepDuration <= 0f || attackStepDistance <= 0f)
+        if (dashLeapActive)
+        {
+            UpdateParabolicLeap();
+            return;
+        }
+
+        float stepDistance = useDashAttack ? dashDistance : attackStepDistance;
+        float stepDuration = useDashAttack ? dashDuration : attackStepDuration;
+
+        if (stepDuration <= 0f || stepDistance <= 0f)
         {
             attackStepActive = false;
             return;
         }
 
-        float remainingStep = attackStepDistance - attackStepMoved;
+        if (useDashAttack && dashVfxInstance == null)
+            BeginDashVfx();
+        else if (dashVfxInstance != null)
+            dashVfxInstance.transform.position = DashVfxPosition();
+
+        float remainingStep = stepDistance - attackStepMoved;
 
         if (remainingStep <= 0f)
         {
@@ -347,7 +540,8 @@ public class EnemyCombatController : MonoBehaviour
         }
 
         float distToPlayer = Vector3.Distance(transform.position, player.position);
-        float allowedDistance = distToPlayer - minDistanceToPlayerAfterStep;
+        float stopGap = useDashAttack ? dashMinDistance : minDistanceToPlayerAfterStep;
+        float allowedDistance = distToPlayer - stopGap;
 
         if (allowedDistance <= 0f)
         {
@@ -355,22 +549,109 @@ public class EnemyCombatController : MonoBehaviour
             return;
         }
 
-        float speed = attackStepDistance / attackStepDuration;
-        float moveAmount = speed * Time.deltaTime;
+        float speed = stepDistance / stepDuration;
+        float moveAmount = speed * EnemyClock.deltaTime;
 
         moveAmount = Mathf.Min(moveAmount, remainingStep);
         moveAmount = Mathf.Min(moveAmount, allowedDistance);
 
         if (motor != null && motor.controller != null)
-        {
             motor.controller.Move(attackStepDirection * moveAmount);
-        }
         else
-        {
             transform.position += attackStepDirection * moveAmount;
+
+        attackStepMoved += moveAmount;
+    }
+
+    bool UsesParabolicLeap()
+    {
+        return useDashAttack && dashJumpHeight > 0f;
+    }
+
+    void BeginParabolicLeap()
+    {
+        dashLeapActive = true;
+        dashLeapElapsed = 0f;
+        dashLeapOrigin = transform.position;
+
+        // Commit aim once at takeoff — no mid-air homing.
+        Vector3 aim = player != null ? player.position : (dashLeapOrigin + attackStepDirection);
+        aim.y = dashLeapOrigin.y;
+
+        Vector3 toAim = aim - dashLeapOrigin;
+        toAim.y = 0f;
+        float distToAim = toAim.magnitude;
+
+        Vector3 dir = distToAim > 0.001f
+            ? toAim / distToAim
+            : (attackStepDirection.sqrMagnitude > 0.001f ? attackStepDirection.normalized : transform.forward);
+
+        float travel = Mathf.Min(Mathf.Max(0f, dashDistance), distToAim);
+        if (dashMinDistance > 0f && distToAim > dashMinDistance)
+            travel = Mathf.Min(travel, distToAim - dashMinDistance);
+
+        attackStepDirection = dir;
+        dashLeapLanding = dashLeapOrigin + dir * travel;
+        dashLeapLanding.y = dashLeapOrigin.y;
+
+        LockWindupFacing(dir);
+        ResetDashSpriteHeight();
+
+        if (motor != null)
+            motor.suppressLocomotion = true;
+
+        if (useDashAttack && dashVfxInstance == null)
+            BeginDashVfx();
+    }
+
+    void UpdateParabolicLeap()
+    {
+        if (dashDuration <= 0f)
+        {
+            EndParabolicLeap();
+            return;
         }
 
-attackStepMoved += moveAmount;
+        if (dashVfxInstance != null)
+            dashVfxInstance.transform.position = DashVfxPosition();
+
+        dashLeapElapsed += EnemyClock.deltaTime;
+        float t = Mathf.Clamp01(dashLeapElapsed / dashDuration);
+
+        // World-space hop: flat travel toward the locked landing + vertical parabola.
+        Vector3 desired = Vector3.Lerp(dashLeapOrigin, dashLeapLanding, t);
+        desired.y = dashLeapOrigin.y + (4f * t * (1f - t) * Mathf.Max(0f, dashJumpHeight));
+
+        Vector3 delta = desired - transform.position;
+
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(delta);
+        else
+            transform.position = desired;
+
+        if (t >= 1f)
+            EndParabolicLeap();
+    }
+
+    void EndParabolicLeap()
+    {
+        dashLeapActive = false;
+        attackStepActive = false;
+
+        // Snap back onto the ground plane at the locked landing.
+        Vector3 grounded = transform.position;
+        grounded.y = dashLeapLanding.y;
+        Vector3 snap = grounded - transform.position;
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(snap);
+        else
+            transform.position = grounded;
+
+        if (motor != null)
+            motor.suppressLocomotion = false;
+
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
     }
 
     public void EnableHitbox()
@@ -409,6 +690,13 @@ attackStepMoved += moveAmount;
         isAttacking = false;
         attackStepActive = false;
         attackStepStarted = false;
+        EndDashCharge();
+        EndDashVfx();
+        dashLeapActive = false;
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
 
         if (animator != null)
             animator.SetBool(IsAttackingHash, false);
@@ -424,6 +712,11 @@ attackStepMoved += moveAmount;
     void OnDisable()
     {
         EnemyAttackScheduler.ReleaseIfExists(this);
+        EndDashCharge();
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
         DisableHitbox();
     }
 
@@ -456,15 +749,282 @@ attackStepMoved += moveAmount;
         meleeHitboxTransform.localPosition = finalLocalPosition;
     }
 
+    /// <summary>Called by MeleeHitbox when this enemy's swing connects with the player.</summary>
+    public void NotifyPlayerHit()
+    {
+        if (!useDashAttack || !hopBackOnHit || hoppingBack)
+            return;
+
+        hoppingBack = true;
+        attackStepActive = false;
+        dashLeapActive = false;
+        hopMoved = 0f;
+        hopDir = -attackStepDirection;
+        EndDashVfx();
+        ResetDashSpriteHeight();
+
+        if (motor != null)
+            motor.AddMovementLock(hopBackDuration + 0.05f);
+    }
+
+    void CacheDashSpriteBody()
+    {
+        dashSpriteBody = animator != null ? animator.transform : null;
+        if (dashSpriteBody != null)
+            dashSpriteBaseLocalY = dashSpriteBody.localPosition.y;
+        dashSpriteLifted = false;
+    }
+
+    void ResetDashSpriteHeight()
+    {
+        if (!dashSpriteLifted || dashSpriteBody == null)
+            return;
+
+        Vector3 local = dashSpriteBody.localPosition;
+        local.y = dashSpriteBaseLocalY;
+        dashSpriteBody.localPosition = local;
+        dashSpriteLifted = false;
+    }
+
+    void UpdateHopBack()
+    {
+        if (!hoppingBack)
+            return;
+
+        if (hopBackDuration <= 0f || hopBackDistance <= 0f || hopMoved >= hopBackDistance)
+        {
+            hoppingBack = false;
+            return;
+        }
+
+        float speed = hopBackDistance / hopBackDuration;
+        float moveAmount = Mathf.Min(speed * EnemyClock.deltaTime, hopBackDistance - hopMoved);
+
+        if (motor != null && motor.controller != null)
+            motor.controller.Move(hopDir * moveAmount);
+        else
+            transform.position += hopDir * moveAmount;
+
+        hopMoved += moveAmount;
+    }
+
+    float DashWindup()
+    {
+        if (!useDashAttack)
+            return 0f;
+        return Mathf.Max(0f, dashWindup);
+    }
+
+    void AimDash()
+    {
+        if (player == null)
+            return;
+
+        Vector3 dir = player.position - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            return;
+
+        attackStepDirection = dir.normalized;
+        if (motor != null)
+            motor.RotateToward(attackStepDirection);
+    }
+
+    void LockWindupFacing(Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            dir = transform.forward;
+        dir.Normalize();
+        attackStepDirection = dir;
+
+        if (motor != null)
+        {
+            if (!windupFacingLocked)
+                windupSavedLockFacing = motor.lockFacing;
+            motor.RotateToward(dir);
+            motor.lockFacing = true;
+        }
+
+        if (animator != null)
+        {
+            animator.SetFloat(MoveXHash, dir.x);
+            animator.SetFloat(MoveYHash, dir.z);
+        }
+
+        windupFacingLocked = true;
+    }
+
+    void LateUpdate()
+    {
+        if (HitStopperManager.Frozen)
+            return;
+
+        if (!windupFacingLocked || animator == null)
+            return;
+
+        // After EnemyTopDownAnimDriver so the Attack blend stays on the
+        // wind-up facing instead of restarting when the player strafes.
+        animator.SetFloat(MoveXHash, attackStepDirection.x);
+        animator.SetFloat(MoveYHash, attackStepDirection.z);
+    }
+
+    void ReleaseWindupFacing()
+    {
+        if (!windupFacingLocked)
+            return;
+
+        windupFacingLocked = false;
+        if (motor != null)
+            motor.lockFacing = windupSavedLockFacing;
+    }
+
+    void BeginDashCharge()
+    {
+        EndDashCharge();
+        if (DashWindup() <= 0f)
+            return;
+
+        SetChargeTint(true);
+        if (dashChargeVfxPrefab == null)
+            return;
+
+        dashChargeInstance = Instantiate(dashChargeVfxPrefab, DashChargePosition(), Quaternion.identity);
+        dashChargeInstance.transform.localScale = Vector3.one * DashChargeScale(0f);
+        HitStopVfx.Arm(dashChargeInstance, DashWindup() + 0.2f);
+    }
+
+    void TickDashCharge()
+    {
+        if (dashChargeInstance == null)
+            return;
+
+        float elapsed = EnemyClock.time - attackStartedAt;
+        if (elapsed >= DashWindup())
+        {
+            EndDashCharge();
+            return;
+        }
+
+        dashChargeInstance.transform.position = DashChargePosition();
+        dashChargeInstance.transform.localScale = Vector3.one * DashChargeScale(elapsed);
+    }
+
+    float DashChargeScale(float elapsed)
+    {
+        float duration = Mathf.Max(0.05f, DashWindup());
+        float t = Mathf.Clamp01(elapsed / duration);
+        float grown = Mathf.SmoothStep(0.35f, 1f, t);
+        return Mathf.Max(0.05f, dashChargeVfxScale) * grown;
+    }
+
+    void EndDashCharge()
+    {
+        SetChargeTint(false);
+        if (dashChargeInstance == null)
+            return;
+
+        Destroy(dashChargeInstance);
+        dashChargeInstance = null;
+    }
+
+    void SetChargeTint(bool on)
+    {
+        SpriteRenderer sprite = BodySprite();
+        if (sprite == null)
+            return;
+
+        if (chargeBlock == null)
+            chargeBlock = new MaterialPropertyBlock();
+
+        if (on)
+        {
+            if (!chargeTinted)
+            {
+                Material mat = sprite.sharedMaterial;
+                if (mat != null && mat.HasProperty(TintColorId))
+                    chargeTintBefore = mat.GetColor(TintColorId);
+                if (mat != null && mat.HasProperty(FlashColorId))
+                    chargeFlashBefore = mat.GetColor(FlashColorId);
+            }
+
+            sprite.GetPropertyBlock(chargeBlock);
+            chargeBlock.SetColor(TintColorId, DashChargeTint);
+            chargeBlock.SetColor(FlashColorId, DashChargeFlash);
+            sprite.SetPropertyBlock(chargeBlock);
+            chargeTinted = true;
+            return;
+        }
+
+        if (!chargeTinted)
+            return;
+
+        sprite.GetPropertyBlock(chargeBlock);
+        chargeBlock.SetColor(TintColorId, chargeTintBefore);
+        chargeBlock.SetColor(FlashColorId, chargeFlashBefore);
+        sprite.SetPropertyBlock(chargeBlock);
+        chargeTinted = false;
+    }
+
+    SpriteRenderer BodySprite()
+    {
+        if (animator == null)
+            return null;
+        return animator.GetComponent<SpriteRenderer>();
+    }
+
+    void BeginDashVfx()
+    {
+        if (dashVfxPrefab == null)
+            return;
+
+        dashVfxInstance = Instantiate(dashVfxPrefab, DashVfxPosition(), Quaternion.identity);
+        dashVfxInstance.transform.localScale = Vector3.one * Mathf.Max(0.05f, dashVfxScale);
+    }
+
+    Vector3 DashVfxPosition()
+    {
+        return transform.position + Vector3.up * 0.45f;
+    }
+
+    Vector3 DashChargePosition()
+    {
+        if (animator != null)
+        {
+            SpriteRenderer sprite = animator.GetComponent<SpriteRenderer>();
+            if (sprite != null && sprite.sprite != null)
+                return sprite.bounds.center;
+        }
+
+        return transform.position + Vector3.up * 0.57f;
+    }
+
+    void EndDashVfx()
+    {
+        if (dashVfxInstance == null)
+            return;
+
+        Destroy(dashVfxInstance, 0.55f);
+        dashVfxInstance = null;
+    }
+
     public void OnTakeDamage(Vector3 hitDir)
     {
         hitDir.y = 0f;
 
-        hitStunUntil = Time.time + hitStunTime;
-        nextAttackTime = Mathf.Max(nextAttackTime, Time.time + attackDelayAfterHit);
+        hitStunUntil = EnemyClock.time + hitStunTime;
+        nextAttackTime = Mathf.Max(nextAttackTime, EnemyClock.time + attackDelayAfterHit);
 
         attackStepActive = false;
         attackStepStarted = false;
+        hoppingBack = false;
+        dashLeapActive = false;
+        EndDashCharge();
+        EndDashVfx();
+        if (motor != null)
+            motor.suppressLocomotion = false;
+        ReleaseWindupFacing();
+        ResetDashSpriteHeight();
 
         if (isAttacking)
         {

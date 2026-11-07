@@ -1,139 +1,503 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
-/// Segmented "pip" meter — a row of squares/icons instead of a fill bar.
-/// Each pip represents a fixed chunk of points (pointsPerPip). Pips fully
-/// BEFORE the current value are fully filled, pips fully AFTER are fully
-/// empty, and the ONE pip straddling the current value drains VERTICALLY
-/// (top-to-bottom) as damage/cost eats into it — classic "potion vial"
-/// look, not an instant on/off swap.
-///
-/// Colors are flat and fixed — one filledColor (e.g. red for HP, blue for
-/// MP) and one emptyColor, both fully configurable per meter instance. No
-/// gradient, no per-pip variation — every pip uses the same two colors.
-///
-/// Reusable for HP, MP, AP — anything expressed as current/max points. Spawns
-/// its own pips from a prefab (PipVisual) so the pip count adjusts
-/// automatically if max changes (leveling up, equipment, buffs).
+/// Continuous HP/MP bar. One track, one horizontal fill: fill amount is
+/// current / max. The class name stays PipMeterWidget so the HUD prefabs
+/// keep their existing script reference.
 /// </summary>
 public class PipMeterWidget : MonoBehaviour
 {
     [Header("Sprites")]
+    [Tooltip("Optional. Leave empty for a solid bar tinted by the colors below.")]
     public Sprite filledSprite;
     public Sprite emptySprite;
 
-    [Header("Color (flat, no gradient)")]
-    [Tooltip("Color of the filled portion of every pip. E.g. red for HP, " +
-             "blue for MP.")]
-    public Color filledColor = Color.white;
+    [Header("Color")]
+    public Color filledColor = new Color(0.85f, 0.15f, 0.15f, 1f);
+    public Color emptyColor = new Color(0.15f, 0.15f, 0.15f, 1f);
 
-    [Tooltip("Color of the empty portion/background of every pip.")]
-    public Color emptyColor = Color.white;
+    [Header("Unit Dividers")]
+    [Tooltip("Draw a vertical mark every unitsPerDivider points. The mark that would sit on the right end is skipped.")]
+    public bool drawUnitDividers;
 
-    [Header("Size Emphasis")]
-    [Tooltip("If true, the pip currently taking damage grows and pulses, and " +
-             "pips that are fully empty shrink down — makes remaining points " +
-             "readable at a glance. If false (e.g. for MP), every pip stays " +
-             "at a constant size regardless of fill state.")]
-    public bool useSizeEmphasis = false;
-
-    [Header("Spawn")]
-    [Tooltip("Parent for the spawned pips. Add a HorizontalLayoutGroup (or " +
-             "GridLayoutGroup) here so they auto-space themselves.")]
-    public RectTransform container;
-
-    [Tooltip("Prefab for one pip — a PipVisual with a background Image and a " +
-             "Filled/Vertical foreground Image.")]
-    public PipVisual pipPrefab;
-
-    [Header("Value Mapping")]
-    [Tooltip("How many points each pip represents. E.g. max=100 with " +
-             "pointsPerPip=20 → 5 pips. Lower this for more granular (more, " +
-             "smaller) pips; raise it for fewer, chunkier ones.")]
     [Min(1)]
-    public int pointsPerPip = 20;
+    public int unitsPerDivider = 10;
 
-    readonly List<PipVisual> pips = new List<PipVisual>();
-    int spawnedForPipCount = -1;
-    int activePipIndex = -1;
+    [Tooltip("Width of each divider, in UI pixels.")]
+    public float dividerWidth = 2f;
 
-    /// <summary>Push new current/max values — rebuilds the pip row only if the
-    /// pip COUNT changed (i.e. max changed enough to add/remove a pip), and
-    /// always refreshes each pip's vertical fill fraction.</summary>
+    public Color dividerColor = new Color(0.152941f, 0.098039f, 0.160784f, 1f);
+
+    [Header("Damage Trail")]
+    [Tooltip("A white fill sits behind the main bar. On damage it waits, then shrinks down to the new value.")]
+    public bool useDamageTrail;
+    public float damageTrailDelay = 0.4f;
+    [Tooltip("How long the filled bar takes to slide down to the new value after a hit. Healing snaps.")]
+    public float damageDrainDuration = 0.25f;
+    [Tooltip("How long the white bar takes to catch the main bar after the delay.")]
+    public float damageTrailCatchup = 0.35f;
+    public Color damageTrailColor = Color.white;
+
+    [Tooltip("Optional moving liquid material. Applied only to this bar's fill, not the trail or the other meter.")]
+    public Material liquidMaterial;
+
+    [Tooltip("Soft top highlight for a bar that is not using the liquid material. Also used on the white damage trail.")]
+    public Material glossMaterial;
+
+    [Tooltip("Additive glow behind the white damage trail so the light spills past its edges.")]
+    public Material bleedMaterial;
+
+    Image track;
+    Image fill;
+    Image fillBleed;
+    Image fillHighlight;
+    Image trail;
+    Image trailBleed;
+    RectTransform rt;
+    readonly List<Image> dividers = new List<Image>();
+
+    float trailAmount;
+    float trailHoldUntil = -1f;
+    bool trailInitialized;
+    float fillDisplayed;
+    float fillTarget;
+    float fillDrainSpeed;
+    bool fillInitialized;
+    bool ready;
+
+    void Awake()
+    {
+        EnsureBar();
+    }
+
+    /// <summary>Push new current/max. The filled portion stays on the left and
+    /// shortens from the right as the value drops.</summary>
     public void SetValues(int current, int max)
     {
-        int pipCount = Mathf.Max(1, Mathf.CeilToInt(max / (float)pointsPerPip));
+        EnsureBar();
+        if (fill == null)
+            return;
 
-        if (pipCount != spawnedForPipCount)
-            RebuildPips(pipCount);
-
-        // The "active" / front-line pip is whichever one `current` currently
-        // sits within — computed HERE from the overall value, not derived
-        // per-pip from its own fraction. Using (current-1)/pointsPerPip
-        // (instead of current/pointsPerPip) keeps an exact-boundary value on
-        // the LOWER pip: e.g. with pointsPerPip=20, current=100 lands on pip
-        // index 4 (fully filled) rather than a nonexistent pip 5. Without
-        // this, damage dealt in exact multiples of pointsPerPip would make
-        // the front-line pip snap straight from 1.0 to the next pip's 1.0,
-        // never passing through a fractional value — so nothing would ever
-        // pulse, which was the original bug.
-        activePipIndex = current <= 0 ? -1 : Mathf.Clamp((current - 1) / pointsPerPip, 0, pipCount - 1);
-
-        for (int i = 0; i < pips.Count; i++)
-        {
-            if (pips[i] == null) continue;
-
-            // Pip i covers the points range [i*pointsPerPip, (i+1)*pointsPerPip].
-            // How much of THIS pip's own slice is still covered by `current`:
-            //   fully before current → 1 (fully filled)
-            //   fully after current  → 0 (fully drained)
-            //   straddling current   → partial (the vertical drain).
-            float remaining = current - i * pointsPerPip;
-            float fillFraction = Mathf.Clamp01(remaining / pointsPerPip);
-
-            bool isActivePip = i == activePipIndex;
-
-            pips[i].Apply(emptySprite, emptyColor, filledSprite, filledColor, fillFraction, useSizeEmphasis, isActivePip);
-        }
+        float amount = max <= 0 ? 0f : Mathf.Clamp01(current / (float)max);
+        NoteFillTarget(amount);
+        ApplyColors();
+        SetFillAmount(fillDisplayed);
+        UpdateDividers(max);
+        NoteTrailTarget(amount);
     }
 
-    /// <summary>Triggers a brief shake on the pip currently representing the
-    /// front line of remaining points (the same one that pulses). Call this
-    /// when actual damage just happened — NOT on every SetValues refresh
-    /// (which also fires on heals/mana spend). See PlayerHudBinder for the
-    /// damage-detection logic that decides when to call this.</summary>
-    public void ShakeActivePip()
-    {
-        if (activePipIndex < 0 || activePipIndex >= pips.Count) return;
-        pips[activePipIndex]?.Shake();
-    }
-
-    /// <summary>Clears the row back to empty/no pips (e.g. on death, or when
-    /// no character is bound). Safe to call repeatedly.</summary>
+    /// <summary>Empties the bar when no character is bound.</summary>
     public void Clear()
     {
-        for (int i = 0; i < pips.Count; i++)
-            if (pips[i] != null) Destroy(pips[i].gameObject);
-        pips.Clear();
-        spawnedForPipCount = -1;
+        EnsureBar();
+        fillDisplayed = 0f;
+        fillTarget = 0f;
+        fillDrainSpeed = 0f;
+        fillInitialized = false;
+        SetFillAmount(0f);
+        trailAmount = 0f;
+        trailHoldUntil = -1f;
+        trailInitialized = false;
+        SetTrailAmount(0f);
+        UpdateDividers(0);
     }
 
-    void RebuildPips(int count)
+    void EnsureBar()
     {
-        spawnedForPipCount = count;
+        if (ready)
+            return;
 
-        for (int i = 0; i < pips.Count; i++)
-            if (pips[i] != null) Destroy(pips[i].gameObject);
-        pips.Clear();
+        rt = transform as RectTransform;
 
-        if (container == null || pipPrefab == null) return;
+        var layout = GetComponent<HorizontalLayoutGroup>();
+        if (layout != null)
+            layout.enabled = false;
 
-        for (int i = 0; i < count; i++)
+        var fitter = GetComponent<ContentSizeFitter>();
+        if (fitter != null)
+            fitter.enabled = false;
+
+        // A stretched rect is positioned by its parent (the frame windows).
+        // Only invent a size when this meter is still a loose top-left point.
+        if (rt != null && rt.anchorMin == rt.anchorMax && rt.sizeDelta.x < 8f)
+            rt.sizeDelta = new Vector2(220f, 16f);
+
+        for (int i = 0; i < transform.childCount; i++)
         {
-            var pip = Instantiate(pipPrefab, container);
-            pip.gameObject.SetActive(true);
-            pips.Add(pip);
+            Transform child = transform.GetChild(i);
+            if (child.name == "Background")
+                child.gameObject.SetActive(false);
         }
+
+        track = CreateImage("Track", transform);
+        trailBleed = CreateImage("TrailBleed", track.transform);
+        trail = CreateImage("Trail", track.transform);
+        fillBleed = CreateImage("FillShade", track.transform);
+        fillHighlight = CreateImage("FillHighlight", track.transform);
+        fill = CreateImage("Fill", track.transform);
+        Stretch(track.rectTransform, 0f);
+        Stretch(trailBleed.rectTransform, -4f);
+        Stretch(trail.rectTransform, 2f);
+        Stretch(fillBleed.rectTransform, 0f);
+        Stretch(fill.rectTransform, 0f);
+        trailBleed.transform.SetSiblingIndex(0);
+        fill.transform.SetAsLastSibling();
+
+        track.type = Image.Type.Simple;
+        trail.type = Image.Type.Filled;
+        trail.fillMethod = Image.FillMethod.Horizontal;
+        trail.fillOrigin = (int)Image.OriginHorizontal.Left;
+        trail.color = damageTrailColor;
+        trail.gameObject.SetActive(useDamageTrail);
+        trailBleed.type = Image.Type.Filled;
+        trailBleed.fillMethod = Image.FillMethod.Horizontal;
+        trailBleed.fillOrigin = (int)Image.OriginHorizontal.Left;
+        trailBleed.color = new Color(1f, 1f, 1f, 0.85f);
+        trailBleed.gameObject.SetActive(useDamageTrail);
+        ApplyBleed(trailBleed);
+        fill.type = Image.Type.Filled;
+        fill.fillMethod = Image.FillMethod.Horizontal;
+        // Left origin keeps the remaining points on the left. Lowering the
+        // amount eats the bar from the right edge toward the left.
+        fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        fillBleed.color = FillShadeColor;
+        fillBleed.material = null;
+        fillBleed.gameObject.SetActive(liquidMaterial != null);
+        fillHighlight.color = Color.white;
+        fillHighlight.material = null;
+        fillHighlight.gameObject.SetActive(liquidMaterial != null);
+
+        ApplyColors();
+        ready = true;
+    }
+
+    void ApplyColors()
+    {
+        // A Filled image with no sprite draws a full rectangle and ignores
+        // fillAmount, so the bar would never follow the current points.
+        Sprite solid = SolidSprite();
+
+        if (track != null)
+        {
+            track.sprite = emptySprite != null ? emptySprite : solid;
+            track.color = emptyColor;
+        }
+
+        if (trail != null)
+        {
+            trail.sprite = filledSprite != null ? filledSprite : solid;
+            trail.color = damageTrailColor;
+            trail.type = Image.Type.Filled;
+            trail.fillMethod = Image.FillMethod.Horizontal;
+            trail.fillOrigin = (int)Image.OriginHorizontal.Left;
+            trail.gameObject.SetActive(useDamageTrail);
+            ApplyGloss(trail);
+        }
+
+        if (trailBleed != null)
+        {
+            trailBleed.sprite = solid;
+            trailBleed.gameObject.SetActive(useDamageTrail);
+            ApplyBleed(trailBleed);
+        }
+
+        if (fill != null)
+        {
+            fill.sprite = filledSprite != null ? filledSprite : solid;
+            fill.color = filledColor;
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            if (liquidMaterial != null)
+                ApplyLiquid(fill);
+            else
+                ApplyGloss(fill);
+        }
+
+        if (fillBleed != null)
+        {
+            fillBleed.sprite = solid;
+            fillBleed.color = FillShadeColor;
+            fillBleed.material = null;
+            fillBleed.gameObject.SetActive(liquidMaterial != null);
+        }
+
+        if (fillHighlight != null)
+        {
+            fillHighlight.sprite = solid;
+            fillHighlight.color = Color.white;
+            fillHighlight.material = null;
+            fillHighlight.gameObject.SetActive(liquidMaterial != null);
+        }
+    }
+
+    Material runtimeLiquid;
+
+    void ApplyLiquid(Image image)
+    {
+        if (image == null || liquidMaterial == null)
+            return;
+
+        Shader shader = liquidMaterial.shader;
+        if (shader == null || shader.name == "Hidden/InternalErrorShader")
+            shader = Shader.Find("Game/UI/HealthLiquid");
+        if (shader == null)
+            return;
+
+        if (runtimeLiquid == null || runtimeLiquid.shader != shader)
+        {
+            runtimeLiquid = new Material(shader);
+            if (liquidMaterial.shader == shader)
+                runtimeLiquid.CopyPropertiesFromMaterial(liquidMaterial);
+        }
+
+        image.material = runtimeLiquid;
+    }
+
+    void ApplyGloss(Image image)
+    {
+        if (image == null || glossMaterial == null)
+            return;
+
+        image.material = glossMaterial;
+    }
+
+    void ApplyBleed(Image image)
+    {
+        if (image == null || bleedMaterial == null)
+            return;
+
+        image.material = bleedMaterial;
+    }
+
+    // The frame covers the outer couple of pixels of the slot, so each band
+    // is tall enough to still show inside the window.
+    static readonly Color FillShadeColor = new Color(0.071f, 0.561f, 0.227f, 1f);
+    const float FillEdgeBand = 5f;
+
+    void SetFillAmount(float amount)
+    {
+        if (fillHighlight == null && track != null && liquidMaterial != null)
+        {
+            fillHighlight = CreateImage("FillHighlight", track.transform);
+            fillHighlight.sprite = SolidSprite();
+            fillHighlight.material = null;
+            fillHighlight.color = Color.white;
+            if (fill != null)
+                fill.transform.SetAsLastSibling();
+        }
+
+        bool edges = fillBleed != null && fillHighlight != null && liquidMaterial != null;
+        if (!edges)
+        {
+            if (fill != null)
+                fill.fillAmount = amount;
+            return;
+        }
+
+        amount = Mathf.Clamp01(amount);
+        PlaceEdgeBand(fillHighlight.rectTransform, amount, top: true);
+        PlaceEdgeBand(fillBleed.rectTransform, amount, top: false);
+        fillHighlight.type = Image.Type.Simple;
+        fillHighlight.fillAmount = 1f;
+        fillHighlight.color = Color.white;
+        fillBleed.type = Image.Type.Simple;
+        fillBleed.fillAmount = 1f;
+        fillBleed.color = FillShadeColor;
+
+        if (fill == null)
+            return;
+
+        RectTransform bar = fill.rectTransform;
+        bar.anchorMin = Vector2.zero;
+        bar.anchorMax = new Vector2(amount, 1f);
+        bar.offsetMin = new Vector2(0f, FillEdgeBand);
+        bar.offsetMax = new Vector2(0f, -FillEdgeBand);
+        fill.type = Image.Type.Simple;
+        fill.fillAmount = 1f;
+    }
+
+    static void PlaceEdgeBand(RectTransform band, float amount, bool top)
+    {
+        band.anchorMin = new Vector2(0f, top ? 1f : 0f);
+        band.anchorMax = new Vector2(amount, top ? 1f : 0f);
+        band.pivot = new Vector2(0.5f, top ? 1f : 0f);
+        band.sizeDelta = new Vector2(0f, FillEdgeBand);
+        band.anchoredPosition = Vector2.zero;
+    }
+
+    void SetTrailAmount(float amount)
+    {
+        if (trail != null)
+            trail.fillAmount = amount;
+        if (trailBleed != null)
+            trailBleed.fillAmount = amount;
+    }
+
+    void NoteFillTarget(float amount)
+    {
+        bool animateDrop = useDamageTrail && fillInitialized && amount < fillDisplayed - 0.0001f;
+        fillTarget = amount;
+
+        if (!fillInitialized || !animateDrop)
+        {
+            fillDisplayed = amount;
+            fillDrainSpeed = 0f;
+            fillInitialized = true;
+            SetFillAmount(amount);
+            return;
+        }
+
+        float duration = Mathf.Max(0.05f, damageDrainDuration);
+        fillDrainSpeed = (fillDisplayed - amount) / duration;
+    }
+
+    void TickFill()
+    {
+        if (fill == null)
+            return;
+
+        if (fillDrainSpeed <= 0f)
+        {
+            fillDisplayed = fillTarget;
+            SetFillAmount(fillDisplayed);
+            return;
+        }
+
+        fillDisplayed = Mathf.MoveTowards(fillDisplayed, fillTarget, fillDrainSpeed * Time.unscaledDeltaTime);
+        SetFillAmount(fillDisplayed);
+        if (Mathf.Approximately(fillDisplayed, fillTarget))
+            fillDrainSpeed = 0f;
+    }
+
+    void NoteTrailTarget(float amount)
+    {
+        if (!useDamageTrail || trail == null)
+            return;
+
+        if (!trailInitialized)
+        {
+            trailAmount = amount;
+            trailInitialized = true;
+            trailHoldUntil = -1f;
+        }
+        else if (amount < trailAmount)
+        {
+            trailHoldUntil = Time.unscaledTime + Mathf.Max(0f, damageTrailDelay);
+        }
+        else if (amount > trailAmount)
+        {
+            trailAmount = amount;
+            trailHoldUntil = -1f;
+        }
+
+        SetTrailAmount(trailAmount);
+    }
+
+    void TickTrail()
+    {
+        if (!useDamageTrail || trail == null || fill == null)
+            return;
+
+        float target = fillTarget;
+        if (trailHoldUntil > 0f && Time.unscaledTime < trailHoldUntil)
+        {
+            SetTrailAmount(trailAmount);
+            return;
+        }
+
+        float catchup = Mathf.Max(0.05f, damageTrailCatchup);
+        trailAmount = Mathf.MoveTowards(trailAmount, target, Time.unscaledDeltaTime / catchup);
+        SetTrailAmount(trailAmount);
+    }
+
+    void UpdateDividers(int max)
+    {
+        int count = 0;
+        if (drawUnitDividers && unitsPerDivider > 0 && max > unitsPerDivider)
+            count = (max - 1) / unitsPerDivider;
+
+        Sprite solid = SolidSprite();
+        float width = Mathf.Max(1f, dividerWidth);
+
+        while (dividers.Count < count)
+        {
+            Image mark = CreateImage("Divider" + dividers.Count, transform);
+            mark.raycastTarget = false;
+            dividers.Add(mark);
+        }
+
+        for (int i = 0; i < dividers.Count; i++)
+        {
+            Image mark = dividers[i];
+            if (mark == null)
+                continue;
+
+            bool show = i < count;
+            mark.gameObject.SetActive(show);
+            if (!show)
+                continue;
+
+            mark.sprite = solid;
+            mark.color = dividerColor;
+            mark.type = Image.Type.Simple;
+            mark.transform.SetAsLastSibling();
+
+            // Mark i sits on point (i+1)*units, never on the right end.
+            float fraction = (i + 1) * unitsPerDivider / (float)max;
+            RectTransform markRect = mark.rectTransform;
+            markRect.anchorMin = new Vector2(fraction, 0f);
+            markRect.anchorMax = new Vector2(fraction, 1f);
+            markRect.pivot = new Vector2(0.5f, 0.5f);
+            markRect.sizeDelta = new Vector2(width, 0f);
+            markRect.anchoredPosition = Vector2.zero;
+        }
+    }
+
+    static Sprite solidSprite;
+
+    static Sprite SolidSprite()
+    {
+        if (solidSprite != null)
+            return solidSprite;
+
+        Texture2D tex = Texture2D.whiteTexture;
+        solidSprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+        return solidSprite;
+    }
+
+    static Image CreateImage(string name, Transform parent)
+    {
+        Transform existing = parent.Find(name);
+        if (existing != null)
+        {
+            Image found = existing.GetComponent<Image>();
+            if (found != null)
+                return found;
+        }
+
+        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        go.layer = parent.gameObject.layer;
+        go.transform.SetParent(parent, false);
+        Image image = go.GetComponent<Image>();
+        image.raycastTarget = false;
+        return image;
+    }
+
+    static void Stretch(RectTransform rect, float inset)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = new Vector2(inset, inset);
+        rect.offsetMax = new Vector2(-inset, -inset);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+    }
+
+    void Update()
+    {
+        TickFill();
+        TickTrail();
     }
 }

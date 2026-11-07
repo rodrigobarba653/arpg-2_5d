@@ -133,11 +133,14 @@ public class BillboardToCamera : MonoBehaviour
         transform.localPosition = originalLocalPosition + runtimeExtraOffset;
         transform.localScale = originalLocalScale;
 
-        Vector3 uprightForward = cam.transform.forward;
+        // Yaw toward the camera position (cylindrical billboard), not camera.forward.
+        // Using only camera.forward keeps every sprite parallel, so enemies off to
+        // the sides go edge-on and look paper-thin until they enter center frame.
+        Vector3 uprightForward = transform.position - cam.transform.position;
         uprightForward.y = 0f;
         if (uprightForward.sqrMagnitude < 0.000001f)
         {
-            uprightForward = transform.forward;
+            uprightForward = cam.transform.forward;
             uprightForward.y = 0f;
             if (uprightForward.sqrMagnitude < 0.000001f)
                 uprightForward = Vector3.forward;

@@ -76,7 +76,7 @@ public class EnemyAttackScheduler : MonoBehaviour
             }
 
             // Held too long? Drop (anim event probably never fired).
-            if (Time.time - t.reservedAt > maxReservationTime)
+            if (EnemyClock.time - t.reservedAt > maxReservationTime)
             {
                 active.RemoveAt(i);
             }
@@ -99,11 +99,11 @@ public class EnemyAttackScheduler : MonoBehaviour
         if (active.Count >= maxSimultaneousAttackers)
             return false;
 
-        if (Time.time < nextAttackAllowedTime)
+        if (EnemyClock.time < nextAttackAllowedTime)
             return false;
 
-        active.Add(new Token { attacker = attacker, reservedAt = Time.time });
-        nextAttackAllowedTime = Time.time + minStaggerBetweenAttacks;
+        active.Add(new Token { attacker = attacker, reservedAt = EnemyClock.time });
+        nextAttackAllowedTime = EnemyClock.time + minStaggerBetweenAttacks;
         return true;
     }
 

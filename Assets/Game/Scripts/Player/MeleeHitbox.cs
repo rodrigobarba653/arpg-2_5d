@@ -25,6 +25,35 @@ public class MeleeHitbox : MonoBehaviour
     [Tooltip("Optional separate sound played when the hit is blocked by an enemy's guard.")]
     [SerializeField] private AudioClip blockSound;
 
+    [Header("Hit VFX")]
+    [Tooltip("Spawned at the enemy when a player melee hit deals damage. Leave empty for no effect.")]
+    [SerializeField] private GameObject hitVfxPrefab;
+
+    [Tooltip("Scale multiplier for the spawned effect. 1 is the prefab's own size.")]
+    [SerializeField] private float hitVfxScale = 1f;
+
+    [Tooltip("Multiplied into the spawned effect's colors. White leaves the prefab colors alone.")]
+    [ColorUsage(true, true)]
+    [SerializeField] private Color hitVfxTint = Color.white;
+
+    [Tooltip("How long the spawned effect stays before it is destroyed.")]
+    [SerializeField] private float hitVfxLifetime = 2f;
+
+    [Header("Hit Camera Shake")]
+    [Tooltip("Small shake when this hit deals damage. Defenders and blocked hits do not shake.")]
+    [SerializeField] private bool shakeCameraOnHit = true;
+    [SerializeField] private float hitShakeDuration = 0.16f;
+    [SerializeField] private float hitShakeAmplitude = 2.5f;
+    [SerializeField] private float hitShakeFrequency = 1.5f;
+
+    CameraShakeCinemachine cameraShake;
+
+    [Header("Block Clash")]
+    [SerializeField] private float blockEnemyPushForce = 1.25f;
+    [SerializeField] private float blockEnemyPushTime = 0.08f;
+    [SerializeField] private float blockPlayerPushSpeed = 5f;
+    [SerializeField] private float blockPlayerPushTime = 0.12f;
+
     [Range(0f, 1f)]
     [SerializeField] private float hitVolume = 1f;
 
@@ -164,6 +193,15 @@ public class MeleeHitbox : MonoBehaviour
             Debug.Log($"[Hitbox] TRIGGER with: {other.name}", this);
 
         if (owner == null)
+            TryResolveOwner();
+
+        if (!IsOwnerTheActivePlayer())
+            return;
+
+        if (BelongsToAx())
+            LogAxHit(other);
+
+        if (owner == null)
             return;
 
         // ignorar al propio dueño
@@ -202,6 +240,10 @@ public class MeleeHitbox : MonoBehaviour
             DoHitStop();
             Vector3 dir = (player.transform.position - owner.position).normalized;
             player.TakeDamage(ResolveDamage(), dir);
+
+            EnemyCombatController enemyAttack = owner.GetComponent<EnemyCombatController>();
+            if (enemyAttack != null)
+                enemyAttack.NotifyPlayerHit();
             return;
         }
 
@@ -236,43 +278,30 @@ public class MeleeHitbox : MonoBehaviour
 
             Vector3 dir = (enemy.transform.position - owner.position).normalized;
 
-            // ======================
-            // 🛡️ DIRECTIONAL DEFENSE
-            // ======================
-            // Block only if the hit comes from the enemy's front arc.
-            // Hits from behind bypass the block entirely.
-            if (ai != null && ai.isDefending)
+            // Player melee that the guard absorbs never reaches EnemyHealth.
+            // BlocksAttackFrom is the only test: front arc, or 360 when coverage says so.
+            // The clash push below is only this path. A hit that gets through falls
+            // through to TakeDamage, which then drops the guard.
+            if (ai != null && ai.BlocksAttackFrom(owner.position))
             {
-                Vector3 enemyForward = enemy.transform.forward;
-                enemyForward.y = 0f;
-                enemyForward.Normalize();
-
-                Vector3 attackFromDir = (owner.position - enemy.transform.position);
-                attackFromDir.y = 0f;
-                attackFromDir.Normalize();
-
-                float facingDot = Vector3.Dot(enemyForward, attackFromDir);
-
-                bool hitFromFront = facingDot > 0f;
-
-                if (hitFromFront)
-                {
-                    if (logDebug)
-                        Debug.Log("🛡️ BLOCK (front)!", this);
-
-                    // light pushback for feedback, no damage
-                    var motor = enemy.GetComponent<EnemyMotor>();
-                    if (motor)
-                        motor.DoKnockback(dir, 0.5f, 0.1f);
-
-                    DoHitStop();
-                    PlayBlockOrHitSfx(enemy.transform.position, blocked: true);
-                    return;
-                }
-
                 if (logDebug)
-                    Debug.Log("⚔️ BACKSTAB through defense!", this);
-                // back hit: fall through to normal damage
+                    Debug.Log("🛡️ BLOCK!", this);
+
+                ai.NotifyBlockedHit();
+
+                var motor = enemy.GetComponent<EnemyMotor>();
+                if (motor)
+                    motor.DoKnockback(dir, blockEnemyPushForce, blockEnemyPushTime);
+
+                Vector3 pushPlayer = owner.position - enemy.transform.position;
+                pushPlayer.y = 0f;
+                PlayerMotor playerMotor = owner.GetComponentInParent<PlayerMotor>();
+                if (playerMotor != null)
+                    playerMotor.BeginKnockback(pushPlayer, blockPlayerPushSpeed, blockPlayerPushTime);
+
+                DoHitStop();
+                PlayBlockOrHitSfx(enemy.transform.position, blocked: true);
+                return;
             }
 
             // ======================
@@ -280,11 +309,16 @@ public class MeleeHitbox : MonoBehaviour
             // ======================
             DoHitStop();
             PlayBlockOrHitSfx(enemy.transform.position, blocked: false);
+            SpawnHitVfx(enemy.transform.position, dir);
+            if (!IsDefender(ai))
+                ShakeCameraOnHit();
 
             if (hasAttackerKnockback)
                 enemy.TakeDamage(ResolveDamage(), dir, attackStep, knockbackPush, knockbackForce, knockbackDuration);
             else
                 enemy.TakeDamage(ResolveDamage(), dir, attackStep);
+
+            owner.GetComponent<MeleeSoftTargeting>()?.NotifyConnectedHit(enemy);
         }
     }
 
@@ -309,6 +343,147 @@ public class MeleeHitbox : MonoBehaviour
             return eq.TotalDamage;  // weapon base + Blade part bonus
 
         return baseDamage;
+    }
+
+    void TryResolveOwner()
+    {
+        var health = GetComponentInParent<PlayerHealth>();
+        if (health != null)
+            owner = health.transform;
+    }
+
+    bool IsOwnerTheActivePlayer()
+    {
+        var health = owner != null
+            ? owner.GetComponentInParent<PlayerHealth>()
+            : GetComponentInParent<PlayerHealth>();
+        if (health == null)
+            return true;
+        return Party.Active == null || Party.Active == health;
+    }
+
+    bool BelongsToAx()
+    {
+        var health = owner != null
+            ? owner.GetComponentInParent<PlayerHealth>()
+            : GetComponentInParent<PlayerHealth>();
+
+        if (health != null && health.character != null &&
+            string.Equals(health.character.id, "Ax", System.StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        Transform t = owner != null ? owner : transform;
+        while (t != null)
+        {
+            if (t.name.IndexOf("Ax", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    void LogAxHit(Collider other)
+    {
+        if (other == null) return;
+        var enemy = other.GetComponentInParent<EnemyHealth>();
+        if (enemy == null) return;
+        Debug.LogWarning($"[Ax Hitbox] Hit enemy '{enemy.name}' via '{other.name}' (combo step {attackStep}).", this);
+    }
+
+    static bool IsDefender(EnemyAI ai)
+    {
+        return ai != null && ai.canDefend && !ai.UsesMelee && !ai.longRangeAttacker;
+    }
+
+    void ShakeCameraOnHit()
+    {
+        if (!shakeCameraOnHit)
+            return;
+
+        if (cameraShake == null)
+            cameraShake = FindFirstObjectByType<CameraShakeCinemachine>();
+
+        if (cameraShake != null)
+            cameraShake.Shake(hitShakeDuration, hitShakeAmplitude, hitShakeFrequency);
+    }
+
+    void SpawnHitVfx(Vector3 enemyPos, Vector3 hitDir)
+    {
+        if (hitVfxPrefab == null)
+            return;
+
+        Vector3 pos = enemyPos;
+        if (owner != null)
+            pos.y = owner.position.y + 0.55f;
+
+        hitDir.y = 0f;
+        Quaternion rot = hitDir.sqrMagnitude > 0.0001f
+            ? Quaternion.LookRotation(hitDir.normalized, Vector3.up)
+            : Quaternion.identity;
+
+        GameObject vfx = Instantiate(hitVfxPrefab, pos, rot);
+        float scale = Mathf.Max(0.01f, hitVfxScale);
+        vfx.transform.localScale = hitVfxPrefab.transform.localScale * scale;
+        ApplyHitVfxTint(vfx);
+        HitStopVfx.Arm(vfx, hitVfxLifetime);
+    }
+
+    void ApplyHitVfxTint(GameObject vfx)
+    {
+        if (hitVfxTint == Color.white)
+            return;
+
+        ParticleSystem[] systems = vfx.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            var main = systems[i].main;
+            main.startColor = TintMinMaxGradient(main.startColor, hitVfxTint);
+        }
+
+        Light[] lights = vfx.GetComponentsInChildren<Light>(true);
+        for (int i = 0; i < lights.Length; i++)
+            lights[i].color *= hitVfxTint;
+    }
+
+    static ParticleSystem.MinMaxGradient TintMinMaxGradient(ParticleSystem.MinMaxGradient source, Color tint)
+    {
+        switch (source.mode)
+        {
+            case ParticleSystemGradientMode.Color:
+                source.color *= tint;
+                break;
+            case ParticleSystemGradientMode.TwoColors:
+                source.colorMin *= tint;
+                source.colorMax *= tint;
+                break;
+            case ParticleSystemGradientMode.Gradient:
+                source.gradient = TintGradient(source.gradient, tint);
+                break;
+            case ParticleSystemGradientMode.TwoGradients:
+                source.gradientMin = TintGradient(source.gradientMin, tint);
+                source.gradientMax = TintGradient(source.gradientMax, tint);
+                break;
+        }
+
+        return source;
+    }
+
+    static Gradient TintGradient(Gradient source, Color tint)
+    {
+        if (source == null)
+            return source;
+
+        var gradient = new Gradient();
+        GradientColorKey[] colors = source.colorKeys;
+        for (int i = 0; i < colors.Length; i++)
+            colors[i].color *= tint;
+
+        GradientAlphaKey[] alphas = source.alphaKeys;
+        for (int i = 0; i < alphas.Length; i++)
+            alphas[i].alpha *= tint.a;
+
+        gradient.SetKeys(colors, alphas);
+        return gradient;
     }
 
     void PlayBlockOrHitSfx(Vector3 worldPos, bool blocked)

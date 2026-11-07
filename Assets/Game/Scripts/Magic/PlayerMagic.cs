@@ -276,6 +276,7 @@ public class PlayerMagic : MonoBehaviour
 
         lastCastTimePerSlot[slotIndex] = Time.time;
         OnCast?.Invoke(spell);
+        PlayerIntentSignals.NotifyCast();
         return true;
     }
 

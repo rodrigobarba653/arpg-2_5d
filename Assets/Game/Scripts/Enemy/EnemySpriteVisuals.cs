@@ -33,9 +33,7 @@ public class EnemySpriteVisuals : EnemyVisuals
         {
             var r = srs[i];
             if (r == null) continue;
-            var mat = r.material;
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", color);
+            WriteFlash(r, color);
         }
     }
 
@@ -51,10 +49,9 @@ public class EnemySpriteVisuals : EnemyVisuals
             col.a = alpha;
             r.color = col;
 
-            var mat = r.material;
+            WriteFlash(r, Color.white * whiteBoost);
 
-            if (mat.HasProperty("_FlashColor"))
-                mat.SetColor("_FlashColor", Color.white * whiteBoost);
+            var mat = r.material;
 
             if (!string.IsNullOrEmpty(alphaProperty) && mat.HasProperty(alphaProperty))
                 mat.SetFloat(alphaProperty, alpha);
@@ -62,5 +59,30 @@ public class EnemySpriteVisuals : EnemyVisuals
             if (!string.IsNullOrEmpty(ditherProperty) && mat.HasProperty(ditherProperty))
                 mat.SetFloat(ditherProperty, dither);
         }
+    }
+
+    static void WriteFlash(SpriteRenderer renderer, Color color)
+    {
+        // Prefer the lighting controller: it keeps flash on both the material
+        // and the property block, so LateUpdate lighting cannot hide it.
+        var lighting = renderer.GetComponent<SpriteLightingController>();
+        if (lighting != null)
+        {
+            if (color.maxColorComponent <= 0.001f)
+                lighting.ClearFlash();
+            else
+                lighting.TriggerFlash(color, 0f);
+            return;
+        }
+
+        var mat = renderer.material;
+        if (mat.HasProperty("_FlashColor"))
+            mat.SetColor("_FlashColor", color);
+
+        var block = new MaterialPropertyBlock();
+        renderer.GetPropertyBlock(block);
+        if (mat.HasProperty("_FlashColor"))
+            block.SetColor("_FlashColor", color);
+        renderer.SetPropertyBlock(block);
     }
 }

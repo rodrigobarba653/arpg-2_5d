@@ -7,6 +7,9 @@ public class EnemyProjectile : MonoBehaviour
     public float speed = 6f;
 
     Rigidbody rb;
+    Vector3 heldVelocity;
+    bool held;
+    float age;
 
     void Awake()
     {
@@ -22,16 +25,40 @@ public class EnemyProjectile : MonoBehaviour
         rb.linearVelocity = dir.normalized * speed;
     }
 
-    void Start()
+    void Update()
     {
-        Destroy(gameObject, lifeTime);
+        if (HitStopperManager.Frozen)
+        {
+            if (rb != null && !held)
+            {
+                heldVelocity = rb.linearVelocity;
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                held = true;
+            }
+            return;
+        }
+
+        if (held && rb != null)
+        {
+            rb.linearVelocity = heldVelocity;
+            held = false;
+        }
+
+        age += Time.deltaTime;
+        if (age >= lifeTime)
+            Destroy(gameObject);
     }
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            Destroy(gameObject);
-        }
+        if (!other.CompareTag("Player"))
+            return;
+
+        PlayerHealth health = other.GetComponentInParent<PlayerHealth>();
+        if (health != null)
+            health.TakeDamage(damage, transform.forward);
+
+        Destroy(gameObject);
     }
 }

@@ -26,9 +26,28 @@ public class EnemyMotor : MonoBehaviour
     [HideInInspector]
     public float activeSpeedOverride = -1f;
 
+    /// <summary>1 is full speed. Enemy AI lowers this while strafing, holding, or stepping away.</summary>
+    [HideInInspector]
+    public float speedScale = 1f;
+
+    /// <summary>
+    /// Extra cap while move and facing differ (true strafe via SetMoveAndFacing).
+    /// Covers AI orbit and reaction Hold the same way, regardless of script order.
+    /// </summary>
+    [HideInInspector]
+    public float strafeSpeedMultiplier = 0.4f;
+
     public float GetActiveSpeed()
     {
-        return activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
+        float speed = activeSpeedOverride > 0f ? activeSpeedOverride : moveSpeed;
+        float scale = Mathf.Clamp(speedScale, 0f, 1f);
+
+        // Sidestepping while looking at the player always slows down, whether
+        // EnemyAI set speedScale this frame or a reaction drove SetMoveAndFacing.
+        if (faceMoveSeparately)
+            scale = Mathf.Min(scale, Mathf.Clamp(strafeSpeedMultiplier, 0.15f, 1f));
+
+        return speed * scale;
     }
 
     [Header("Knockback")]
@@ -49,6 +68,26 @@ public class EnemyMotor : MonoBehaviour
 
     Vector3 verticalVelocity;
     Vector3 moveDirection;
+    Vector3 aimDirection;
+    bool faceMoveSeparately;
+
+    /// <summary>
+    /// Set for the current guard only. Blocks rotation from movement, hit-facing,
+    /// and knockback. EnemyAI.HoldDefendFacing is what writes the yaw.
+    /// Do not also force this rotation in LateUpdate: the sprite billboard runs late,
+    /// and a late root turn pulls that sprite off the camera.
+    /// </summary>
+    public bool lockFacing;
+
+    /// <summary>
+    /// When true, EnemyMotor skips its own Move (gravity included).
+    /// Used while another system owns the body, e.g. a parabolic leap.
+    /// </summary>
+    [HideInInspector]
+    public bool suppressLocomotion;
+
+    public bool AnimFacesAim => !lockFacing && faceMoveSeparately && aimDirection.sqrMagnitude > 0.0001f;
+    public Vector3 AnimAimDirection => aimDirection;
 
     void Awake()
     {
@@ -63,15 +102,33 @@ public class EnemyMotor : MonoBehaviour
             agent.updatePosition = false;
             agent.updateRotation = false;
         }
+
+        // A planted enemy stays put. A non-kinematic body would still slide when the player hits it.
+        if (moveType == EnemyMoveType.Fixed)
+        {
+            Rigidbody body = GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+                body.isKinematic = true;
+            }
+        }
     }
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         Move();
     }
 
     void LateUpdate()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (agent != null && agent.enabled)
         {
             agent.speed = GetActiveSpeed();
@@ -80,13 +137,14 @@ public class EnemyMotor : MonoBehaviour
                 agent.nextPosition = transform.position;
         }
 
-        // IMPORTANT:
-        // This runs late, after other scripts may have tried to rotate the enemy.
-        // It prevents the wrong-direction flash.
-        if (hitFacingLockTimer > 0f && faceHitSourceDuringKnockback)
+        // A blocked hit still starts a face-the-attacker snap. While the guard
+        // is up, drop that snap here so it cannot yaw the root after the billboard.
+        if (lockFacing)
+            hitFacingLockTimer = 0f;
+        else if (hitFacingLockTimer > 0f && faceHitSourceDuringKnockback)
         {
             FaceDirectionInstant(hitFacingLockDirection);
-            hitFacingLockTimer -= Time.deltaTime;
+            hitFacingLockTimer -= EnemyClock.deltaTime;
         }
 
         activeSpeedOverride = -1f;
@@ -97,18 +155,21 @@ public class EnemyMotor : MonoBehaviour
         if (!controller)
             return;
 
+        if (suppressLocomotion)
+            return;
+
         if (controller.isGrounded && verticalVelocity.y < 0f)
             verticalVelocity.y = -2f;
 
-        verticalVelocity.y += gravity * Time.deltaTime;
+        verticalVelocity.y += gravity * EnemyClock.deltaTime;
 
         if (moveType == EnemyMoveType.Fixed)
         {
             if (hitStunTimer > 0f)
-                hitStunTimer -= Time.deltaTime;
+                hitStunTimer -= EnemyClock.deltaTime;
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
@@ -117,10 +178,10 @@ public class EnemyMotor : MonoBehaviour
         {
             ApplyKnockbackAndGravityOnly();
 
-            if (faceHitSourceDuringKnockback)
+            if (!lockFacing && faceHitSourceDuringKnockback)
                 FaceDirectionInstant(knockbackFaceDirection);
 
-            knockbackTimer -= Time.deltaTime;
+            knockbackTimer -= EnemyClock.deltaTime;
 
             if (knockbackTimer <= 0f)
             {
@@ -134,29 +195,29 @@ public class EnemyMotor : MonoBehaviour
 
         if (hitStunTimer > 0f)
         {
-            hitStunTimer -= Time.deltaTime;
+            hitStunTimer -= EnemyClock.deltaTime;
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
         if (movementLockTimer > 0f)
         {
-            movementLockTimer -= Time.deltaTime;
+            movementLockTimer -= EnemyClock.deltaTime;
 
-            if (faceHitSourceDuringKnockback)
+            if (!lockFacing && faceHitSourceDuringKnockback)
                 FaceDirectionInstant(knockbackFaceDirection);
 
             Vector3 gravityOnly = new Vector3(0f, verticalVelocity.y, 0f);
-            controller.Move(gravityOnly * Time.deltaTime);
+            controller.Move(gravityOnly * EnemyClock.deltaTime);
             return;
         }
 
         Vector3 finalMove = moveDirection * GetActiveSpeed();
         finalMove.y = verticalVelocity.y;
 
-        controller.Move(finalMove * Time.deltaTime);
+        controller.Move(finalMove * EnemyClock.deltaTime);
 
         Rotate();
     }
@@ -166,23 +227,23 @@ public class EnemyMotor : MonoBehaviour
         Vector3 finalMove = knockbackVelocity;
         finalMove.y = verticalVelocity.y;
 
-        controller.Move(finalMove * Time.deltaTime);
+        controller.Move(finalMove * EnemyClock.deltaTime);
     }
 
     void Rotate()
     {
-        if (hitFacingLockTimer > 0f)
+        if (lockFacing || hitFacingLockTimer > 0f)
             return;
 
-        if (moveDirection.sqrMagnitude < 0.001f)
+        if (moveDirection.sqrMagnitude < 0.001f && aimDirection.sqrMagnitude < 0.001f)
             return;
 
-        RotateToward(moveDirection);
+        RotateToward(aimDirection.sqrMagnitude > 0.001f ? aimDirection : moveDirection);
     }
 
     public void RotateToward(Vector3 dir)
     {
-        if (hitFacingLockTimer > 0f)
+        if (lockFacing || hitFacingLockTimer > 0f)
             return;
 
         dir.y = 0f;
@@ -195,7 +256,7 @@ public class EnemyMotor : MonoBehaviour
         transform.rotation = Quaternion.Slerp(
             transform.rotation,
             targetRot,
-            rotationSpeed * Time.deltaTime
+            rotationSpeed * EnemyClock.deltaTime
         );
     }
 
@@ -211,6 +272,17 @@ public class EnemyMotor : MonoBehaviour
 
     public void SetMoveDirection(Vector3 dir)
     {
+        ApplyMove(dir, dir);
+    }
+
+    /// <summary>Move one way while looking another. Used when holding turns into a strafe.</summary>
+    public void SetMoveAndFacing(Vector3 moveDir, Vector3 faceDir)
+    {
+        ApplyMove(moveDir, faceDir);
+    }
+
+    void ApplyMove(Vector3 dir, Vector3 faceDir)
+    {
         if (moveType == EnemyMoveType.Fixed)
             return;
 
@@ -224,12 +296,19 @@ public class EnemyMotor : MonoBehaviour
             return;
 
         dir.y = 0f;
-        moveDirection = dir.normalized;
+        faceDir.y = 0f;
+        moveDirection = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.zero;
+        aimDirection = faceDir.sqrMagnitude > 0.0001f ? faceDir.normalized : moveDirection;
+        faceMoveSeparately = moveDirection.sqrMagnitude > 0.0001f
+            && aimDirection.sqrMagnitude > 0.0001f
+            && Vector3.Angle(moveDirection, aimDirection) > 8f;
     }
 
     public void Stop()
     {
         moveDirection = Vector3.zero;
+        aimDirection = Vector3.zero;
+        faceMoveSeparately = false;
     }
 
     public float GetSpeed()
@@ -247,9 +326,18 @@ public class EnemyMotor : MonoBehaviour
         return controller != null && controller.isGrounded;
     }
 
+    public void ForceFacing(Vector3 dir)
+    {
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.001f)
+            return;
+
+        transform.rotation = Quaternion.LookRotation(dir.normalized);
+    }
+
     public void FaceDirection(Vector3 dir)
     {
-        if (hitFacingLockTimer > 0f)
+        if (lockFacing || hitFacingLockTimer > 0f)
             return;
 
         FaceDirectionInstant(dir);
@@ -266,6 +354,7 @@ public class EnemyMotor : MonoBehaviour
 
     public void DoKnockback(Vector3 dir, float force, float time)
     {
+        // Fixed enemies take the hit, but they do not slide.
         if (moveType == EnemyMoveType.Fixed)
             return;
 
@@ -281,6 +370,9 @@ public class EnemyMotor : MonoBehaviour
 
         // Move away from hit, but face hit source.
         knockbackFaceDirection = -knockbackDir;
+
+        if (lockFacing)
+            return;
 
         // Lock facing until knockback + recovery finishes.
         hitFacingLockDirection = knockbackFaceDirection;

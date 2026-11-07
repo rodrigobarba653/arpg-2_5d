@@ -25,10 +25,12 @@ public class PartyMemberControl : MonoBehaviour
     PlayerEquipment equipment;
     CharacterController cc;
     UnityEngine.InputSystem.PlayerInput playerInput;
+    Animator[] animators;
 
     void Awake()
     {
         renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
+        animators = GetComponentsInChildren<Animator>(includeInactive: true);
         motor = GetComponent<PlayerMotor>();
         combat = GetComponent<PlayerCombatController>();
         jump = GetComponent<PlayerJump>();
@@ -64,6 +66,23 @@ public class PartyMemberControl : MonoBehaviour
         // mid-game, etc.). Only the active member tracks equipment changes.
         if (equipment != null) equipment.enabled = isControlled;
 
+        // Dormant members are snapped onto the active character. If their
+        // melee hitbox stays on (Ax ships enabled), it swings from Jyn's spot.
+        if (!isControlled && combat != null)
+            combat.CancelCombatImmediate();
+
+        // Stop the dormant attack clip so its EnableHitbox events can't
+        // turn Ax's volume back on during Jyn's combo.
+        if (animators != null)
+        {
+            for (int i = 0; i < animators.Length; i++)
+                if (animators[i] != null)
+                    animators[i].enabled = isControlled;
+        }
+
+        if (!isControlled)
+            ForceHitboxesOff();
+
         // Toggle PlayerInput too — when re-enabled it discards any in-flight
         // input state so a button held during the previous character's actions
         // doesn't carry over (e.g. pickup-interact triggering a jump on swap).
@@ -79,6 +98,23 @@ public class PartyMemberControl : MonoBehaviour
         {
             for (int i = 0; i < renderers.Length; i++)
                 if (renderers[i] != null) renderers[i].enabled = isControlled;
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (!isControlled)
+            ForceHitboxesOff();
+    }
+
+    void ForceHitboxesOff()
+    {
+        var hitboxes = GetComponentsInChildren<MeleeHitbox>(true);
+        for (int i = 0; i < hitboxes.Length; i++)
+        {
+            if (hitboxes[i] == null) continue;
+            if (hitboxes[i].gameObject.activeSelf)
+                hitboxes[i].gameObject.SetActive(false);
         }
     }
 }

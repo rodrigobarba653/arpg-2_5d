@@ -90,7 +90,7 @@ public class EnemyPatrol : MonoBehaviour
             if (motor.agent != null && motor.agent.enabled && motor.agent.isOnNavMesh)
                 motor.agent.ResetPath();
 
-            waitTimer -= Time.deltaTime;
+            waitTimer -= EnemyClock.deltaTime;
             if (waitTimer <= 0f)
                 AdvanceWaypoint();
 

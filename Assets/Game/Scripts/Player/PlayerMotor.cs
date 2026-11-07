@@ -134,8 +134,23 @@ public class PlayerMotor : MonoBehaviour
         Vector3 moveWorld = Vector3.zero;
         float speed = moveSpeed;
 
+        // ---------- KNOCKBACK ----------
+        // Hits cancel rolls; knockback must win over leftover roll motion.
+        if (knockbackActive)
+        {
+            knockbackTimer -= Time.deltaTime;
+
+            moveWorld = knockbackDir;
+            speed = knockbackSpeed;
+
+            if (knockbackTimer <= 0f)
+            {
+                knockbackActive = false;
+            }
+        }
+
         // ---------- ROLL ----------
-        if (rollActive)
+        else if (rollActive)
         {
             rollTimer -= Time.deltaTime;
 
@@ -146,20 +161,6 @@ public class PlayerMotor : MonoBehaviour
             {
                 rollActive = false;
                 movementLocked = false;
-            }
-        }
-
-        // ---------- KNOCKBACK ----------
-        else if (knockbackActive)
-        {
-            knockbackTimer -= Time.deltaTime;
-
-            moveWorld = knockbackDir;
-            speed = knockbackSpeed;
-
-            if (knockbackTimer <= 0f)
-            {
-                knockbackActive = false;
             }
         }
 
@@ -333,6 +334,9 @@ public class PlayerMotor : MonoBehaviour
 
     Vector3 GetMoveWorld(Vector2 input)
     {
+        if (input.sqrMagnitude < 0.0001f)
+            return Vector3.zero;
+
         if (!mainCam)
             mainCam = Camera.main;
 
@@ -347,7 +351,51 @@ public class PlayerMotor : MonoBehaviour
         camRight.y = 0f;
         camRight.Normalize();
 
+        // Preserve analog magnitude for movement (do not force-normalize).
         return camForward * input.y + camRight * input.x;
+    }
+
+    /// <summary>
+    /// Stick/facing 2D → normalized world XZ using the current camera basis.
+    /// Zero input falls back to world forward (for aiming only — not movement).
+    /// </summary>
+    public Vector3 FacingToWorld(Vector2 input)
+    {
+        if (input.sqrMagnitude < 0.0001f)
+            return Vector3.forward;
+
+        Vector3 world = GetMoveWorld(input.normalized);
+        world.y = 0f;
+        return world.sqrMagnitude > 0.0001f ? world.normalized : Vector3.forward;
+    }
+
+    /// <summary>
+    /// World XZ → stick/facing 2D (inverse of <see cref="FacingToWorld"/>).
+    /// </summary>
+    public Vector2 WorldToFacing(Vector3 worldDir)
+    {
+        worldDir.y = 0f;
+        if (worldDir.sqrMagnitude < 0.0001f)
+            return lastNonZeroFacing;
+
+        if (!mainCam)
+            mainCam = Camera.main;
+
+        if (!mainCam)
+            return new Vector2(worldDir.x, worldDir.z).normalized;
+
+        Vector3 camForward = mainCam.transform.forward;
+        camForward.y = 0f;
+        camForward.Normalize();
+
+        Vector3 camRight = mainCam.transform.right;
+        camRight.y = 0f;
+        camRight.Normalize();
+
+        float x = Vector3.Dot(worldDir.normalized, camRight);
+        float y = Vector3.Dot(worldDir.normalized, camForward);
+        Vector2 facing = new Vector2(x, y);
+        return facing.sqrMagnitude > 0.0001f ? facing.normalized : lastNonZeroFacing;
     }
 
     static Vector2 SnapTo8(Vector2 v)
@@ -414,6 +462,12 @@ public class PlayerMotor : MonoBehaviour
         if (movementLocked)
         {
             moveInput = Vector2.zero;
+
+            // Roll (and other locks) keep the body facing fixed, but still
+            // remember stick aim so the next attack/move uses that direction.
+            if (rollActive)
+                TryBufferFacingFromRawInput();
+
             return;
         }
 
@@ -442,6 +496,34 @@ public class PlayerMotor : MonoBehaviour
 
         if (!facingLocked && moveInput.sqrMagnitude > 0.0001f)
             lastNonZeroFacing = moveInput;
+    }
+
+    public bool TryReadStickFacing(out Vector2 facing)
+    {
+        facing = Vector2.zero;
+        float mag = rawInput.magnitude;
+        if (mag < deadZone)
+            return false;
+
+        Vector2 dir = rawInput.normalized;
+        if (snapTo8Directions)
+            dir = SnapTo8(dir);
+
+        facing = dir;
+        return true;
+    }
+
+    void TryBufferFacingFromRawInput()
+    {
+        float mag = rawInput.magnitude;
+        if (mag < deadZone)
+            return;
+
+        Vector2 dir = rawInput.normalized;
+        if (snapTo8Directions)
+            dir = SnapTo8(dir);
+
+        lastNonZeroFacing = dir;
     }
 
     public void LockMovement(bool locked)
@@ -532,6 +614,53 @@ public class PlayerMotor : MonoBehaviour
         attackLungePending = true;
     }
 
+    /// <summary>
+    /// World-space distance this attack lunge still has to travel, including a lunge
+    /// that is waiting on its delay. Zero once the lunge has finished.
+    /// </summary>
+    public Vector3 GetRemainingAttackLungeDisplacement()
+    {
+        if (attackLungePending)
+        {
+            return LungeTravel(
+                pendingAttackLungeDir,
+                pendingAttackLungeSpeed,
+                pendingAttackLungeDuration,
+                pendingAttackLungeEaseOutPower,
+                0f);
+        }
+
+        if (!attackLungeActive || attackLungeDuration <= 0.0001f)
+            return Vector3.zero;
+
+        float elapsed = attackLungeDuration - attackLungeTimer;
+        float t0 = Mathf.Clamp01(elapsed / attackLungeDuration);
+        return LungeTravel(
+            attackLungeDir,
+            attackLungeSpeed,
+            attackLungeDuration,
+            attackLungeEaseOutPower,
+            t0);
+    }
+
+    static Vector3 LungeTravel(Vector3 dir, float speed, float duration, float easeOutPower, float t0)
+    {
+        if (speed <= 0f || duration <= 0f || dir.sqrMagnitude < 0.0001f)
+            return Vector3.zero;
+
+        t0 = Mathf.Clamp01(t0);
+        float factor;
+        if (easeOutPower < 1f)
+            factor = 1f - t0;
+        else
+        {
+            float p = easeOutPower;
+            factor = (p / (p + 1f)) - t0 + Mathf.Pow(t0, p + 1f) / (p + 1f);
+        }
+
+        return dir * (speed * duration * Mathf.Max(0f, factor));
+    }
+
     public void CancelAttackLunge()
     {
         attackLungeActive = false;
@@ -554,6 +683,13 @@ public class PlayerMotor : MonoBehaviour
 
     public void BeginKnockback(Vector3 worldDirection, float speed, float duration)
     {
+        // A hit during a roll must stop roll travel so knockback is not
+        // added on top of the remaining roll velocity.
+        if (rollActive)
+            EndRoll();
+
+        CancelAttackLunge();
+
         Vector3 flatDir = new Vector3(worldDirection.x, 0f, worldDirection.z);
 
         if (flatDir.sqrMagnitude < 0.0001f)

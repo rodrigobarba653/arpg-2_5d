@@ -14,6 +14,9 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
     Vector3 lastMoveDir = Vector3.forward;
 
+    /// <summary>Flat facing the blend tree is showing. Same vector as MoveX / MoveY.</summary>
+    public Vector3 SpriteFacing { get; private set; } = Vector3.forward;
+
     static readonly int IsMovingHash   = Animator.StringToHash("IsMoving");
     static readonly int IsInCombatHash = Animator.StringToHash("IsInCombat");
     static readonly int MoveXHash      = Animator.StringToHash("MoveX");
@@ -58,32 +61,22 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
             if (h == MoveYHash)      hasMoveY = true;
         }
 
-        if (!hasIsInCombat)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is " +
-                             "missing 'IsInCombat' (bool). Without it, the enemy " +
-                             "will never transition to attack state and won't deal damage. " +
-                             "Add it in the Animator Controller's Parameters tab.", this);
-
-        if (!hasIsMoving)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'IsMoving' (bool).", this);
-
-        if (!hasMoveX)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'MoveX' (float).", this);
-
-        if (!hasMoveY)
-            Debug.LogWarning($"[EnemyTopDownAnimDriver] Animator on '{name}' is missing 'MoveY' (float).", this);
     }
 
     void Update()
     {
+        if (HitStopperManager.Frozen)
+            return;
+
         if (!animator || !motor)
             return;
 
-        float speed = motor.GetSpeed();
+        bool defending = ai != null && ai.isDefending;
+        float speed = defending ? 0f : motor.GetSpeed();
 
         bool isMoving = speed > moveDeadzone;
 
-        Vector3 dir = GetMoveDirection();
+        Vector3 dir = defending ? ai.DefendFacing : GetMoveDirection();
 
         if (dir.sqrMagnitude > 0.0001f)
             lastMoveDir = dir;
@@ -94,7 +87,19 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
         // tracks the player in real time (rotated by EnemyAI/motor.RotateToward).
         Vector3 finalDir;
 
-        if (isMoving)
+        // Defend pose comes from the facing stored when the guard started.
+        // BillboardToCamera still owns the sprite plane. This only sets MoveX/MoveY.
+        // A strafe slides sideways, but the walk clip keeps pointing at the player.
+        if (defending)
+        {
+            finalDir = dir.sqrMagnitude > 0.0001f ? dir : lastMoveDir;
+        }
+        else if (motor.AnimFacesAim)
+        {
+            finalDir = motor.AnimAimDirection;
+            lastMoveDir = finalDir;
+        }
+        else if (isMoving)
         {
             finalDir = dir;
         }
@@ -111,6 +116,7 @@ public class EnemyTopDownAnimDriver : MonoBehaviour
 
         Vector2 dir2D =
             new Vector2(finalDir.x, finalDir.z).normalized;
+        SpriteFacing = new Vector3(dir2D.x, 0f, dir2D.y);
 
         if (hasIsMoving)   animator.SetBool(IsMovingHash, isMoving);
         if (hasIsInCombat) animator.SetBool(IsInCombatHash, ai != null && ai.isInCombat);

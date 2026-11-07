@@ -160,7 +160,9 @@ public class PlayerHealth : MonoBehaviour
     public void TakeDamage(int amount, Vector3 hitDirection)
     {
         PlayerCombatController combat = GetComponent<PlayerCombatController>();
-        if (combat != null) combat.CancelCombatImmediate();
+        // Cancel the current attack/roll but KEEP InCombat so HurtCombat
+        // (weapon sprites) plays instead of dropping to non-combat Hurt.
+        if (combat != null) combat.InterruptCombatActions();
 
         if (currentHealth <= 0) return;
 
@@ -184,40 +186,34 @@ public class PlayerHealth : MonoBehaviour
         // =========================
         // 🎯 HIT ANIMATION (FACE ATTACKER)
         // =========================
+        // hitDirection is the knockback push (attacker -> player). Sprite/facing
+        // must look the opposite way — toward where the attack came from.
+        Vector3 knockbackDir = hitDirection;
+        knockbackDir.y = 0f;
+
+        if (knockbackDir.sqrMagnitude < 0.001f)
+            knockbackDir = -transform.forward;
+
+        knockbackDir.Normalize();
+
         if (animator != null && motor != null)
         {
-            Vector3 flatHitDir = hitDirection;
-            flatHitDir.y = 0f;
+            Vector2 faceAttacker2D = motor.WorldToFacing(-knockbackDir);
 
-            if (flatHitDir.sqrMagnitude < 0.001f)
-                flatHitDir = transform.forward;
+            motor.LockFacing(faceAttacker2D);
 
-            flatHitDir.Normalize();
-
-            Vector2 hitDir2D = new Vector2(flatHitDir.x, flatHitDir.z);
-
-            motor.LockFacing(hitDir2D);
-
-            animator.SetFloat("HitX", hitDir2D.x);
-            animator.SetFloat("HitY", hitDir2D.y);
+            animator.SetFloat("HitX", faceAttacker2D.x);
+            animator.SetFloat("HitY", faceAttacker2D.y);
 
             animator.ResetTrigger("Hit");
             animator.SetTrigger("Hit");
         }
 
         // =========================
-        // 💥 KNOCKBACK (OPPOSITE DIRECTION)
+        // 💥 KNOCKBACK (AWAY FROM ATTACKER)
         // =========================
         if (motor != null)
-        {
-            Vector3 knockbackDir = hitDirection;
-            knockbackDir.y = 0f;
-
-            if (knockbackDir.sqrMagnitude < 0.001f)
-                knockbackDir = -transform.forward;
-
             motor.BeginKnockback(knockbackDir, knockbackForce, knockbackDuration);
-        }
 
         // =========================
         // 🧍 DAMAGE LOCK
