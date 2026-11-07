@@ -13,6 +13,8 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private SpriteRenderer weaponBody;
     [Tooltip("Optional. Plays the weapon 'store into player' VFX when combat ends.")]
     [SerializeField] private WeaponStoreEffect weaponStoreEffect;
+    [Tooltip("Soft targeting / melee magnetism. Auto-added if missing.")]
+    [SerializeField] private MeleeSoftTargeting softTargeting;
     PlayerSwimming swim;
     PlayerHealth health;
     PlayerEquipment equipment;
@@ -71,7 +73,7 @@ public class PlayerCombatController : MonoBehaviour
     [SerializeField] private bool enableRoll = true;
     [SerializeField] private float rollSpeed = 8f;
     [SerializeField] private float rollDuration = 0.25f;
-    [SerializeField] private float rollCooldown = 0.15f;
+    [SerializeField] private float rollCooldown = 0f;
 
     [Tooltip("If no move input, roll uses last facing direction.")]
     [SerializeField] private bool rollUsesFacingIfNoInput = true;
@@ -123,6 +125,59 @@ public class PlayerCombatController : MonoBehaviour
         new KnockbackStepProfile { pushEnemy = true,  force = 10f,  duration = 0.28f },
     };
 
+    [System.Serializable]
+    struct FinisherGroundAim
+    {
+        [Tooltip("How far in front of the character this facing places the effect.")]
+        public float forward;
+
+        [Tooltip("Extra shift in this facing's space, on top of the forward distance and the third-hit lunge. X is to the character's right, Y is up, Z is further forward.")]
+        public Vector3 offset;
+    }
+
+    static FinisherGroundAim DefaultFinisherAim()
+    {
+        return new FinisherGroundAim { forward = 0.6f, offset = new Vector3(0f, 0f, -0.2f) };
+    }
+
+    [Header("Finisher Ground VFX")]
+    [Tooltip("Played on the last combo hit, at the character's feet. Shows even if the swing misses. Leave empty to skip.")]
+    [SerializeField] private GameObject finisherGroundVfx;
+
+    [Tooltip("Toward the camera.")]
+    [SerializeField] private FinisherGroundAim finisherDown = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, camera and screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherDownLeft = DefaultFinisherAim();
+
+    [Tooltip("Screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherLeft = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, away from the camera and screen-left.")]
+    [SerializeField] private FinisherGroundAim finisherUpLeft = DefaultFinisherAim();
+
+    [Tooltip("Away from the camera.")]
+    [SerializeField] private FinisherGroundAim finisherUp = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, away from the camera and screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherUpRight = DefaultFinisherAim();
+
+    [Tooltip("Screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherRight = DefaultFinisherAim();
+
+    [Tooltip("Diagonal, camera and screen-right.")]
+    [SerializeField] private FinisherGroundAim finisherDownRight = DefaultFinisherAim();
+
+    [Tooltip("Seconds to wait after the last hit starts before the ground effect appears.")]
+    [Min(0f)]
+    [SerializeField] private float finisherGroundDelay = 0f;
+
+    [Tooltip("Scale multiplier. 1 is the prefab's own size.")]
+    [SerializeField] private float finisherGroundScale = 1f;
+
+    [Tooltip("How long the spawned effect stays before it is destroyed.")]
+    [SerializeField] private float finisherGroundLifetime = 2f;
+
     [Header("Attack Swing SFX")]
     [Tooltip("One swing clip per combo step (index 0 = step 1, etc). " +
              "If a slot is empty, no sound is played for that step.")]
@@ -142,6 +197,7 @@ public class PlayerCombatController : MonoBehaviour
     private static readonly int InCombatHash    = Animator.StringToHash("InCombat");
     private static readonly int AttackTrigger   = Animator.StringToHash("Attack");
     private static readonly int IsRollingHash   = Animator.StringToHash("IsRolling");
+    private static readonly int IsMovingHash    = Animator.StringToHash("IsMoving");
     private static readonly int RollTrigger     = Animator.StringToHash("Roll");
 
     private int comboIndex = 0;
@@ -150,9 +206,23 @@ public class PlayerCombatController : MonoBehaviour
     private float comboBufferUntil = 0f;
     private bool buffered = false;
 
+    // True after a swing's link point when the next hit was not buffered.
+    // Roll can cancel the rest of the combo until EndAttack.
+    private bool comboLinkOpen;
+
+    // Roll pressed during a swing. That swing finishes, then the combo stops and she rolls.
+    private bool rollQueued;
+    private bool rollDirFromStick;
+    private Vector2 queuedRollDir;
+
+    // Attack pressed during a roll. The roll finishes, then she swings in the stick direction.
+    private bool attackQueued;
+
     private float lockoutUntil = 0f;
 
     private float combatTimer = 0f;
+    private float finisherGroundDelayLeft = -1f;
+    private Vector2 finisherGroundFacing;
     private bool inCombat = false;
 
     private bool isRolling = false;
@@ -212,6 +282,11 @@ public class PlayerCombatController : MonoBehaviour
         equipment = GetComponent<PlayerEquipment>();
         climbing = GetComponent<PlayerClimbing>();
 
+        if (!softTargeting)
+            softTargeting = GetComponent<MeleeSoftTargeting>();
+        if (!softTargeting)
+            softTargeting = gameObject.AddComponent<MeleeSoftTargeting>();
+
         if (spriteAnimator)
         {
             spriteAnimator.SetBool(IsAttackingHash, false);
@@ -263,8 +338,21 @@ public class PlayerCombatController : MonoBehaviour
 
     void Update()
     {
+        if (finisherGroundDelayLeft >= 0f && !HitStopperManager.Frozen)
+        {
+            finisherGroundDelayLeft -= Time.deltaTime;
+            if (finisherGroundDelayLeft <= 0f)
+            {
+                finisherGroundDelayLeft = -1f;
+                PlaceFinisherGroundVfx();
+            }
+        }
+
         if (health != null && health.isTakingDamage)
             return;
+
+        if (isAttacking && rollQueued)
+            RememberQueuedRollDirection();
 
         if (buffered && Time.time > comboBufferUntil)
             buffered = false;
@@ -296,7 +384,14 @@ public class PlayerCombatController : MonoBehaviour
         if (jump != null && !jump.IsGrounded)
             return;
 
-        if (isRolling) return;
+        if (isRolling)
+        {
+            if (equipment != null && !equipment.HasWeapon)
+                return;
+
+            attackQueued = true;
+            return;
+        }
 
         // No weapon equipped → can't attack.
         if (equipment != null && !equipment.HasWeapon)
@@ -330,12 +425,19 @@ public class PlayerCombatController : MonoBehaviour
 
         if (!ctx.performed) return;
         if (!enableRoll) return;
-        if (isAttacking) return;
+        if (isRolling) return;
 
         if (jump != null && !jump.IsGrounded)
             return;
 
         if (Time.time < rollCooldownUntil) return;
+
+        if (isAttacking)
+        {
+            rollQueued = true;
+            RememberQueuedRollDirection();
+            return;
+        }
 
         StartRoll();
     }
@@ -349,9 +451,17 @@ public class PlayerCombatController : MonoBehaviour
         comboIndex = 1;
         buffered = false;
 
-        motor?.LockFacing(motor.GetFacing2D());
+        Vector2 intent = motor != null ? motor.GetFacing2D() : Vector2.down;
+        LungeParams p = step1;
+        float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
+
+        MeleeSoftTargeting.SoftAim aim = softTargeting != null
+            ? softTargeting.BeginCombo(intent, p.speed, p.duration, easePower)
+            : new MeleeSoftTargeting.SoftAim { facing2D = intent, speedScale = 1f, steered = false };
+
+        motor?.LockFacing(aim.facing2D);
         motor?.LockMovement(true);
-        DoStepLunge(1);
+        DoStepLunge(1, aim);
         PlaySwingSfx(1);
 
         spriteAnimator?.SetBool(IsAttackingHash, true);
@@ -398,26 +508,96 @@ public class PlayerCombatController : MonoBehaviour
                         step3;
 
         float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
-        motor.BeginAttackLunge(motor.GetFacing2D(), p.speed, p.duration, p.delay, easePower);
+        Vector2 intent = motor.GetFacing2D();
+
+        MeleeSoftTargeting.SoftAim aim = softTargeting != null
+            ? softTargeting.ResolveStep(intent, step, p.speed, p.duration, easePower)
+            : new MeleeSoftTargeting.SoftAim { facing2D = intent, speedScale = 1f, steered = false };
+
+        DoStepLunge(step, aim);
+    }
+
+    private void DoStepLunge(int step, MeleeSoftTargeting.SoftAim aim)
+    {
+        if (!useAttackLunge || motor == null) return;
+
+        bool enabled =
+            step == 1 ? lungeStep1 :
+            step == 2 ? lungeStep2 :
+                        lungeStep3;
+
+        if (!enabled) return;
+
+        LungeParams p =
+            step == 1 ? step1 :
+            step == 2 ? step2 :
+                        step3;
+
+        float easePower = p.useEaseOut ? Mathf.Max(1f, p.easeOutPower) : 0f;
+
+        // Soft targeting steers the SAME lunge — never a second magnet force.
+        if (aim.steered)
+            motor.LockFacing(aim.facing2D);
+
+        // Already in attack range → keep facing/anim, skip positional lunge.
+        if (aim.steered && aim.speedScale <= 0.001f)
+            return;
+
+        float speed = p.speed * Mathf.Max(0f, aim.speedScale);
+        motor.BeginAttackLunge(aim.facing2D, speed, p.duration, p.delay, easePower);
+    }
+
+    /// <summary>
+    /// World-space distance from player root to the far face of the melee hitbox
+    /// along attack forward. Used by soft targeting for attack spacing.
+    /// </summary>
+    public float GetMeleeHitboxReach()
+    {
+        float reach = hitboxForwardDistance;
+
+        Vector3 size = hasDefaultHitboxSize ? defaultHitboxSize : Vector3.zero;
+        if (size.sqrMagnitude > 0.0001f)
+        {
+            float depth = size.z * 0.5f * Mathf.Max(0.01f, hitboxWorldScale);
+            reach += depth;
+        }
+
+        return Mathf.Max(0.05f, reach);
     }
 
     public void TryAdvanceCombo()
     {
         if (!isAttacking) return;
 
+        if (rollQueued)
+            return;
+
         if (buffered && Time.time <= comboBufferUntil && comboIndex < maxCombo)
         {
+            comboLinkOpen = false;
             AdvanceCombo();
             return;
         }
 
         lockoutUntil = Time.time + missComboCooldown;
         buffered = false;
+        comboLinkOpen = true;
     }
 
     public void EndAttack()
     {
         if (!isAttacking) return;
+
+        if (rollQueued)
+        {
+            Vector2 dir = rollDirFromStick
+                ? queuedRollDir
+                : (motor != null ? motor.GetFacing2D() : Vector2.down);
+            ClearQueuedRoll();
+            EndCombo();
+            StartRoll(dir);
+            return;
+        }
 
         if (comboIndex >= maxCombo)
             lockoutUntil = Time.time + comboEndCooldown;
@@ -430,9 +610,13 @@ public class PlayerCombatController : MonoBehaviour
         isAttacking = false;
         comboIndex = 0;
         buffered = false;
+        comboLinkOpen = false;
+        ClearQueuedRoll();
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
+
+        softTargeting?.ClearComboTarget();
 
         motor?.CancelAttackLunge();
         motor?.LockMovement(false);
@@ -445,6 +629,15 @@ public class PlayerCombatController : MonoBehaviour
 
     public void EnableHitboxInt(int step)
     {
+        if (!IsActivePartyMember())
+        {
+            DisableHitbox();
+            return;
+        }
+
+        if (step >= maxCombo)
+            SpawnFinisherGroundVfx();
+
         if (!meleeHitbox || !meleeHitboxTransform || motor == null)
             return;
 
@@ -495,12 +688,93 @@ public class PlayerCombatController : MonoBehaviour
         hb.SetKnockback(step >= 2, step >= 3 ? 10f : 2.5f, step >= 3 ? 0.28f : 0.12f);
     }
 
+    void SpawnFinisherGroundVfx()
+    {
+        if (finisherGroundVfx == null || motor == null)
+            return;
+
+        finisherGroundFacing = motor.GetFacing2D();
+
+        if (finisherGroundDelay <= 0f)
+        {
+            finisherGroundDelayLeft = -1f;
+            PlaceFinisherGroundVfx();
+            return;
+        }
+
+        finisherGroundDelayLeft = finisherGroundDelay;
+    }
+
+    FinisherGroundAim AimForFacing(Vector2 facing)
+    {
+        float angle = Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg;
+        int octant = Mathf.RoundToInt(angle / 45f);
+        octant = (octant % 8 + 8) % 8;
+
+        switch (octant)
+        {
+            case 0: return finisherRight;
+            case 1: return finisherUpRight;
+            case 2: return finisherUp;
+            case 3: return finisherUpLeft;
+            case 4: return finisherLeft;
+            case 5: return finisherDownLeft;
+            case 6: return finisherDown;
+            default: return finisherDownRight;
+        }
+    }
+
+    void PlaceFinisherGroundVfx()
+    {
+        if (finisherGroundVfx == null || motor == null)
+            return;
+
+        Vector2 facing = finisherGroundFacing.sqrMagnitude > 0.0001f
+            ? finisherGroundFacing
+            : motor.GetFacing2D();
+        FinisherGroundAim aim = AimForFacing(facing);
+
+        Vector3 flat = motor.FacingToWorld(facing);
+        flat.y = 0f;
+        if (flat.sqrMagnitude < 0.0001f)
+            flat = Vector3.forward;
+        flat.Normalize();
+
+        Vector3 right = Vector3.Cross(Vector3.up, flat);
+        if (right.sqrMagnitude < 0.0001f)
+            right = Vector3.right;
+        else
+            right.Normalize();
+
+        Vector3 lungeEnd = motor.GetRemainingAttackLungeDisplacement();
+        Vector3 pos = transform.position
+                      + lungeEnd
+                      + flat * (aim.forward + aim.offset.z)
+                      + right * aim.offset.x;
+        pos.y = transform.position.y + aim.offset.y;
+
+        Quaternion rot = Quaternion.LookRotation(flat, Vector3.up) * finisherGroundVfx.transform.rotation;
+        GameObject vfx = Instantiate(finisherGroundVfx, pos, rot);
+        float scale = Mathf.Max(0.01f, finisherGroundScale);
+        vfx.transform.localScale = finisherGroundVfx.transform.localScale * scale;
+        HitStopVfx.Arm(vfx, finisherGroundLifetime);
+    }
+
     public void DisableHitbox()
     {
         if (meleeHitbox) meleeHitbox.SetActive(false);
         // Restore so the next Enable doesn't inherit a previous step's size by accident.
         if (hasDefaultHitboxSize)
             ApplyHitboxSize(defaultHitboxSize);
+    }
+
+    bool IsActivePartyMember()
+    {
+        if (health == null)
+            health = GetComponent<PlayerHealth>();
+        if (health == null)
+            return true;
+        return Party.Active == null || Party.Active == health;
     }
 
     void ApplyHitboxSize(Vector3 size)
@@ -555,7 +829,33 @@ public class PlayerCombatController : MonoBehaviour
         Physics.SyncTransforms();
     }
 
+    void RememberQueuedRollDirection()
+    {
+        if (motor != null && motor.TryReadStickFacing(out Vector2 dir))
+        {
+            rollDirFromStick = true;
+            queuedRollDir = dir;
+        }
+    }
+
+    void ClearQueuedRoll()
+    {
+        rollQueued = false;
+        rollDirFromStick = false;
+        queuedRollDir = Vector2.zero;
+    }
+
     private void StartRoll()
+    {
+        Vector2 rollDir2D = motor != null ? motor.GetMoveInput2D() : Vector2.zero;
+
+        if (rollDir2D.sqrMagnitude < 0.01f && rollUsesFacingIfNoInput && motor != null)
+            rollDir2D = motor.GetFacing2D();
+
+        StartRoll(rollDir2D);
+    }
+
+    private void StartRoll(Vector2 rollDir2D)
     {
         if (jump != null && !jump.IsGrounded)
             return;
@@ -568,23 +868,23 @@ public class PlayerCombatController : MonoBehaviour
         rollEndTime = Time.time + rollDuration;
         rollCooldownUntil = rollEndTime + rollCooldown;
 
-        EnterCombat();
+        if (inCombat)
+            combatTimer = combatTimeout;
 
         motor?.LockMovement(true);
-
-        Vector2 rollDir2D = motor != null ? motor.GetMoveInput2D() : Vector2.zero;
-
-        if (rollDir2D.sqrMagnitude < 0.01f && rollUsesFacingIfNoInput && motor != null)
-            rollDir2D = motor.GetFacing2D();
 
         if (rollDir2D.sqrMagnitude < 0.01f)
             rollDir2D = Vector2.down;
 
         rollDir2D.Normalize();
 
+        // Keep the roll sprite on this direction; stick changes during the roll
+        // only update pending facing for after EndRoll / the next attack.
+        motor?.LockFacing(rollDir2D);
         motor?.BeginRoll(rollDir2D, rollSpeed, rollDuration);
 
         spriteAnimator?.SetBool(IsRollingHash, true);
+        spriteAnimator?.SetBool(IsMovingHash, false);
         spriteAnimator?.ResetTrigger(RollTrigger);
         spriteAnimator?.SetTrigger(RollTrigger);
 
@@ -602,6 +902,12 @@ public class PlayerCombatController : MonoBehaviour
         spriteAnimator?.SetBool(IsRollingHash, false);
 
         combatTimer = combatTimeout;
+
+        if (attackQueued)
+        {
+            attackQueued = false;
+            StartAttack1();
+        }
     }
 
     private void ExitCombat()
@@ -632,23 +938,43 @@ public class PlayerCombatController : MonoBehaviour
 
     public void CancelCombatImmediate()
     {
+        InterruptCombatActions();
+        motor?.LockMovement(false);
+        motor?.UnlockFacing();
+        ExitCombat();
+    }
+
+    /// <summary>
+    /// Stop attack/roll/hitbox without leaving combat mode.
+    /// Used when taking a hit so HurtCombat can keep the weapon visible.
+    /// </summary>
+    public void InterruptCombatActions()
+    {
         isAttacking = false;
         isRolling = false;
 
         comboIndex = 0;
         buffered = false;
+        comboLinkOpen = false;
+        ClearQueuedRoll();
+        attackQueued = false;
+
+        softTargeting?.ClearComboTarget();
 
         spriteAnimator?.SetBool(IsAttackingHash, false);
         spriteAnimator?.SetBool(IsRollingHash, false);
         spriteAnimator?.SetInteger(ComboIndexHash, 0);
 
+        // Clear motor roll travel so TakeDamage knockback is not stacked on it.
+        // EndRoll also unlocks movement; TakeDamage re-locks for the hit reaction.
+        motor?.EndRoll();
         motor?.CancelAttackLunge();
-        motor?.LockMovement(false);
-        motor?.UnlockFacing();
-
+        // Don't unlock facing here — TakeDamage re-locks it for the hit reaction.
         DisableHitbox();
 
-        ExitCombat();
+        // Stay in combat; refresh the combat timeout so HurtCombat keeps weapon sprites.
+        if (inCombat)
+            combatTimer = combatTimeout;
     }
 
     public bool IsInCombat()

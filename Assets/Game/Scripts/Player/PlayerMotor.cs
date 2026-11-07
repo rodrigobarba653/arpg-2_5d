@@ -23,7 +23,8 @@ public class PlayerMotor : MonoBehaviour
     public bool rollActive;
     public float rollTimer;
     public float rollDuration;
-    [Range(1f, 3f)] public float rollSpeedMultiplier = 1.2f;
+    [Tooltip("Extra scale on the Roll Speed passed from PlayerCombatController. 1 = use that value as-is.")]
+    [Range(0.1f, 3f)] public float rollSpeedMultiplier = 1f;
 
     [Header("Air Control")]
     [Range(0f, 1f)]
@@ -66,6 +67,7 @@ public class PlayerMotor : MonoBehaviour
     Vector3 knockbackDir;
 
     Vector3 rollDirection;
+    float rollMoveSpeed;
 
     MovementDiagnostics diagnostics;
     bool slopeProbeHit;
@@ -155,7 +157,7 @@ public class PlayerMotor : MonoBehaviour
             rollTimer -= Time.deltaTime;
 
             moveWorld = rollDirection;
-            speed = moveSpeed * rollSpeedMultiplier;
+            speed = rollMoveSpeed;
 
             if (rollTimer <= 0f)
             {
@@ -558,6 +560,9 @@ public class PlayerMotor : MonoBehaviour
 
         rollDuration = duration;
         rollTimer = duration;
+        // Combat owns the base Roll Speed; multiplier is only an optional motor-side scale.
+        float baseSpeed = speed > 0f ? speed : moveSpeed;
+        rollMoveSpeed = baseSpeed * Mathf.Max(0.1f, rollSpeedMultiplier);
 
         Vector2 dir2D = rollDir2D;
 

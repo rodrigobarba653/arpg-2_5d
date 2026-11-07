@@ -48,6 +48,7 @@ public class PlayerSwimming : MonoBehaviour
     public float dipOvershoot = 0.05f;
 
     Transform sprite;
+    BillboardToCamera billboard;
     Vector3 spriteRest;
     bool spriteRestCached;
     Coroutine dipRoutine;
@@ -82,6 +83,8 @@ public class PlayerSwimming : MonoBehaviour
 
         if (animator != null)
             sprite = animator.transform;
+        if (sprite != null)
+            billboard = sprite.GetComponent<BillboardToCamera>();
     }
 
     void CacheAnimatorParameter()
@@ -212,8 +215,12 @@ public class PlayerSwimming : MonoBehaviour
             sprite = animator.transform;
         if (sprite == null)
             return;
+        if (billboard == null)
+            billboard = sprite.GetComponent<BillboardToCamera>();
 
-        if (!spriteRestCached)
+        // Billboard owns SpriteBody localPosition every frame. Without ExtraOffset
+        // the dip would be overwritten immediately.
+        if (billboard == null && !spriteRestCached)
         {
             spriteRest = sprite.localPosition;
             spriteRestCached = true;
@@ -240,14 +247,29 @@ public class PlayerSwimming : MonoBehaviour
 
             elapsed += Time.deltaTime;
             float u = Mathf.Clamp01(elapsed / duration);
-            Vector3 pos = spriteRest;
-            pos.y -= DipOffset(u, depth);
-            sprite.localPosition = pos;
+            float y = -DipOffset(u, depth);
+            ApplyDipOffset(y);
             yield return null;
         }
 
         RestoreSprite();
         dipRoutine = null;
+    }
+
+    void ApplyDipOffset(float localY)
+    {
+        if (billboard != null)
+        {
+            billboard.ExtraOffset = new Vector3(0f, localY, 0f);
+            return;
+        }
+
+        if (sprite == null || !spriteRestCached)
+            return;
+
+        Vector3 pos = spriteRest;
+        pos.y += localY;
+        sprite.localPosition = pos;
     }
 
     float DipOffset(float u, float depth)
@@ -289,6 +311,12 @@ public class PlayerSwimming : MonoBehaviour
         {
             StopCoroutine(dipRoutine);
             dipRoutine = null;
+        }
+
+        if (billboard != null)
+        {
+            billboard.ExtraOffset = Vector3.zero;
+            return;
         }
 
         if (sprite != null && spriteRestCached)

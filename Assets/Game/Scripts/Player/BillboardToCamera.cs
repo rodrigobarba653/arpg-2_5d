@@ -177,7 +177,43 @@ public class BillboardToCamera : MonoBehaviour
         if (targetCamera != null)
             return targetCamera;
 
-        targetCamera = Camera.main;
+        int layerBit = 1 << gameObject.layer;
+
+        // Prefer a camera that actually draws this object. Prompt lives on its
+        // own layer and is rendered by the overlay "UI Camera" in NaveTest /
+        // BattleRing, so Camera.main would billboard against the wrong view.
+        Camera main = Camera.main;
+        if (main != null && main.isActiveAndEnabled && (main.cullingMask & layerBit) != 0)
+        {
+            targetCamera = main;
+            return targetCamera;
+        }
+
+        Camera[] cameras = Camera.allCameras;
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            Camera cam = cameras[i];
+            if (cam == null || !cam.isActiveAndEnabled)
+                continue;
+            if ((cam.cullingMask & layerBit) == 0)
+                continue;
+
+            targetCamera = cam;
+            return targetCamera;
+        }
+
+        GameObject uiCamGo = GameObject.Find("UI Camera");
+        if (uiCamGo != null)
+        {
+            Camera uiCam = uiCamGo.GetComponent<Camera>();
+            if (uiCam != null)
+            {
+                targetCamera = uiCam;
+                return targetCamera;
+            }
+        }
+
+        targetCamera = main;
         return targetCamera;
     }
 
