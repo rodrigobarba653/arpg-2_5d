@@ -427,6 +427,7 @@ public class MagicCastInput : MonoBehaviour
     {
         if (blockWhileMenuOpen && MenuManager.Instance != null && MenuManager.Instance.IsOpen) return true;
         if (blockWhilePaused && GamePause.IsPaused) return true;
+        if (GameplayLock.IsLocked(GameplayLockChannels.Magic)) return true;
         return false;
     }
 

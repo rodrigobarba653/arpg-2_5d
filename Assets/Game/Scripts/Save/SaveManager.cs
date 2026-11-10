@@ -82,6 +82,9 @@ public class SaveManager : MonoBehaviour
         // Fresh start: no pickup is consumed yet.
         PickupRegistry.Clear();
 
+        // Fresh world flags / completed events for the Event System.
+        WorldState.Clear();
+
         // Wipe shared party state so New Game doesn't carry stuff over.
         PlayerInventory.ClearAll();
         PlayerWallet.ClearAll();
@@ -280,6 +283,11 @@ public class SaveManager : MonoBehaviour
         // Pickups already consumed in this play.
         data.consumedPickupIds = PickupRegistry.Snapshot();
 
+        // Event System world flags + completed event ids (no disk write here —
+        // only when the player explicitly saves a slot).
+        data.worldFlags = WorldState.SnapshotFlags();
+        data.completedEventIds = WorldState.SnapshotCompletedEvents();
+
         // Who is the player currently controlling.
         if (Party.Active != null && Party.Active.character != null)
             data.activeCharacterId = Party.Active.character.id;
@@ -299,7 +307,18 @@ public class SaveManager : MonoBehaviour
             return;
         }
 
-        FreezePlayerForTransition();
+        string sceneToLoad = !string.IsNullOrEmpty(data.sceneName)
+            ? data.sceneName
+            : defaultGameplayScene;
+        bool sameScene = SceneManager.GetActiveScene().name == sceneToLoad;
+
+        // Freeze is only safe when a real scene change will re-enable the player
+        // via HandleSceneLoadedNextFrame. Same-scene loads (TestLab F9) must NOT
+        // deactivate party members — ApplyState would then see an empty
+        // PlayerHealth.All and leave the player stuck inactive.
+        if (!sameScene)
+            FreezePlayerForTransition();
+
         BeginLoad(data);
     }
 
@@ -313,10 +332,14 @@ public class SaveManager : MonoBehaviour
         // ItemPickup.Awake sees the correct state and hides itself if needed.
         PickupRegistry.RestoreFrom(data.consumedPickupIds);
 
+        // WorldState before scene load so EventRunners.OnEnable can sync
+        // Persistent Once. Null lists on older saves → empty state.
+        WorldState.RestoreFrom(data.worldFlags, data.completedEventIds);
+
         string sceneToLoad = !string.IsNullOrEmpty(data.sceneName) ? data.sceneName : defaultGameplayScene;
 
         if (SceneManager.GetActiveScene().name == sceneToLoad)
-            // Already in the scene → apply immediately on next frame
+            // Already in the scene → apply immediately (player stays active).
             ApplyPendingLoad();
         else
         {
@@ -535,7 +558,39 @@ public class SaveManager : MonoBehaviour
         var data = pendingLoad;
         pendingLoad = null;
 
+        // Safety for same-scene / interrupted loads: never leave party members
+        // deactivated from FreezePlayerForTransition.
+        ReenableInactivePartyMembers();
         ApplyState(data);
+    }
+
+    /// <summary>
+    /// Re-activates party member roots that FreezePlayerForTransition hid.
+    /// Inactive PlayerHealths unregister from PlayerHealth.All, so ApplyState
+    /// would otherwise fail and the player would stay stuck unable to move.
+    /// </summary>
+    void ReenableInactivePartyMembers()
+    {
+        if (PartyRoot.Instance == null)
+        {
+            if (PersistentPlayer.Instance != null &&
+                !PersistentPlayer.Instance.gameObject.activeSelf)
+            {
+                PersistentPlayer.Instance.gameObject.SetActive(true);
+            }
+            return;
+        }
+
+        // PartyRoot slots hold the character roots even when inactive.
+        var root = PartyRoot.Instance;
+        var behaviours = root.GetComponentsInChildren<PlayerHealth>(includeInactive: true);
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] == null)
+                continue;
+            if (!behaviours[i].gameObject.activeSelf)
+                behaviours[i].gameObject.SetActive(true);
+        }
     }
 
     public void ApplyState(SaveData data)
@@ -546,6 +601,12 @@ public class SaveManager : MonoBehaviour
 
         // Player
         var players = PlayerHealth.All;
+        if (players.Count == 0)
+        {
+            ReenableInactivePartyMembers();
+            players = PlayerHealth.All;
+        }
+
         if (players.Count == 0)
         {
             Debug.LogWarning($"[SaveManager] ApplyState: no PlayerHealth found in scene " +

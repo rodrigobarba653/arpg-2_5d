@@ -83,14 +83,13 @@ public class PartyMemberControl : MonoBehaviour
         if (!isControlled)
             ForceHitboxesOff();
 
-        // Toggle PlayerInput too — when re-enabled it discards any in-flight
-        // input state so a button held during the previous character's actions
-        // doesn't carry over (e.g. pickup-interact triggering a jump on swap).
+        // Toggle PlayerInput via PlayerInputGate so GamePause / GameplayLock /
+        // LoadingScreen ownership is preserved. Disable first so the next
+        // enable cycle discards in-flight input (e.g. held interact → jump).
         if (playerInput != null)
         {
-            // Disable first so the next enable cycle starts clean.
             playerInput.enabled = false;
-            playerInput.enabled = isControlled;
+            PlayerInputGate.Refresh(playerInput);
         }
 
         // Hide all renderers (sprite + shadow + child sprites etc.).

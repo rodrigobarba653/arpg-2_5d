@@ -40,6 +40,7 @@ public class PlayTestBootstrapKickstarter : MonoBehaviour
         }
 
         PickupRegistry.Clear();
+        WorldState.Clear();
         PlayerInventory.ClearAll();
         PlayerWallet.ClearAll();
 

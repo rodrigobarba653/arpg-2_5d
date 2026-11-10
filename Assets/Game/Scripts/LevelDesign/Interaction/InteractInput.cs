@@ -10,9 +10,13 @@ using UnityEngine.InputSystem;
 ///   Keyboard: Enter, E
 ///   Gamepad : ButtonSouth (X on PlayStation, A on Xbox)
 ///
-/// This way the system works out of the box on PC and gamepad, and the user
-/// can later switch to a proper action defined inside PlayerControls.inputactions
-/// without changing any code.
+/// KNOWN CONFLICT (Sprint 01 — binding migration deferred):
+/// Jump in PlayerControls also binds Gamepad ButtonSouth. On gamepad, a single
+/// South press can fire both Jump and Interact in the same frame. Do not change
+/// those bindings in Sprint 01; preserve current feel. A formal Interact action
+/// + remapping will be a later dedicated pass.
+///
+/// When <see cref="GameplayLock"/> holds the Interact channel, presses are ignored.
 /// </summary>
 public static class InteractInput
 {
@@ -25,7 +29,8 @@ public static class InteractInput
             _default = new InputAction("Interact", InputActionType.Button);
             _default.AddBinding("<Keyboard>/enter");
             _default.AddBinding("<Keyboard>/e");
-            _default.AddBinding("<Gamepad>/buttonSouth"); // X on PS, A on Xbox
+            // Preserved intentionally — see class summary for South/Jump conflict.
+            _default.AddBinding("<Gamepad>/buttonSouth");
             _default.Enable();
         }
 
@@ -41,6 +46,9 @@ public static class InteractInput
     /// </summary>
     public static bool WasPressedThisFrame(InputActionReference overrideAction)
     {
+        if (GameplayLock.IsLocked(GameplayLockChannels.Interact))
+            return false;
+
         if (overrideAction != null && overrideAction.action != null)
         {
             if (!overrideAction.action.enabled)

@@ -15,6 +15,16 @@ public class SimpleDoor : MonoBehaviour
     [Header("Open Mode")]
     public OpenMode openMode = OpenMode.Auto;
 
+    [Header("Persistence")]
+    [Tooltip("Stable id for WorldState (open + unlocked). Required when Persist State is on.")]
+    public string persistentId = "";
+
+    [Tooltip("Save/load open and unlocked via WorldState. No disk write until the player saves.")]
+    public bool persistState = false;
+
+    [Tooltip("Inspector default when no saved state exists (New Game).")]
+    public bool startOpen = false;
+
     [Header("Motion Mode")]
     public bool useRotate = true;
     public bool useSlideUp = false;
@@ -31,7 +41,7 @@ public class SimpleDoor : MonoBehaviour
 
     [Header("Slide Horizontal")]
     public float openDistance = 3f;
-    public bool slideToRight = true; // true = derecha, false = izquierda
+    public bool slideToRight = true;
 
     [Header("Double Horizontal")]
     [Tooltip("Left panel — slides AWAY from the door's center along -transform.right.")]
@@ -76,18 +86,25 @@ public class SimpleDoor : MonoBehaviour
     public AudioSource sfx;
 
     public AudioClip openSound;
+    public AudioClip closeSound;
     public AudioClip lockedSound;
 
     [Range(0f, 1f)] public float audioVolume = 1f;
 
     [Header("Events")]
     public UnityEvent onOpened;
+    public UnityEvent onClosed;
     public UnityEvent onLockedRefused;
 
     public bool IsOpen => isOpen;
+    public bool IsMoving => isMoving;
+    public bool IsUnlocked => isUnlocked || isOpen;
 
     bool isOpen;
     bool isMoving;
+    bool isUnlocked;
+    bool posesReady;
+    Coroutine motionRoutine;
 
     Vector3 closedPosition;
     Vector3 openPosition;
@@ -106,8 +123,6 @@ public class SimpleDoor : MonoBehaviour
 
     void OnValidate()
     {
-        // asegurar que solo un modo de movimiento esté activo (prioridad:
-        // Rotate > SlideUp > SlideHorizontal > DoubleHorizontal)
         int activeModes = 0;
         if (useRotate)           activeModes++;
         if (useSlideUp)          activeModes++;
@@ -134,11 +149,34 @@ public class SimpleDoor : MonoBehaviour
         }
     }
 
+    void OnEnable()
+    {
+        WorldState.OnRestored += ApplyPersistedState;
+        WarnIfDuplicatePersistentId();
+    }
+
+    void OnDisable()
+    {
+        WorldState.OnRestored -= ApplyPersistedState;
+        ReleaseJumpLock();
+    }
+
     void Start()
     {
         if (interactPrompt != null)
             interactPrompt.SetActive(false);
 
+        CachePoses();
+        posesReady = true;
+
+        if (persistState && !string.IsNullOrEmpty(persistentId))
+            ApplyPersistedState();
+        else if (startOpen)
+            SetStateImmediate(true, unlocked: true);
+    }
+
+    void CachePoses()
+    {
         closedPosition = transform.position;
         closedRotation = transform.rotation;
 
@@ -147,9 +185,7 @@ public class SimpleDoor : MonoBehaviour
         );
 
         if (useSlideUp)
-        {
             openPosition = closedPosition + transform.up * openHeight;
-        }
 
         if (useSlideHorizontal)
         {
@@ -175,7 +211,6 @@ public class SimpleDoor : MonoBehaviour
 
     void Update()
     {
-        // Key mode: while player is inside the trigger, listen for the interact button.
         if (openMode == OpenMode.Key && playerInRange != null && !isOpen)
         {
             if (InteractInput.WasPressedThisFrame(interactAction))
@@ -188,7 +223,6 @@ public class SimpleDoor : MonoBehaviour
         var inv = other.GetComponentInParent<PlayerInventory>();
         var jump = other.GetComponentInParent<PlayerJump>();
 
-        // Lock jump for any player entering the trigger (Auto / Key).
         if (lockJumpInside && jump != null && !jumpLockApplied && openMode != OpenMode.Switch)
         {
             playerJump = jump;
@@ -208,8 +242,6 @@ public class SimpleDoor : MonoBehaviour
             playerInRange = inv;
             if (!isOpen) ShowPrompt(true);
         }
-
-        // Switch mode: trigger does nothing — caller invokes OpenDoor().
     }
 
     void OnTriggerExit(Collider other)
@@ -228,11 +260,6 @@ public class SimpleDoor : MonoBehaviour
         }
     }
 
-    void OnDisable()
-    {
-        ReleaseJumpLock();
-    }
-
     void ReleaseJumpLock()
     {
         if (jumpLockApplied && playerJump != null)
@@ -249,22 +276,71 @@ public class SimpleDoor : MonoBehaviour
     }
 
     /// <summary>
-    /// Generic open. Used by Auto, Switch, and after a successful key check.
+    /// Generic open. Used by Auto, Switch, Event actions, and after a successful key check.
+    /// No-ops if already open or mid-motion.
     /// </summary>
     public void OpenDoor()
     {
         if (isOpen || isMoving) return;
-        StartCoroutine(OpenRoutine());
+        motionRoutine = StartCoroutine(OpenRoutine());
     }
 
     /// <summary>
-    /// Try to open this door using the given inventory. Returns true if it opened.
+    /// Close the door. No-ops if already closed or mid-motion.
+    /// </summary>
+    public void CloseDoor()
+    {
+        if (!isOpen || isMoving) return;
+        motionRoutine = StartCoroutine(CloseRoutine());
+    }
+
+    /// <summary>
+    /// Instant open/close for save restore / unlock. No sound, no UnityEvents.
+    /// </summary>
+    /// <param name="writePersist">
+    /// False when applying a loaded WorldState (avoid rewriting defaults into flags).
+    /// True when unlocking via gameplay actions.
+    /// </param>
+    public void SetStateImmediate(bool open, bool unlocked = false, bool writePersist = true)
+    {
+        if (motionRoutine != null)
+        {
+            StopCoroutine(motionRoutine);
+            motionRoutine = null;
+        }
+
+        isMoving = false;
+        isOpen = open;
+        if (open || unlocked)
+            isUnlocked = true;
+        else
+            isUnlocked = unlocked;
+
+        if (posesReady)
+            ApplyPose(open);
+
+        ShowPrompt(false);
+
+        if (writePersist)
+            WritePersistedState();
+    }
+
+    /// <summary>
+    /// Try to open this door using the given inventory. Returns true if it opened
+    /// or was already open/unlocked.
+    /// Unlocking and opening are separate: once unlocked, the key is never consumed again.
     /// </summary>
     public bool TryOpenWithKey(PlayerInventory inventory)
     {
         if (isOpen) return true;
 
-        // 1) Direct ItemDefinition reference — preferred path.
+        // Already unlocked (this session or from save) — open without consuming another key.
+        if (isUnlocked)
+        {
+            OpenDoor();
+            return true;
+        }
+
         if (requiredKey != null)
         {
             if (inventory == null || !inventory.HasItem(requiredKey))
@@ -280,18 +356,18 @@ public class SimpleDoor : MonoBehaviour
             if (consume)
                 inventory.Remove(requiredKey, 1);
 
+            MarkUnlocked();
             OpenDoor();
             return true;
         }
 
-        // 2) No key required at all → just open.
         if (string.IsNullOrEmpty(requiredKeyId))
         {
+            MarkUnlocked();
             OpenDoor();
             return true;
         }
 
-        // 3) Fallback: match by KeyItem.keyId string.
         if (inventory == null)
         {
             RefuseLocked();
@@ -308,8 +384,15 @@ public class SimpleDoor : MonoBehaviour
         if (consumeKeyOnUse || key.consumeOnUse)
             inventory.Remove(key, 1);
 
+        MarkUnlocked();
         OpenDoor();
         return true;
+    }
+
+    void MarkUnlocked()
+    {
+        isUnlocked = true;
+        WritePersistedState();
     }
 
     void RefuseLocked()
@@ -321,75 +404,69 @@ public class SimpleDoor : MonoBehaviour
     IEnumerator OpenRoutine()
     {
         isMoving = true;
-
         AudioManager.PlaySfxOrFallback(openSound, transform.position, audioVolume, sfx);
 
-        // 🔥 ROTATE
+        yield return AnimateTowardOpen();
+
+        isOpen = true;
+        isUnlocked = true;
+        isMoving = false;
+        motionRoutine = null;
+
+        ShowPrompt(false);
+        WritePersistedState();
+        onOpened?.Invoke();
+    }
+
+    IEnumerator CloseRoutine()
+    {
+        isMoving = true;
+        AudioManager.PlaySfxOrFallback(closeSound, transform.position, audioVolume, sfx);
+
+        yield return AnimateTowardClosed();
+
+        isOpen = false;
+        isMoving = false;
+        motionRoutine = null;
+
+        WritePersistedState();
+        onClosed?.Invoke();
+    }
+
+    IEnumerator AnimateTowardOpen()
+    {
         if (useRotate)
         {
             while (Quaternion.Angle(transform.rotation, openRotation) > 0.5f)
             {
                 transform.rotation = Quaternion.Lerp(
-                    transform.rotation,
-                    openRotation,
-                    Time.deltaTime * rotateSpeed
-                );
-
+                    transform.rotation, openRotation, Time.deltaTime * rotateSpeed);
                 yield return null;
             }
-
             transform.rotation = openRotation;
         }
-
-        // 🔥 SLIDE UP
-        else if (useSlideUp)
+        else if (useSlideUp || useSlideHorizontal)
         {
             while (Vector3.Distance(transform.position, openPosition) > 0.01f)
             {
                 transform.position = Vector3.MoveTowards(
-                    transform.position,
-                    openPosition,
-                    moveSpeed * Time.deltaTime
-                );
-
+                    transform.position, openPosition, moveSpeed * Time.deltaTime);
                 yield return null;
             }
-
             transform.position = openPosition;
         }
-
-        // 🔥 SLIDE HORIZONTAL
-        else if (useSlideHorizontal)
-        {
-            while (Vector3.Distance(transform.position, openPosition) > 0.01f)
-            {
-                transform.position = Vector3.MoveTowards(
-                    transform.position,
-                    openPosition,
-                    moveSpeed * Time.deltaTime
-                );
-
-                yield return null;
-            }
-
-            transform.position = openPosition;
-        }
-
-        // 🔥 DOUBLE HORIZONTAL
         else if (useDoubleHorizontal)
         {
             bool leftDone, rightDone;
-
             do
             {
-                leftDone  = true;
+                leftDone = true;
                 rightDone = true;
 
                 if (leftPanel != null)
                 {
                     leftPanel.position = Vector3.MoveTowards(
                         leftPanel.position, leftPanelOpen, moveSpeed * Time.deltaTime);
-
                     leftDone = Vector3.Distance(leftPanel.position, leftPanelOpen) <= 0.01f;
                 }
 
@@ -397,22 +474,148 @@ public class SimpleDoor : MonoBehaviour
                 {
                     rightPanel.position = Vector3.MoveTowards(
                         rightPanel.position, rightPanelOpen, moveSpeed * Time.deltaTime);
-
                     rightDone = Vector3.Distance(rightPanel.position, rightPanelOpen) <= 0.01f;
                 }
 
                 yield return null;
-
             } while (!leftDone || !rightDone);
 
-            if (leftPanel  != null) leftPanel.position  = leftPanelOpen;
+            if (leftPanel != null) leftPanel.position = leftPanelOpen;
             if (rightPanel != null) rightPanel.position = rightPanelOpen;
         }
+    }
 
-        isOpen = true;
-        isMoving = false;
+    IEnumerator AnimateTowardClosed()
+    {
+        if (useRotate)
+        {
+            while (Quaternion.Angle(transform.rotation, closedRotation) > 0.5f)
+            {
+                transform.rotation = Quaternion.Lerp(
+                    transform.rotation, closedRotation, Time.deltaTime * rotateSpeed);
+                yield return null;
+            }
+            transform.rotation = closedRotation;
+        }
+        else if (useSlideUp || useSlideHorizontal)
+        {
+            while (Vector3.Distance(transform.position, closedPosition) > 0.01f)
+            {
+                transform.position = Vector3.MoveTowards(
+                    transform.position, closedPosition, moveSpeed * Time.deltaTime);
+                yield return null;
+            }
+            transform.position = closedPosition;
+        }
+        else if (useDoubleHorizontal)
+        {
+            bool leftDone, rightDone;
+            do
+            {
+                leftDone = true;
+                rightDone = true;
 
-        ShowPrompt(false);
-        onOpened?.Invoke();
+                if (leftPanel != null)
+                {
+                    leftPanel.position = Vector3.MoveTowards(
+                        leftPanel.position, leftPanelClosed, moveSpeed * Time.deltaTime);
+                    leftDone = Vector3.Distance(leftPanel.position, leftPanelClosed) <= 0.01f;
+                }
+
+                if (rightPanel != null)
+                {
+                    rightPanel.position = Vector3.MoveTowards(
+                        rightPanel.position, rightPanelClosed, moveSpeed * Time.deltaTime);
+                    rightDone = Vector3.Distance(rightPanel.position, rightPanelClosed) <= 0.01f;
+                }
+
+                yield return null;
+            } while (!leftDone || !rightDone);
+
+            if (leftPanel != null) leftPanel.position = leftPanelClosed;
+            if (rightPanel != null) rightPanel.position = rightPanelClosed;
+        }
+    }
+
+    void ApplyPose(bool open)
+    {
+        if (useRotate)
+        {
+            transform.rotation = open ? openRotation : closedRotation;
+        }
+        else if (useSlideUp || useSlideHorizontal)
+        {
+            transform.position = open ? openPosition : closedPosition;
+        }
+        else if (useDoubleHorizontal)
+        {
+            if (leftPanel != null)
+                leftPanel.position = open ? leftPanelOpen : leftPanelClosed;
+            if (rightPanel != null)
+                rightPanel.position = open ? rightPanelOpen : rightPanelClosed;
+        }
+    }
+
+    void ApplyPersistedState()
+    {
+        if (!posesReady || !persistState)
+            return;
+
+        if (string.IsNullOrEmpty(persistentId))
+        {
+            Debug.LogWarning(
+                $"[SimpleDoor] Persist State enabled on '{name}' but persistentId is empty.",
+                this);
+            return;
+        }
+
+        // No saved keys yet → Inspector default.
+        if (!WorldState.HasFlag(OpenFlagId()) && !WorldState.HasFlag(UnlockedFlagId()))
+        {
+            if (startOpen)
+                SetStateImmediate(true, unlocked: true, writePersist: false);
+            else
+                SetStateImmediate(false, unlocked: false, writePersist: false);
+            return;
+        }
+
+        bool unlocked = WorldState.GetFlag(UnlockedFlagId());
+        bool open = WorldState.GetFlag(OpenFlagId());
+        SetStateImmediate(open, unlocked || open, writePersist: false);
+    }
+
+    void WritePersistedState()
+    {
+        if (!persistState || string.IsNullOrEmpty(persistentId))
+            return;
+
+        WorldState.SetFlag(OpenFlagId(), isOpen);
+        WorldState.SetFlag(UnlockedFlagId(), isUnlocked || isOpen);
+    }
+
+    string OpenFlagId() => $"door.{persistentId}.open";
+    string UnlockedFlagId() => $"door.{persistentId}.unlocked";
+
+    void WarnIfDuplicatePersistentId()
+    {
+        if (string.IsNullOrEmpty(persistentId))
+            return;
+
+        var doors = Object.FindObjectsByType<SimpleDoor>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        for (int i = 0; i < doors.Length; i++)
+        {
+            var other = doors[i];
+            if (other == null || other == this)
+                continue;
+            if (other.persistentId != persistentId)
+                continue;
+
+            Debug.LogWarning(
+                $"[SimpleDoor] Duplicate persistentId '{persistentId}' on '{name}' and '{other.name}'.",
+                this);
+            break;
+        }
     }
 }

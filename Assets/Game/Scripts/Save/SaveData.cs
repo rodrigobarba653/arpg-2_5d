@@ -72,6 +72,22 @@ public class SaveData
     [Tooltip("IDs of pickups that have been collected. Their ItemPickup will " +
              "hide itself on Awake when its pickupId appears in this list.")]
     public List<string> consumedPickupIds = new List<string>();
+
+    [Tooltip("World flags written by the Event System. Missing / null on older " +
+             "saves is treated as empty (all flags false).")]
+    public List<SavedWorldFlag> worldFlags = new List<SavedWorldFlag>();
+
+    [Tooltip("Stable EventRunner eventIds that completed successfully. " +
+             "Missing / null on older saves is treated as empty.")]
+    public List<string> completedEventIds = new List<string>();
+}
+
+/// <summary>One world flag row in the save file.</summary>
+[Serializable]
+public struct SavedWorldFlag
+{
+    public string id;
+    public bool value;
 }
 
 /// <summary>One row of inventory storage in the save file.</summary>

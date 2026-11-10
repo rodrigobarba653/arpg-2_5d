@@ -144,6 +144,9 @@ public class PartySwapInput : MonoBehaviour
         if (blockWhilePaused && GamePause.IsPaused)
             return;
 
+        if (GameplayLock.IsLocked(GameplayLockChannels.PartySwap))
+            return;
+
         if (Party.MemberCount < 2)
         {
             if (debugLog) Debug.Log("[PartySwapInput] Only one party member — nothing to swap to.");

@@ -379,6 +379,7 @@ public class MenuManager : MonoBehaviour
     {
         if (IsOpen) return;
         if (IsBlockedInCurrentScene) return;
+        if (GameplayLock.IsLocked(GameplayLockChannels.Menu)) return;
 
         EnsureEventSystem();
 

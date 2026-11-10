@@ -51,15 +51,15 @@ public class PlayerPauseHandler : MonoBehaviour
             motor.LockMovement(true);
         }
 
-        // Disable input so Input System callbacks stop firing entirely.
-        if (playerInput != null)
-            playerInput.enabled = false;
+        // Disable via gate so GameplayLock / party dormancy stay consistent.
+        PlayerInputGate.Refresh(playerInput);
     }
 
     void UnfreezePlayer()
     {
-        if (playerInput != null)
-            playerInput.enabled = true;
+        // Never blindly re-enable — GameplayLock, LoadingScreen→pause, or a
+        // dormant party member may still own the disabled state.
+        PlayerInputGate.Refresh(playerInput);
 
         if (motor != null)
             motor.LockMovement(false);
