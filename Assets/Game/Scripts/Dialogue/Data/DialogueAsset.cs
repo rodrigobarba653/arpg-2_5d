@@ -16,6 +16,11 @@ public class DialogueAsset : ScriptableObject
     [Tooltip("When true (interactive), acquire GameplayLock.PlayerControl.")]
     public bool lockGameplay = true;
 
+    [Tooltip("When set, this asset's choice panel placement replaces DialogueLayoutSettings.")]
+    public bool overrideChoicePresentation;
+
+    public DialogueChoicePresentation choicePresentation = DialogueChoicePresentation.LowerCenterDefault;
+
     [SerializeReference]
     public List<DialogueNode> nodes = new List<DialogueNode>();
 

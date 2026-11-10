@@ -9,6 +9,7 @@ public class DialogueAssetEditor : Editor
     static readonly Type[] NodeTypes =
     {
         typeof(DialogueLineNode),
+        typeof(DialogueChoiceNode),
         typeof(DialogueEndNode),
     };
 
@@ -16,6 +17,8 @@ public class DialogueAssetEditor : Editor
     SerializedProperty entryNodeId;
     SerializedProperty defaultTypewriterCharsPerSecond;
     SerializedProperty lockGameplay;
+    SerializedProperty overrideChoicePresentation;
+    SerializedProperty choicePresentation;
     SerializedProperty nodes;
     ReorderableList nodeList;
 
@@ -25,6 +28,8 @@ public class DialogueAssetEditor : Editor
         entryNodeId = serializedObject.FindProperty("entryNodeId");
         defaultTypewriterCharsPerSecond = serializedObject.FindProperty("defaultTypewriterCharsPerSecond");
         lockGameplay = serializedObject.FindProperty("lockGameplay");
+        overrideChoicePresentation = serializedObject.FindProperty("overrideChoicePresentation");
+        choicePresentation = serializedObject.FindProperty("choicePresentation");
         nodes = serializedObject.FindProperty("nodes");
 
         nodeList = new ReorderableList(serializedObject, nodes, true, true, true, true)
@@ -43,6 +48,9 @@ public class DialogueAssetEditor : Editor
         EditorGUILayout.PropertyField(entryNodeId);
         EditorGUILayout.PropertyField(defaultTypewriterCharsPerSecond);
         EditorGUILayout.PropertyField(lockGameplay);
+        EditorGUILayout.PropertyField(overrideChoicePresentation);
+        if (overrideChoicePresentation.boolValue)
+            EditorGUILayout.PropertyField(choicePresentation);
         EditorGUILayout.Space(6);
         nodeList.DoLayoutList();
         serializedObject.ApplyModifiedProperties();

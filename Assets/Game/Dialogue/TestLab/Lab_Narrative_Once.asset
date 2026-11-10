@@ -17,18 +17,24 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 0
   nodes:
-  - rid: 8969645638822134179
+  - rid: 8969645638822134233
+  - rid: 8969645638822134236
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134179
+    - rid: 8969645638822134233
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: no1
         speakerId: active_player
         speakerDisplayName: 
         text: I'll only say this once (persistent flag).
+        textVariants: []
         portraitExpression: Neutral
-        nextNodeId: 
+        nextNodeId: no_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+    - rid: 8969645638822134236
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: no_end

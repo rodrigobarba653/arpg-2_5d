@@ -17,35 +17,37 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134164
-  - rid: 8969645638822134165
-  - rid: 8969645638822134168
+  - rid: 8969645638822134218
+  - rid: 8969645638822134219
+  - rid: 8969645638822134222
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134164
+    - rid: 8969645638822134218
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: f1
         speakerId: villager_a
         speakerDisplayName: 
         text: Fallback shared dialogue (no override matched).
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: f2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134165
+    - rid: 8969645638822134219
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: f2
         speakerId: active_player
         speakerDisplayName: 
         text: I hear you.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: f_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134168
+    - rid: 8969645638822134222
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: f_end

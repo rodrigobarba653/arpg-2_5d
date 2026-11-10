@@ -17,35 +17,37 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134166
-  - rid: 8969645638822134167
-  - rid: 8969645638822134171
+  - rid: 8969645638822134220
+  - rid: 8969645638822134221
+  - rid: 8969645638822134225
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134166
+    - rid: 8969645638822134220
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: j1
         speakerId: villager_a
         speakerDisplayName: 
         text: Jyn! Good to see you.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: j2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134167
+    - rid: 8969645638822134221
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: j2
         speakerId: active_player
         speakerDisplayName: 
         text: "Likewise \u2014 Jyn path."
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: j_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134171
+    - rid: 8969645638822134225
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: j_end

@@ -163,6 +163,7 @@ public class DialogueLayoutSolver
         Rect safe = GetEffectiveSafeScreenRect();
         Vector2 size = ResolveSize(view, sizeHint, ambient: false);
         ApplyInteractiveWidth(view, size.x);
+        UseFittedHeight(view, ref size);
 
         Vector2 manual = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
         Vector2 pivot = PivotForConversationSide(slot.side);
@@ -392,6 +393,7 @@ public class DialogueLayoutSolver
         Rect safe = GetEffectiveSafeScreenRect();
         Vector2 size = ResolveSize(view, sizeHint, ambient: false);
         ApplyInteractiveWidth(view, size.x);
+        UseFittedHeight(view, ref size);
 
         Vector2 manualOffset = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
         float pad = CandidatePaddingScreen;
@@ -751,6 +753,15 @@ public class DialogueLayoutSolver
             heightLocal = view.rectTransform.sizeDelta.y;
 
         view.rectTransform.sizeDelta = new Vector2(widthLocal, heightLocal);
+        view.FitHeightToBody();
+    }
+
+    void UseFittedHeight(DialogueChatboxView view, ref Vector2 size)
+    {
+        float scale = canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f;
+        float fitted = view.rectTransform.sizeDelta.y * scale;
+        if (fitted > 8f)
+            size.y = fitted;
     }
 
     Vector2 ResolveSize(DialogueChatboxView view, Vector2 sizeHint, bool ambient)

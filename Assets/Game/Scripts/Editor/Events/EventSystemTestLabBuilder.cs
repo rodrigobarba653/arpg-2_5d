@@ -276,6 +276,69 @@ public static class EventSystemTestLabBuilder
             "OK");
     }
 
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Line Variant Fixture (Phase B Step 1)", false, 207)]
+    public static void AddDialogueLineVariantFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateLineVariantFixture();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added NPC_LineVariants at (0, 1, -28).\n" +
+            "One shared dialogue. Non-blocking so Q / Left Trigger can swap mid-talk.\n" +
+            "Does not rebuild Phase A fixtures. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Outcome Fixtures (Phase B Step 2)", false, 208)]
+    public static void AddDialogueOutcomeFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateOutcomeFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added outcome pads along z≈-32.\n" +
+            "Green complete, red fail, orange cancel, blue victim, purple interrupt.\n" +
+            "Does not rebuild Phase A or the green NPC_LineVariants. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Choice Fixture (Phase B Step 3)", false, 209)]
+    public static void AddDialogueChoiceFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateChoiceFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added choice NPCs along z≈-36.\n" +
+            "Gold converge, cyan automatic, red bad target, blue cancel.\n" +
+            "E talks. W/S or arrows move the menu. Does not rebuild older fixtures. Save the scene.",
+            "OK");
+    }
+
     /// <summary>Batchmode entry: Unity -executeMethod EventSystemTestLabBuilder.SetupCameraBatch</summary>
     public static void SetupCameraBatch()
     {
@@ -1297,7 +1360,7 @@ public static class EventSystemTestLabBuilder
                 displayName = "Jyn",
                 expressions = new System.Collections.Generic.List<PortraitExpression>
                 {
-                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("Jyn_Placeholder") },
                 },
             },
             new CharacterPortraitSet
@@ -1306,7 +1369,7 @@ public static class EventSystemTestLabBuilder
                 displayName = "Ax",
                 expressions = new System.Collections.Generic.List<PortraitExpression>
                 {
-                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("Ax_Placeholder") },
                 },
             },
             new CharacterPortraitSet
@@ -1330,6 +1393,17 @@ public static class EventSystemTestLabBuilder
         };
         EditorUtility.SetDirty(roster);
         return roster;
+    }
+
+    const string PlaceholderPortraitFolder = "Assets/Game/Dialogue/Portraits/Placeholders";
+
+    static Sprite LoadPlaceholderPortrait(string spriteName)
+    {
+        string path = $"{PlaceholderPortraitFolder}/{spriteName}.jpg";
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sprite == null)
+            Debug.LogWarning($"[EventSystemTestLab] Missing placeholder portrait at {path}.");
+        return sprite;
     }
 
     static DialogueAsset EnsureDialogueAsset(
@@ -1517,5 +1591,408 @@ public static class EventSystemTestLabBuilder
         host.speechAnchor = anchor.transform;
 
         return host;
+    }
+
+    /// <summary>
+    /// One linear DialogueAsset with per-character body text.
+    /// Does not rewrite Phase A assets or destroy Phase A scene objects.
+    /// </summary>
+    static void CreateLineVariantFixture()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_LineVariants");
+
+        var asset = CreateLineVariantAsset();
+        var host = CreateNpcCapsule(
+            "NPC_LineVariants",
+            new Vector3(0f, 1f, -28f),
+            new Color(0.2f, 0.85f, 0.55f),
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        // Non-blocking so QA can swap party mid-session and confirm the id stays frozen.
+        host.interactiveLockGameplay = false;
+        EditorUtility.SetDirty(host);
+    }
+
+    static DialogueAsset CreateLineVariantAsset()
+    {
+        const string assetName = "Lab_Line_Variants";
+        string path = $"{DialogueAssetFolder}/{assetName}.asset";
+        var asset = AssetDatabase.LoadAssetAtPath<DialogueAsset>(path);
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<DialogueAsset>();
+            AssetDatabase.CreateAsset(asset, path);
+        }
+
+        asset.dialogueId = "lab_line_variants";
+        asset.lockGameplay = false;
+        asset.defaultTypewriterCharsPerSecond = 48f;
+        asset.entryNodeId = "v1";
+        asset.nodes = new System.Collections.Generic.List<DialogueNode>
+        {
+            new DialogueLineNode
+            {
+                nodeId = "v1",
+                speakerId = "villager_a",
+                text = "We should investigate.",
+                nextNodeId = "v2",
+                portraitExpression = "Neutral",
+                textVariants = new System.Collections.Generic.List<DialogueTextVariant>
+                {
+                    new DialogueTextVariant { characterId = "ax", text = "Let's go! I'm not scared." },
+                    new DialogueTextVariant { characterId = "jyn", text = "We should approach carefully." },
+                },
+            },
+            new DialogueLineNode
+            {
+                nodeId = "v2",
+                speakerId = "villager_a",
+                text = "The road looks the same either way.",
+                nextNodeId = "v3",
+                portraitExpression = "Neutral",
+            },
+            new DialogueLineNode
+            {
+                nodeId = "v3",
+                speakerId = "active_player",
+                text = "I'll follow your lead.",
+                nextNodeId = "v4",
+                portraitExpression = "Neutral",
+                textVariants = new System.Collections.Generic.List<DialogueTextVariant>
+                {
+                    new DialogueTextVariant { characterId = "ax", text = "I'll take point." },
+                },
+            },
+            new DialogueLineNode
+            {
+                nodeId = "v4",
+                speakerId = "villager_a",
+                text = "Blank variants fall back to this.",
+                nextNodeId = "v_end",
+                portraitExpression = "Neutral",
+                textVariants = new System.Collections.Generic.List<DialogueTextVariant>
+                {
+                    new DialogueTextVariant { characterId = "ax", text = "" },
+                },
+            },
+            new DialogueEndNode { nodeId = "v_end" },
+        };
+
+        EditorUtility.SetDirty(asset);
+        AssetDatabase.SaveAssets();
+        return asset;
+    }
+
+    /// <summary>
+    /// OncePersistent pads for Completed / Failed / Cancelled.
+    /// Does not rewrite Phase A assets or NPC_LineVariants.
+    /// </summary>
+    static void CreateOutcomeFixtures()
+    {
+        EnsureDialogueAssetFolder();
+
+        DestroyNamedRoot("Trigger_Outcome_OnceComplete");
+        DestroyNamedRoot("Trigger_Outcome_OnceFail");
+        DestroyNamedRoot("Trigger_Outcome_OnceCancel");
+        DestroyNamedRoot("Trigger_Outcome_InterruptVictim");
+        DestroyNamedRoot("Trigger_Outcome_InterruptIncoming");
+
+        var complete = CreateOutcomeLineAsset(
+            "Lab_Outcome_Complete",
+            "lab_outcome_complete",
+            "oc1",
+            "Outcome complete. Confirm once. This should set the seen flag.",
+            "oc_end",
+            includeEnd: true);
+        var fail = CreateOutcomeLineAsset(
+            "Lab_Outcome_Fail",
+            "lab_outcome_fail",
+            "of1",
+            "Outcome fail. Confirm once. The next id does not exist.",
+            "missing_outcome_node",
+            includeEnd: false);
+        var hold = CreateOutcomeLineAsset(
+            "Lab_Outcome_Hold",
+            "lab_outcome_hold",
+            "oh1",
+            "Hold line. Esc cancels and does not set the seen flag. Confirm repeats this line.",
+            "oh1",
+            includeEnd: false);
+        var interruptLine = CreateOutcomeLineAsset(
+            "Lab_Outcome_Interrupt",
+            "lab_outcome_interrupt",
+            "oi1",
+            "Interrupt landed. The blue pad's seen flag must stay off.",
+            "oi_end",
+            includeEnd: true);
+
+        const float z = -32f;
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_Outcome_OnceComplete",
+            new Vector3(0f, 1f, z),
+            complete,
+            NarrativeDialogueTrigger.FireMode.OncePersistent,
+            NarrativeDialogueTrigger.LockOverride.ForceBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Ignore),
+            new Color(0.25f, 0.8f, 0.35f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_Outcome_OnceFail",
+            new Vector3(6f, 1f, z),
+            fail,
+            NarrativeDialogueTrigger.FireMode.OncePersistent,
+            NarrativeDialogueTrigger.LockOverride.ForceBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Ignore),
+            new Color(0.9f, 0.28f, 0.25f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_Outcome_OnceCancel",
+            new Vector3(12f, 1f, z),
+            hold,
+            NarrativeDialogueTrigger.FireMode.OncePersistent,
+            NarrativeDialogueTrigger.LockOverride.ForceBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Ignore),
+            new Color(0.95f, 0.55f, 0.2f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_Outcome_InterruptVictim",
+            new Vector3(18f, 1f, z),
+            hold,
+            NarrativeDialogueTrigger.FireMode.OncePersistent,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Ignore),
+            new Color(0.3f, 0.55f, 1f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_Outcome_InterruptIncoming",
+            new Vector3(23f, 1f, z),
+            interruptLine,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Interrupt),
+            new Color(0.72f, 0.32f, 0.85f));
+    }
+
+    static DialogueAsset CreateOutcomeLineAsset(
+        string assetName,
+        string dialogueId,
+        string lineId,
+        string text,
+        string nextNodeId,
+        bool includeEnd)
+    {
+        string path = $"{DialogueAssetFolder}/{assetName}.asset";
+        var asset = AssetDatabase.LoadAssetAtPath<DialogueAsset>(path);
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<DialogueAsset>();
+            AssetDatabase.CreateAsset(asset, path);
+        }
+
+        asset.dialogueId = dialogueId;
+        asset.lockGameplay = true;
+        asset.defaultTypewriterCharsPerSecond = 48f;
+        asset.entryNodeId = lineId;
+        asset.nodes = new System.Collections.Generic.List<DialogueNode>
+        {
+            new DialogueLineNode
+            {
+                nodeId = lineId,
+                speakerId = "active_player",
+                text = text,
+                nextNodeId = nextNodeId,
+                portraitExpression = "Neutral",
+            },
+        };
+
+        if (includeEnd && !string.IsNullOrEmpty(nextNodeId))
+            asset.nodes.Add(new DialogueEndNode { nodeId = nextNodeId });
+
+        EditorUtility.SetDirty(asset);
+        AssetDatabase.SaveAssets();
+        return asset;
+    }
+
+    static void CreateChoiceFixtures()
+    {
+        EnsureDialogueAssetFolder();
+
+        DestroyNamedRoot("NPC_Choice_Converge");
+        DestroyNamedRoot("NPC_Choice_Automatic");
+        DestroyNamedRoot("NPC_Choice_BadTarget");
+        DestroyNamedRoot("NPC_Choice_Cancel");
+
+        var converge = CreateChoiceAsset("Lab_Choice_Converge", "lab_choice_converge", "cq1", new DialogueNode[]
+        {
+            Line("cq1", "villager_a", "Which road should we take?", "cq_choice"),
+            Choice("cq_choice", "Choose a road", new[]
+            {
+                Option("opt_left", "The left road.", "cq_left"),
+                Option("opt_middle", "The middle road.", "cq_mid"),
+                Option("opt_right", "The right road.", "cq_right"),
+            }),
+            Line("cq_left", "active_player", "Left road it is.", "cq_shared"),
+            Line("cq_mid", "active_player", "Middle road.", "cq_shared"),
+            Line("cq_right", "active_player", "Right road.", "cq_shared"),
+            Line("cq_shared", "villager_a", "Then we agree.", "cq_end"),
+            new DialogueEndNode { nodeId = "cq_end" },
+        });
+
+        var automatic = CreateChoiceAsset("Lab_Choice_Automatic", "lab_choice_automatic", "aq1", new DialogueNode[]
+        {
+            Line("aq1", "villager_a", "This line advances on its own. The menu must wait for you.", "aq_choice"),
+            Choice("aq_choice", "Confirm a reply", new[]
+            {
+                Option("opt_waited", "I waited.", "aq_reply"),
+                Option("opt_also", "I also waited.", "aq_reply"),
+            }),
+            Line("aq_reply", "active_player", "I confirmed it myself.", "aq_end"),
+            new DialogueEndNode { nodeId = "aq_end" },
+        });
+
+        var bad = CreateChoiceAsset("Lab_Choice_BadTarget", "lab_choice_bad_target", "bq1", new DialogueNode[]
+        {
+            Line("bq1", "villager_a", "Choose the broken reply.", "bq_choice"),
+            Choice("bq_choice", "", new[]
+            {
+                Option("opt_missing", "This destination does not exist.", "missing_choice_node"),
+            }),
+        });
+
+        var cancel = CreateChoiceAsset("Lab_Choice_Cancel", "lab_choice_cancel", "xq1", new DialogueNode[]
+        {
+            Line("xq1", "villager_a", "Esc cancels this menu. Choosing continues.", "xq_choice"),
+            Choice("xq_choice", "Cancel or stay", new[]
+            {
+                Option("opt_stay", "Stay and talk.", "xq_stay"),
+                Option("opt_leave", "Leave the topic.", "xq_end"),
+            }),
+            Line("xq_stay", "active_player", "I'll stay.", "xq_end"),
+            new DialogueEndNode { nodeId = "xq_end" },
+        });
+
+        const float z = -36f;
+        var gold = CreateNpcCapsule(
+            "NPC_Choice_Converge",
+            new Vector3(0f, 1f, z),
+            new Color(0.95f, 0.78f, 0.25f),
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            converge,
+            InteractPromptMode.DiscoveryAndInteraction);
+        gold.interactiveLockGameplay = true;
+        gold.allowCancelInteractive = true;
+        gold.interactiveProgression = DialogueProgressionMode.Manual;
+
+        var cyan = CreateNpcCapsule(
+            "NPC_Choice_Automatic",
+            new Vector3(8f, 1f, z),
+            new Color(0.3f, 0.85f, 0.9f),
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            automatic,
+            InteractPromptMode.DiscoveryAndInteraction);
+        cyan.interactiveLockGameplay = true;
+        cyan.allowCancelInteractive = true;
+        cyan.interactiveProgression = DialogueProgressionMode.Automatic;
+
+        var red = CreateNpcCapsule(
+            "NPC_Choice_BadTarget",
+            new Vector3(16f, 1f, z),
+            new Color(0.75f, 0.22f, 0.22f),
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            bad,
+            InteractPromptMode.DiscoveryAndInteraction);
+        red.interactiveLockGameplay = true;
+        red.allowCancelInteractive = true;
+
+        var blue = CreateNpcCapsule(
+            "NPC_Choice_Cancel",
+            new Vector3(24f, 1f, z),
+            new Color(0.35f, 0.5f, 0.85f),
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            cancel,
+            InteractPromptMode.DiscoveryAndInteraction);
+        blue.interactiveLockGameplay = true;
+        blue.allowCancelInteractive = true;
+    }
+
+    static DialogueLineNode Line(string id, string speaker, string text, string next)
+    {
+        return new DialogueLineNode
+        {
+            nodeId = id,
+            speakerId = speaker,
+            text = text,
+            nextNodeId = next,
+            portraitExpression = "Neutral",
+        };
+    }
+
+    static DialogueChoiceOption Option(string id, string text, string next)
+    {
+        return new DialogueChoiceOption
+        {
+            optionId = id,
+            text = text,
+            nextNodeId = next,
+        };
+    }
+
+    static DialogueChoiceNode Choice(string id, string prompt, DialogueChoiceOption[] options)
+    {
+        return new DialogueChoiceNode
+        {
+            nodeId = id,
+            promptText = prompt,
+            options = new System.Collections.Generic.List<DialogueChoiceOption>(options),
+        };
+    }
+
+    static DialogueAsset CreateChoiceAsset(string assetName, string dialogueId, string entry, DialogueNode[] nodes)
+    {
+        string path = $"{DialogueAssetFolder}/{assetName}.asset";
+        var asset = AssetDatabase.LoadAssetAtPath<DialogueAsset>(path);
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<DialogueAsset>();
+            AssetDatabase.CreateAsset(asset, path);
+        }
+
+        asset.dialogueId = dialogueId;
+        asset.lockGameplay = true;
+        asset.overrideChoicePresentation = false;
+        asset.defaultTypewriterCharsPerSecond = 48f;
+        asset.entryNodeId = entry;
+        asset.nodes = new System.Collections.Generic.List<DialogueNode>(nodes);
+        EditorUtility.SetDirty(asset);
+        AssetDatabase.SaveAssets();
+        return asset;
+    }
+
+    static void TintPad(Component owner, Color color)
+    {
+        if (owner == null)
+            return;
+        var pad = owner.transform.Find("Pad");
+        if (pad == null)
+            return;
+        var rend = pad.GetComponent<MeshRenderer>();
+        if (rend == null || rend.sharedMaterial == null)
+            return;
+        if (rend.sharedMaterial.HasProperty("_BaseColor"))
+            rend.sharedMaterial.SetColor("_BaseColor", color);
+        else if (rend.sharedMaterial.HasProperty("_Color"))
+            rend.sharedMaterial.SetColor("_Color", color);
     }
 }

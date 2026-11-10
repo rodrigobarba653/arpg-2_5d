@@ -17,29 +17,31 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134162
-  - rid: 8969645638822134163
+  - rid: 8969645638822134216
+  - rid: 8969645638822134217
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134162
+    - rid: 8969645638822134216
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: bi1
         speakerId: villager_b
         speakerDisplayName: 
         text: Oh! You want to talk for real?
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: bi2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134163
+    - rid: 8969645638822134217
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: bi2
         speakerId: villager_b
         speakerDisplayName: 
         text: Interactive takes priority over my ambient mutter.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: 
         typewriterCharsPerSecond: 0

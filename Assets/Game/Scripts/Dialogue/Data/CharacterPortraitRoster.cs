@@ -15,7 +15,7 @@ public class CharacterPortraitRoster : ScriptableObject
         for (int i = 0; i < characters.Count; i++)
         {
             var c = characters[i];
-            if (c != null && c.characterId == characterId)
+            if (c != null && string.Equals(c.characterId, characterId, StringComparison.OrdinalIgnoreCase))
                 return c;
         }
 

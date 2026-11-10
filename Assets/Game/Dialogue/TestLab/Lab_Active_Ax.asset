@@ -17,35 +17,37 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134169
-  - rid: 8969645638822134170
-  - rid: 8969645638822134172
+  - rid: 8969645638822134223
+  - rid: 8969645638822134224
+  - rid: 8969645638822134226
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134169
+    - rid: 8969645638822134223
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: x1
         speakerId: villager_a
         speakerDisplayName: 
         text: Ax! Didn't expect you.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: x2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134170
+    - rid: 8969645638822134224
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: x2
         speakerId: active_player
         speakerDisplayName: 
         text: Ax path checking in.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: x_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134172
+    - rid: 8969645638822134226
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: x_end

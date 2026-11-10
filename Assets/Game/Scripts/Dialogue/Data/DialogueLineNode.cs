@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
@@ -10,7 +11,12 @@ public class DialogueLineNode : DialogueNode
     public string speakerDisplayName = "";
 
     [TextArea(2, 6)]
+    [Tooltip("Default body. Used when no variant matches the frozen session character.")]
     public string text = "";
+
+    [Tooltip("Optional body overrides keyed by CharacterDefinition.id. " +
+             "First non-empty match wins. Empty text is skipped.")]
+    public List<DialogueTextVariant> textVariants = new List<DialogueTextVariant>();
 
     [Tooltip("Interactive only. Ambient never shows portraits.")]
     public string portraitExpression = "Neutral";

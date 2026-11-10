@@ -67,6 +67,7 @@ public class AmbientDialogueHandle
         fullText = line.text ?? "";
         visibleChars = 0;
         lineComplete = string.IsNullOrEmpty(fullText);
+        view.PrepareBodyFit(fullText);
         view.SetBodyVisibleText("");
         view.SetVisible(true);
 
@@ -95,6 +96,7 @@ public class AmbientDialogueHandle
         }
 
         Vector2 screen = WorldToScreen(anchor != null ? anchor.position : host.transform.position);
+        view.FitHeightToBody();
         if (!layout.TryPlaceAmbient(view, screen, preferred, manualOffset, view.rectTransform.rect.size))
         {
             // No space this frame — suppress.

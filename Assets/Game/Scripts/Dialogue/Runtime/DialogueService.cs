@@ -236,8 +236,9 @@ public class DialogueService : MonoBehaviour
 
         interactive = null;
 
-        // Run deferred actions once dialogue closed (success or cancel).
-        // Callers that must not run on cancel should check session.WasCancelled before enqueue.
+        // Deferred work runs for every terminal outcome (Completed, Cancelled, Failed).
+        // Phase C consumers that grant narrative consequences must check
+        // session.Outcome == DialogueSessionOutcome.Completed before applying them.
         var copy = deferredOnInteractiveEnd.ToArray();
         deferredOnInteractiveEnd.Clear();
         for (int i = 0; i < copy.Length; i++)

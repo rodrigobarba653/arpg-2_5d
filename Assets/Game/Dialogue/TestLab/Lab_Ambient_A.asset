@@ -17,29 +17,31 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 0
   nodes:
-  - rid: 8969645638822134152
-  - rid: 8969645638822134153
+  - rid: 8969645638822134206
+  - rid: 8969645638822134207
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134152
+    - rid: 8969645638822134206
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: a1
         speakerId: villager_a
         speakerDisplayName: 
         text: "Hmm\u2026 the wind feels weird today."
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: a2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134153
+    - rid: 8969645638822134207
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: a2
         speakerId: villager_a
         speakerDisplayName: 
         text: "\u2026or maybe it's just me."
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: 
         typewriterCharsPerSecond: 0

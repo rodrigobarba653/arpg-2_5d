@@ -17,47 +17,50 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134155
-  - rid: 8969645638822134156
-  - rid: 8969645638822134157
-  - rid: 8969645638822134158
+  - rid: 8969645638822134209
+  - rid: 8969645638822134210
+  - rid: 8969645638822134211
+  - rid: 8969645638822134212
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134155
+    - rid: 8969645638822134209
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: i1
         speakerId: active_player
         speakerDisplayName: 
         text: You there. Got a second?
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: i2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134156
+    - rid: 8969645638822134210
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: i2
         speakerId: villager_a
         speakerDisplayName: 
         text: For you? Always.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: i3
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134157
+    - rid: 8969645638822134211
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: i3
         speakerId: active_player
         speakerDisplayName: 
         text: Just checking the dialogue system.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: i_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134158
+    - rid: 8969645638822134212
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: i_end

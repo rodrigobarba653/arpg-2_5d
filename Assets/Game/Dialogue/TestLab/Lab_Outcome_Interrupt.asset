@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Outcome_Interrupt
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_outcome_interrupt
+  entryNodeId: oi1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  nodes:
+  - rid: 8969645638822134249
+  - rid: 8969645638822134250
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134249
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: oi1
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Interrupt landed. The blue pad's seen flag must stay off.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: oi_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134250
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: oi_end

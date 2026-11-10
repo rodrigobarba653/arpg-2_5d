@@ -181,7 +181,7 @@ public class NarrativeDialogueTrigger : MonoBehaviour
         // Completion of a session we started.
         if (startedSession != null)
         {
-            bool success = !startedSession.WasCancelled;
+            bool success = startedSession.Outcome == DialogueSessionOutcome.Completed;
             startedSession = null;
             if (success)
                 ConsumeOnce();

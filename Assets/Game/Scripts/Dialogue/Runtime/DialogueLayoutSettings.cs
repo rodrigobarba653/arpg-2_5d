@@ -17,16 +17,16 @@ public class DialogueLayoutSettings
     public float speakerOffsetRef = 24f;
 
     [Tooltip("Interactive chatbox max width in Canvas reference units.")]
-    public float interactiveMaxWidthRef = 560f;
+    public float interactiveMaxWidthRef = 760f;
 
     [Tooltip("Interactive chatbox height hint in Canvas reference units.")]
-    public float interactiveHeightRef = 220f;
+    public float interactiveHeightRef = 340f;
 
     [Tooltip("Ambient chatbox width in Canvas reference units.")]
-    public float ambientWidthRef = 380f;
+    public float ambientWidthRef = 540f;
 
     [Tooltip("Ambient chatbox height in Canvas reference units.")]
-    public float ambientHeightRef = 140f;
+    public float ambientHeightRef = 210f;
 
     [Tooltip("Seconds to lerp when the chosen placement slot changes.")]
     [Min(0f)]
@@ -60,4 +60,8 @@ public class DialogueLayoutSettings
 
     [Tooltip("Rebuild plan if any speaker's screen X order flips and moves more than this (ref units).")]
     public float planRebuildDeltaRef = 160f;
+
+    [Header("Choice menu")]
+    [Tooltip("Step 3 uses LowerCenter. NearPlayerChatbox is reserved for Step 7.")]
+    public DialogueChoicePresentation choicePresentation = DialogueChoicePresentation.LowerCenterDefault;
 }

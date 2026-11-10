@@ -17,35 +17,37 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134175
-  - rid: 8969645638822134176
-  - rid: 8969645638822134178
+  - rid: 8969645638822134229
+  - rid: 8969645638822134230
+  - rid: 8969645638822134232
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134175
+    - rid: 8969645638822134229
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: nm1
         speakerId: active_player
         speakerDisplayName: 
         text: "Hold up \u2014 did you hear that?"
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: nm2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134176
+    - rid: 8969645638822134230
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: nm2
         speakerId: active_player
         speakerDisplayName: 
         text: "\u2026Okay. Confirm to continue."
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: nm_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134178
+    - rid: 8969645638822134232
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: nm_end

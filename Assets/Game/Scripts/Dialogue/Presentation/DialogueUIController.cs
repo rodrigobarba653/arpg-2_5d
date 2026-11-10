@@ -15,6 +15,7 @@ public class DialogueUIController : MonoBehaviour
     [Header("Optional prefabs (null = runtime placeholder)")]
     public DialogueChatboxView ambientPrefab;
     public DialogueChatboxView interactivePrefab;
+    public DialogueChoiceView choicePrefab;
 
     public static DialogueUIController CreateRuntime(Transform parent = null)
     {
@@ -76,6 +77,27 @@ public class DialogueUIController : MonoBehaviour
         return view;
     }
 
+    public DialogueChoiceView SpawnChoice()
+    {
+        BuildCanvas();
+        if (choicePrefab != null)
+        {
+            var view = Instantiate(choicePrefab, interactiveRoot);
+            view.name = "ChoiceMenu";
+            view.Hide();
+            return view;
+        }
+
+        return BuildChoicePlaceholder(interactiveRoot);
+    }
+
+    public void ReleaseChoice(DialogueChoiceView view)
+    {
+        if (view == null)
+            return;
+        Destroy(view.gameObject);
+    }
+
     public void Release(DialogueChatboxView view)
     {
         if (view == null)
@@ -102,7 +124,7 @@ public class DialogueUIController : MonoBehaviour
         var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(parent, false);
         var rt = go.GetComponent<RectTransform>();
-        rt.sizeDelta = small ? new Vector2(380f, 140f) : new Vector2(560f, 220f);
+        rt.sizeDelta = small ? new Vector2(540f, 210f) : new Vector2(760f, 340f);
 
         var bg = go.AddComponent<Image>();
         bg.color = small
@@ -122,20 +144,21 @@ public class DialogueUIController : MonoBehaviour
             prt.anchorMin = new Vector2(0f, 0.5f);
             prt.anchorMax = new Vector2(0f, 0.5f);
             prt.pivot = new Vector2(0f, 0.5f);
-            prt.anchoredPosition = new Vector2(16f, 0f);
-            prt.sizeDelta = new Vector2(96f, 96f);
+            prt.anchoredPosition = new Vector2(20f, 0f);
+            prt.sizeDelta = new Vector2(280f, 280f);
             portraitImage = portraitRoot.GetComponent<Image>();
-            portraitImage.color = new Color(0.35f, 0.35f, 0.4f, 1f);
+            portraitImage.preserveAspect = true;
+            portraitImage.color = Color.white;
             portraitRoot.SetActive(false);
         }
 
         // Header band for speaker name; body starts strictly below it (no overlap).
-        float textLeft = small ? 12f : 128f;
-        float headerHeight = small ? 26f : 34f;
-        float headerPad = 6f;
+        float textLeft = small ? 20f : 320f;
+        float headerHeight = small ? 48f : 56f;
+        float headerPad = 8f;
         float bodyTop = headerHeight + headerPad;
 
-        var speakerGo = CreateTmp("Speaker", go.transform, small ? 20f : 24f, FontStyles.Bold);
+        var speakerGo = CreateTmp("Speaker", go.transform, small ? 34f : 40f, FontStyles.Bold);
         speakerGo.enableWordWrapping = false;
         speakerGo.overflowMode = TextOverflowModes.Ellipsis;
         var speakerRt = speakerGo.rectTransform;
@@ -143,14 +166,14 @@ public class DialogueUIController : MonoBehaviour
         speakerRt.anchorMax = new Vector2(1f, 1f);
         speakerRt.pivot = new Vector2(0f, 1f);
         speakerRt.offsetMin = new Vector2(textLeft, -headerHeight);
-        speakerRt.offsetMax = new Vector2(-12f, -4f);
+        speakerRt.offsetMax = new Vector2(-28f, -4f);
 
-        var bodyGo = CreateTmp("Body", go.transform, small ? 22f : 30f, FontStyles.Normal);
+        var bodyGo = CreateTmp("Body", go.transform, small ? 44f : 50f, FontStyles.Normal);
         var bodyRt = bodyGo.rectTransform;
         bodyRt.anchorMin = Vector2.zero;
         bodyRt.anchorMax = Vector2.one;
-        bodyRt.offsetMin = new Vector2(textLeft, small ? 8f : 12f);
-        bodyRt.offsetMax = new Vector2(-12f, -bodyTop);
+        bodyRt.offsetMin = new Vector2(textLeft, small ? 22f : 28f);
+        bodyRt.offsetMax = new Vector2(-28f, -bodyTop);
 
         var view = go.AddComponent<DialogueChatboxView>();
         view.rectTransform = rt;
@@ -175,5 +198,43 @@ public class DialogueUIController : MonoBehaviour
         tmp.raycastTarget = false;
         tmp.text = "";
         return tmp;
+    }
+
+    DialogueChoiceView BuildChoicePlaceholder(RectTransform parent)
+    {
+        var go = new GameObject("ChoiceMenu", typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.pivot = new Vector2(0.5f, 0f);
+        rt.sizeDelta = new Vector2(720f, 280f);
+
+        var bg = go.AddComponent<Image>();
+        bg.color = new Color(0.04f, 0.04f, 0.08f, 0.94f);
+        bg.raycastTarget = false;
+
+        var promptGo = new GameObject("Prompt", typeof(RectTransform));
+        promptGo.transform.SetParent(go.transform, false);
+        var prompt = promptGo.AddComponent<TextMeshProUGUI>();
+        prompt.fontSize = 32f;
+        prompt.fontStyle = FontStyles.Bold;
+        prompt.color = new Color(0.85f, 0.9f, 1f, 1f);
+        prompt.alignment = TextAlignmentOptions.MidlineLeft;
+        prompt.enableWordWrapping = false;
+        prompt.overflowMode = TextOverflowModes.Ellipsis;
+        prompt.raycastTarget = false;
+        var pr = prompt.rectTransform;
+        pr.anchorMin = new Vector2(0f, 1f);
+        pr.anchorMax = new Vector2(1f, 1f);
+        pr.pivot = new Vector2(0.5f, 1f);
+        pr.sizeDelta = new Vector2(0f, DialogueChoiceView.PromptHeight);
+        pr.anchoredPosition = new Vector2(0f, -12f);
+        pr.offsetMin = new Vector2(20f, pr.offsetMin.y);
+        pr.offsetMax = new Vector2(-20f, pr.offsetMax.y);
+
+        var view = go.AddComponent<DialogueChoiceView>();
+        view.rectTransform = rt;
+        view.promptLabel = prompt;
+        view.Hide();
+        return view;
     }
 }

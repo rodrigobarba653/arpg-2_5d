@@ -17,17 +17,18 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 0
   nodes:
-  - rid: 8969645638822134161
+  - rid: 8969645638822134215
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134161
+    - rid: 8969645638822134215
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: ba1
         speakerId: villager_b
         speakerDisplayName: 
         text: "(mutters) Curious traveler\u2026"
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: 
         typewriterCharsPerSecond: 0

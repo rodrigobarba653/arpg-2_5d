@@ -17,29 +17,31 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 1
   nodes:
-  - rid: 8969645638822134159
-  - rid: 8969645638822134160
+  - rid: 8969645638822134213
+  - rid: 8969645638822134214
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134159
+    - rid: 8969645638822134213
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: n1
         speakerId: stranger
         speakerDisplayName: 
         text: I have no face in the roster.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: n2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134160
+    - rid: 8969645638822134214
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: n2
         speakerId: stranger
         speakerDisplayName: 
         text: Layout should still work.
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: 
         typewriterCharsPerSecond: 0

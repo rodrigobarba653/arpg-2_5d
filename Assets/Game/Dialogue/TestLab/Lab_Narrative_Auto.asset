@@ -17,35 +17,37 @@ MonoBehaviour:
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 0
   nodes:
-  - rid: 8969645638822134173
-  - rid: 8969645638822134174
-  - rid: 8969645638822134177
+  - rid: 8969645638822134227
+  - rid: 8969645638822134228
+  - rid: 8969645638822134231
   references:
     version: 2
     RefIds:
-    - rid: 8969645638822134173
+    - rid: 8969645638822134227
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: na1
         speakerId: active_player
         speakerDisplayName: 
         text: "Something about this place feels wrong\u2026"
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: na2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134174
+    - rid: 8969645638822134228
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: na2
         speakerId: active_player
         speakerDisplayName: 
         text: (I should keep moving.)
+        textVariants: []
         portraitExpression: Neutral
         nextNodeId: na_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
-    - rid: 8969645638822134177
+    - rid: 8969645638822134231
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: na_end
