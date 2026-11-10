@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Both_Interactive
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_both_interactive
+  entryNodeId: bi1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  nodes:
+  - rid: 8969645638822134162
+  - rid: 8969645638822134163
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134162
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: bi1
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Oh! You want to talk for real?
+        portraitExpression: Neutral
+        nextNodeId: bi2
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134163
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: bi2
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Interactive takes priority over my ambient mutter.
+        portraitExpression: Neutral
+        nextNodeId: 
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0

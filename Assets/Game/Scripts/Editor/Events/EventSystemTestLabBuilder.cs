@@ -131,6 +131,7 @@ public static class EventSystemTestLabBuilder
         CreateInteractionFixtures();
         EnsureInteractionDetector();
         WirePlayerPromptSprites();
+        CreateDialogueFixtures();
 
         var hud = new GameObject("EventSystemDebugHud");
         hud.AddComponent<EventSystemDebugHud>();
@@ -250,6 +251,27 @@ public static class EventSystemTestLabBuilder
         EditorUtility.DisplayDialog("EventSystem TestLab",
             "Added Interaction/Discovery fixtures along +X (z≈-14).\n" +
             "Prompt stays above Jyn/Ax head (FFIX). E = interact.\n" +
+            "Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Test Fixtures (Phase A)", false, 206)]
+    public static void AddDialogueFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateDialogueFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Dialogue Phase A fixtures along +X (z≈-20).\n" +
+            "Ambient = auto proximity · Interactive = E (South).\n" +
             "Save the scene.",
             "OK");
     }
@@ -1112,5 +1134,388 @@ public static class EventSystemTestLabBuilder
         wi.eventRunner = runner;
 
         return wi;
+    }
+
+    const string DialogueAssetFolder = "Assets/Game/Dialogue/TestLab";
+
+    static void CreateDialogueFixtures()
+    {
+        EnsureDialogueAssetFolder();
+
+        DestroyNamedRoot("NPC_Ambient_A");
+        DestroyNamedRoot("NPC_Ambient_B");
+        DestroyNamedRoot("NPC_Interactive");
+        DestroyNamedRoot("NPC_Interactive_NoPortrait");
+        DestroyNamedRoot("NPC_Both");
+        DestroyNamedRoot("NPC_HiddenPrompt");
+        DestroyNamedRoot("NPC_ActivePlayer_Variants");
+        DestroyNamedRoot("Trigger_Narrative_Auto_NonBlocking");
+        DestroyNamedRoot("Trigger_Narrative_Manual_Blocking");
+        DestroyNamedRoot("Trigger_Narrative_OncePersistent");
+
+        var roster = EnsureTestRoster();
+        var ambientA = EnsureDialogueAsset("Lab_Ambient_A", "lab_ambient_a", lockGameplay: false,
+            ("a1", "villager_a", "Hmm… the wind feels weird today.", "a2"),
+            ("a2", "villager_a", "…or maybe it's just me.", ""));
+        var ambientB = EnsureDialogueAsset("Lab_Ambient_B", "lab_ambient_b", lockGameplay: false,
+            ("b1", "villager_b", "Did you hear that?", ""));
+        // Shared dialogue: ActivePlayer speaker resolves name/portrait to Party.Active.
+        var interactive = EnsureDialogueAsset("Lab_Interactive", "lab_interactive", lockGameplay: true,
+            ("i1", "active_player", "You there. Got a second?", "i2"),
+            ("i2", "villager_a", "For you? Always.", "i3"),
+            ("i3", "active_player", "Just checking the dialogue system.", ""));
+        MarkEnd(interactive, "i_end", "i3");
+        var interactiveNoPort = EnsureDialogueAsset("Lab_Interactive_NoPortrait", "lab_interactive_np", lockGameplay: true,
+            ("n1", "stranger", "I have no face in the roster.", "n2"),
+            ("n2", "stranger", "Layout should still work.", ""));
+        var bothAmbient = EnsureDialogueAsset("Lab_Both_Ambient", "lab_both_ambient", lockGameplay: false,
+            ("ba1", "villager_b", "(mutters) Curious traveler…", ""));
+        var bothInteractive = EnsureDialogueAsset("Lab_Both_Interactive", "lab_both_interactive", lockGameplay: true,
+            ("bi1", "villager_b", "Oh! You want to talk for real?", "bi2"),
+            ("bi2", "villager_b", "Interactive takes priority over my ambient mutter.", ""));
+
+        var sharedFallback = EnsureDialogueAsset("Lab_Active_Fallback", "lab_active_fallback", lockGameplay: true,
+            ("f1", "villager_a", "Fallback shared dialogue (no override matched).", "f2"),
+            ("f2", "active_player", "I hear you.", ""));
+        MarkEnd(sharedFallback, "f_end", "f2");
+        var jynOnly = EnsureDialogueAsset("Lab_Active_Jyn", "lab_active_jyn", lockGameplay: true,
+            ("j1", "villager_a", "Jyn! Good to see you.", "j2"),
+            ("j2", "active_player", "Likewise — Jyn path.", ""));
+        MarkEnd(jynOnly, "j_end", "j2");
+        var axOnly = EnsureDialogueAsset("Lab_Active_Ax", "lab_active_ax", lockGameplay: true,
+            ("x1", "villager_a", "Ax! Didn't expect you.", "x2"),
+            ("x2", "active_player", "Ax path checking in.", ""));
+        MarkEnd(axOnly, "x_end", "x2");
+
+        // Wire end nodes where next is empty — GetEntry walks lines; empty next ends session.
+        CreateNpcCapsule("NPC_Ambient_A", new Vector3(0f, 1f, -20f), new Color(0.3f, 0.7f, 1f),
+            NpcDialogueMode.AmbientOnly, ambientA, null, InteractPromptMode.Hidden);
+        CreateNpcCapsule("NPC_Ambient_B", new Vector3(2.5f, 1f, -20f), new Color(0.25f, 0.6f, 0.95f),
+            NpcDialogueMode.AmbientOnly, ambientB, null, InteractPromptMode.Hidden);
+
+        CreateNpcCapsule("NPC_Interactive", new Vector3(6f, 1f, -20f), new Color(0.95f, 0.55f, 0.2f),
+            NpcDialogueMode.InteractiveOnly, null, interactive, InteractPromptMode.DiscoveryAndInteraction);
+
+        CreateNpcCapsule("NPC_Interactive_NoPortrait", new Vector3(10f, 1f, -20f), new Color(0.7f, 0.7f, 0.3f),
+            NpcDialogueMode.InteractiveOnly, null, interactiveNoPort, InteractPromptMode.InteractionOnly);
+
+        CreateNpcCapsule("NPC_Both", new Vector3(14f, 1f, -20f), new Color(0.6f, 0.3f, 0.85f),
+            NpcDialogueMode.Both, bothAmbient, bothInteractive, InteractPromptMode.InteractionOnly);
+
+        CreateNpcCapsule("NPC_HiddenPrompt", new Vector3(18f, 1f, -20f), new Color(0.45f, 0.45f, 0.5f),
+            NpcDialogueMode.InteractiveOnly, null, interactive, InteractPromptMode.Hidden);
+
+        var variants = CreateNpcCapsule("NPC_ActivePlayer_Variants", new Vector3(22f, 1f, -20f),
+            new Color(0.9f, 0.35f, 0.55f),
+            NpcDialogueMode.InteractiveOnly, null, sharedFallback, InteractPromptMode.DiscoveryAndInteraction);
+        variants.interactiveByCharacter = new System.Collections.Generic.List<DialogueCharacterAssetOverride>
+        {
+            new DialogueCharacterAssetOverride { characterId = "jyn", asset = jynOnly },
+            new DialogueCharacterAssetOverride { characterId = "ax", asset = axOnly },
+        };
+
+        var narrativeAuto = EnsureDialogueAsset("Lab_Narrative_Auto", "lab_narrative_auto", lockGameplay: false,
+            ("na1", "active_player", "Something about this place feels wrong…", "na2"),
+            ("na2", "active_player", "(I should keep moving.)", ""));
+        MarkEnd(narrativeAuto, "na_end", "na2");
+        var narrativeManual = EnsureDialogueAsset("Lab_Narrative_Manual", "lab_narrative_manual", lockGameplay: true,
+            ("nm1", "active_player", "Hold up — did you hear that?", "nm2"),
+            ("nm2", "active_player", "…Okay. Confirm to continue.", ""));
+        MarkEnd(narrativeManual, "nm_end", "nm2");
+        var narrativeOnce = EnsureDialogueAsset("Lab_Narrative_Once", "lab_narrative_once", lockGameplay: false,
+            ("no1", "active_player", "I'll only say this once (persistent flag).", ""));
+        MarkEnd(narrativeOnce, "no_end", "no1");
+
+        // z ≈ -24: triggered narrative volumes (walk through, no Interact).
+        CreateNarrativeTrigger(
+            "Trigger_Narrative_Auto_NonBlocking",
+            new Vector3(0f, 1f, -24f),
+            narrativeAuto,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Automatic,
+            NarrativeDialogueTrigger.ConflictPolicy.Queue);
+
+        CreateNarrativeTrigger(
+            "Trigger_Narrative_Manual_Blocking",
+            new Vector3(6f, 1f, -24f),
+            narrativeManual,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Interrupt);
+
+        CreateNarrativeTrigger(
+            "Trigger_Narrative_OncePersistent",
+            new Vector3(12f, 1f, -24f),
+            narrativeOnce,
+            NarrativeDialogueTrigger.FireMode.OncePersistent,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Automatic,
+            NarrativeDialogueTrigger.ConflictPolicy.Queue);
+
+        // Ensure a DialogueService exists in-scene for designers (runtime also bootstraps).
+        if (Object.FindFirstObjectByType<DialogueService>() == null)
+        {
+            var svc = new GameObject("DialogueService");
+            var ds = svc.AddComponent<DialogueService>();
+            ds.roster = roster;
+            ds.debugLog = true;
+            Undo.RegisterCreatedObjectUndo(svc, "Create DialogueService");
+        }
+        else
+        {
+            var ds = Object.FindFirstObjectByType<DialogueService>();
+            if (ds.roster == null)
+                ds.roster = roster;
+        }
+    }
+
+    static void EnsureDialogueAssetFolder()
+    {
+        if (!AssetDatabase.IsValidFolder("Assets/Game/Dialogue"))
+            AssetDatabase.CreateFolder("Assets/Game", "Dialogue");
+        if (!AssetDatabase.IsValidFolder(DialogueAssetFolder))
+            AssetDatabase.CreateFolder("Assets/Game/Dialogue", "TestLab");
+    }
+
+    static CharacterPortraitRoster EnsureTestRoster()
+    {
+        const string path = DialogueAssetFolder + "/Lab_PortraitRoster.asset";
+        var roster = AssetDatabase.LoadAssetAtPath<CharacterPortraitRoster>(path);
+        if (roster == null)
+        {
+            roster = ScriptableObject.CreateInstance<CharacterPortraitRoster>();
+            AssetDatabase.CreateAsset(roster, path);
+        }
+
+        roster.characters = new System.Collections.Generic.List<CharacterPortraitSet>
+        {
+            new CharacterPortraitSet
+            {
+                characterId = "jyn",
+                displayName = "Jyn",
+                expressions = new System.Collections.Generic.List<PortraitExpression>
+                {
+                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                },
+            },
+            new CharacterPortraitSet
+            {
+                characterId = "ax",
+                displayName = "Ax",
+                expressions = new System.Collections.Generic.List<PortraitExpression>
+                {
+                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                },
+            },
+            new CharacterPortraitSet
+            {
+                characterId = "villager_a",
+                displayName = "Villager A",
+                expressions = new System.Collections.Generic.List<PortraitExpression>
+                {
+                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                },
+            },
+            new CharacterPortraitSet
+            {
+                characterId = "villager_b",
+                displayName = "Villager B",
+                expressions = new System.Collections.Generic.List<PortraitExpression>
+                {
+                    new PortraitExpression { expressionId = "Neutral", sprite = null },
+                },
+            },
+        };
+        EditorUtility.SetDirty(roster);
+        return roster;
+    }
+
+    static DialogueAsset EnsureDialogueAsset(
+        string assetName,
+        string dialogueId,
+        bool lockGameplay,
+        params (string id, string speaker, string text, string next)[] lines)
+    {
+        string path = $"{DialogueAssetFolder}/{assetName}.asset";
+        var asset = AssetDatabase.LoadAssetAtPath<DialogueAsset>(path);
+        if (asset == null)
+        {
+            asset = ScriptableObject.CreateInstance<DialogueAsset>();
+            AssetDatabase.CreateAsset(asset, path);
+        }
+
+        asset.dialogueId = dialogueId;
+        asset.lockGameplay = lockGameplay;
+        asset.defaultTypewriterCharsPerSecond = 48f;
+        asset.nodes = new System.Collections.Generic.List<DialogueNode>();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var L = lines[i];
+            asset.nodes.Add(new DialogueLineNode
+            {
+                nodeId = L.id,
+                speakerId = L.speaker,
+                text = L.text,
+                nextNodeId = L.next,
+                portraitExpression = "Neutral",
+            });
+        }
+
+        if (lines.Length > 0)
+            asset.entryNodeId = lines[0].id;
+
+        EditorUtility.SetDirty(asset);
+        AssetDatabase.SaveAssets();
+        return asset;
+    }
+
+    static void MarkEnd(DialogueAsset asset, string endId, string lastLineId)
+    {
+        // Optional explicit end node — empty next already ends in Phase A.
+        if (asset.FindNode(endId) == null)
+        {
+            asset.nodes.Add(new DialogueEndNode { nodeId = endId });
+            var last = asset.FindNode(lastLineId) as DialogueLineNode;
+            if (last != null && string.IsNullOrEmpty(last.nextNodeId))
+                last.nextNodeId = endId;
+            EditorUtility.SetDirty(asset);
+        }
+    }
+
+    static NarrativeDialogueTrigger CreateNarrativeTrigger(
+        string name,
+        Vector3 position,
+        DialogueAsset asset,
+        NarrativeDialogueTrigger.FireMode fireMode,
+        NarrativeDialogueTrigger.LockOverride lockOverride,
+        DialogueProgressionMode progression,
+        NarrativeDialogueTrigger.ConflictPolicy conflict)
+    {
+        var go = new GameObject(name);
+        go.transform.position = position;
+        var box = go.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.size = new Vector3(3.5f, 3f, 3.5f);
+        box.center = new Vector3(0f, 1f, 0f);
+
+        var trigger = go.AddComponent<NarrativeDialogueTrigger>();
+        trigger.triggerId = name;
+        trigger.dialogueAsset = asset;
+        trigger.fireMode = fireMode;
+        trigger.lockGameplay = lockOverride;
+        trigger.progressionMode = progression;
+        trigger.autoAdvanceHoldSeconds = 1.5f;
+        trigger.retriggerCooldownSeconds = 2.5f;
+        trigger.conflictPolicy = conflict;
+        trigger.cancelPendingOnExit = true;
+        trigger.actorFilter = NarrativeDialogueTrigger.ActorFilter.ActivePlayerOnly;
+        trigger.allowCancel = true;
+
+        // Visible floor pad for QA.
+        var pad = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        pad.name = "Pad";
+        pad.transform.SetParent(go.transform, false);
+        pad.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+        pad.transform.localScale = new Vector3(3.2f, 0.1f, 3.2f);
+        Object.DestroyImmediate(pad.GetComponent<Collider>());
+        var rend = pad.GetComponent<MeshRenderer>();
+        var shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        if (shader != null && rend != null)
+        {
+            var mat = new Material(shader);
+            var color = new Color(1f, 0.85f, 0.2f, 1f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            rend.sharedMaterial = mat;
+        }
+
+        Undo.RegisterCreatedObjectUndo(go, "Create Narrative Trigger");
+        return trigger;
+    }
+
+    static NpcDialogueHost CreateNpcCapsule(
+        string name,
+        Vector3 position,
+        Color color,
+        NpcDialogueMode mode,
+        DialogueAsset ambient,
+        DialogueAsset interactive,
+        InteractPromptMode promptMode)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        go.name = name;
+        go.transform.position = position;
+        go.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
+
+        var renderer = go.GetComponent<MeshRenderer>();
+        var shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Standard");
+        if (shader != null && renderer != null)
+        {
+            var mat = new Material(shader);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            else if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            renderer.sharedMaterial = mat;
+        }
+
+        // Solid capsule is fine; interaction uses distance, not this collider as trigger.
+        var host = go.AddComponent<NpcDialogueHost>();
+        host.mode = mode;
+        host.ambientDialogue = ambient;
+        host.interactiveDialogue = interactive;
+        host.promptMode = promptMode;
+        host.ambientProximityRadius = 2.8f;
+        host.ambientCooldownSeconds = 3f;
+        host.ambientHoldSeconds = 1.6f;
+        host.ambientRepeat = NpcDialogueHost.AmbientRepeatMode.Repeat;
+        host.discoveryRadius = 4.5f;
+        host.interactionRadius = 2.5f;
+        host.interactiveLockGameplay = true;
+        host.requireFacingWithinDegrees = 0f; // full 360° (billboard-safe)
+
+        // Infer speaker id from dialogue asset lines when possible.
+        if (interactive != null && interactive.nodes != null)
+        {
+            for (int i = 0; i < interactive.nodes.Count; i++)
+            {
+                if (interactive.nodes[i] is DialogueLineNode ln &&
+                    !string.IsNullOrEmpty(ln.speakerId) &&
+                    ln.speakerId != "jyn" && ln.speakerId != "ax" &&
+                    ln.speakerId != "player" && ln.speakerId != "active_player")
+                {
+                    host.npcSpeakerId = ln.speakerId;
+                    break;
+                }
+            }
+        }
+
+        if (ambient != null && string.IsNullOrEmpty(host.npcSpeakerId) && ambient.nodes != null)
+        {
+            for (int i = 0; i < ambient.nodes.Count; i++)
+            {
+                if (ambient.nodes[i] is DialogueLineNode ln && !string.IsNullOrEmpty(ln.speakerId))
+                {
+                    host.npcSpeakerId = ln.speakerId;
+                    break;
+                }
+            }
+        }
+
+        // Trigger collider so the player can stand in the footprint from any direction.
+        var col = go.GetComponent<Collider>();
+        if (col != null)
+            col.isTrigger = true;
+
+        // InteractionVolume is created in NpcDialogueHost.Awake (360° sphere at NPC center).
+
+        var anchor = new GameObject("SpeechAnchor");
+        anchor.transform.SetParent(go.transform, false);
+        anchor.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+        host.speechAnchor = anchor.transform;
+
+        return host;
     }
 }

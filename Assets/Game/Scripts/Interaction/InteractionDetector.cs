@@ -106,7 +106,9 @@ public class InteractionDetector : MonoBehaviour
             if (it is Object uo && uo == null)
                 continue;
 
-            float dist = Vector3.Distance(origin, it.InteractionPosition);
+            // Planar (XZ) distance — ignore height so tall NPCs / speech anchors
+            // don't push the player outside a tight interaction radius.
+            float dist = PlanarDistance(origin, it.InteractionPosition);
             float maxR = Mathf.Max(it.DiscoveryRadius, it.InteractionRadius) + scanPadding;
             if (dist > maxR)
                 continue;
@@ -173,6 +175,13 @@ public class InteractionDetector : MonoBehaviour
             promptFocus = bestPromptQ;
             promptState = InteractPromptState.Discovery;
         }
+    }
+
+    static float PlanarDistance(Vector3 a, Vector3 b)
+    {
+        float dx = a.x - b.x;
+        float dz = a.z - b.z;
+        return Mathf.Sqrt(dx * dx + dz * dz);
     }
 
     static bool IsPreferable(IInteractable candidate, IInteractable current)

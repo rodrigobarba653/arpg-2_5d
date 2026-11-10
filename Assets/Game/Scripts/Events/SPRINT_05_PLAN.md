@@ -6,6 +6,18 @@
 
 Internal delivery: **Phase A → QA → Phase B → QA → Phase C → QA**.
 
+**Addition:** Active player-aware dialogue (Ax/Jyn) — see  
+[`SPRINT_05_ACTIVE_PLAYER_PLAN.md`](SPRINT_05_ACTIVE_PLAYER_PLAN.md).  
+
+**Addition:** Conversation-level chatbox layout — see  
+[`SPRINT_05_CONVERSATION_LAYOUT_PLAN.md`](SPRINT_05_CONVERSATION_LAYOUT_PLAN.md).  
+
+**Phase A report (what shipped):**  
+[`SPRINT_05_PHASE_A_REPORT.md`](SPRINT_05_PHASE_A_REPORT.md).  
+
+**Addition (proposed):** Triggered narrative dialogue — see  
+[`SPRINT_05_TRIGGERED_NARRATIVE_PLAN.md`](SPRINT_05_TRIGGERED_NARRATIVE_PLAN.md).
+
 ---
 
 ## 1. Technical audit (current project)
@@ -265,7 +277,7 @@ Phase C: flags persist F5/F9; EventRunner wait; cancel releases lock; doors/swit
 
 | # | Decision | Proposal |
 |---|----------|----------|
-| D1 | Confirm binding | Enter + E + Gamepad **East**; South as optional extra only while locked |
+| D1 | Confirm binding | **APPROVED:** Enter + E + Gamepad **South** (primary). Jump/Interact blocked via GameplayLock while interactive owns control. Cancel/Back separate (Esc / East). Same press cannot open + advance first line. |
 | D2 | Max ambient bubbles | **2** default, Inspector on DialogueService |
 | D3 | Canvas mode | **Screen Space Overlay** dedicated Dialogue canvas (DontDestroy or bootstrap) |
 | D4 | Non-blocking interactive | Supported flag `lockGameplay=false`; story default true |
