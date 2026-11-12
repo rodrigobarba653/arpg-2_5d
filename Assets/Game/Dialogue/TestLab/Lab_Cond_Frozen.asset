@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Cond_Frozen
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_cond_frozen
+  entryNodeId: z1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134339
+  - rid: 8969645638822134340
+  - rid: 8969645638822134341
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134339
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: z1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Swap now. The menu must keep the character who started.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: z_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134340
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: z_choice
+        promptText: Frozen voice
+        options:
+        - optionId: opt_voice
+          text: Default reply.
+          textVariants:
+          - characterId: ax
+            text: Ax reply.
+          - characterId: jyn
+            text: Jyn reply.
+          nextNodeId: z_line
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_ax
+          text: Ax only.
+          textVariants: []
+          nextNodeId: z_line
+          requiredCharacterId: ax
+          availability: []
+        - optionId: opt_jyn
+          text: Jyn only.
+          textVariants: []
+          nextNodeId: z_line
+          requiredCharacterId: jyn
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134341
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: z_line
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Still the first voice.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: z_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0

@@ -12,9 +12,10 @@ public class DialogueChoiceNode : DialogueNode
     [Tooltip("Optional header above the responses. The previous line is the question.")]
     public string promptText = "";
 
+    [Tooltip("Responses. Each one can require a character and a list of conditions.")]
     public List<DialogueChoiceOption> options = new List<DialogueChoiceOption>();
 
-    [Tooltip("Used only when no option is authored. Empty plus no options = Failed.")]
+    [Tooltip("Used when no authored option is visible. Empty with no authored options fails the session. Empty when options exist but all are hidden ends as Completed. A missing id fails.")]
     public string fallbackNodeId = "";
 
     public override string DisplayName =>

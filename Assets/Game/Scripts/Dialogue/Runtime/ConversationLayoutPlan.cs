@@ -22,6 +22,9 @@ public class ConversationSpeakerSlot
     public Vector2 localOffsetScreen;
     public bool isPlayer;
     public bool visible;
+
+    /// <summary>False for a branch speaker. Rebuild looks at core slots only.</summary>
+    public bool isCore = true;
 }
 
 /// <summary>

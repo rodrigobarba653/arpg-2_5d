@@ -10,6 +10,7 @@ public class EventRunnerEditor : Editor
     {
         typeof(WaitAction),
         typeof(DebugLogAction),
+        typeof(StartDialogueAction),
         typeof(UnityEventAction),
         typeof(SetFlagAction),
         typeof(ClearFlagAction),

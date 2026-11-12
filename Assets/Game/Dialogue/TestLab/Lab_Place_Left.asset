@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Place_Left
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_place_left
+  entryNodeId: pl1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 1
+  choicePresentation:
+    placement: 1
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134534
+  - rid: 8969645638822134535
+  - rid: 8969645638822134536
+  - rid: 8969645638822134537
+  - rid: 8969645638822134538
+  - rid: 8969645638822134539
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134534
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Your box is the one on the left.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: pl2
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134535
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl2
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Mine is on the left.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: pl_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134536
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl_choice
+        promptText: 
+        options:
+        - optionId: opt_here
+          text: Here.
+          textVariants: []
+          nextNodeId: pl_here
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_ax
+          text: Ax only.
+          textVariants: []
+          nextNodeId: pl_ax
+          requiredCharacterId: ax
+          availability: []
+        - optionId: opt_leave
+          text: Leave.
+          textVariants: []
+          nextNodeId: pl_end
+          requiredCharacterId: 
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134537
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl_here
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Still the left box.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: pl_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134538
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl_ax
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Ax saw that option.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: pl_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134539
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: pl_end

@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Branch_Exclusive
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_branch_exclusive
+  entryNodeId: e1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134278
+  - rid: 8969645638822134279
+  - rid: 8969645638822134280
+  - rid: 8969645638822134281
+  - rid: 8969645638822134282
+  - rid: 8969645638822134283
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134278
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Scout or lookout?
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: e_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134279
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e_choice
+        promptText: Exclusive pair
+        options:
+        - optionId: opt_scout
+          text: Scout.
+          textVariants: []
+          nextNodeId: e_b
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_lookout
+          text: Lookout.
+          textVariants: []
+          nextNodeId: e_c
+          requiredCharacterId: 
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134280
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e_b
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Scout speaking.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: e_player
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134281
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e_c
+        speakerId: villager_c
+        speakerDisplayName: 
+        text: Lookout speaking.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: e_player
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134282
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e_player
+        speakerId: active_player
+        speakerDisplayName: 
+        text: I heard you.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: e_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134283
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: e_end

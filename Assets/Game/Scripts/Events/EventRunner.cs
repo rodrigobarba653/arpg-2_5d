@@ -252,12 +252,22 @@ public class EventRunner : MonoBehaviour
 
                 currentAction = null;
 
+                if (ctx.StopRequested)
+                {
+                    if (debugLog)
+                        Debug.Log(
+                            $"[Event:{name}] Stopped at action [{i}] — {ctx.StopReason}. " +
+                            "Completed NOT marked. Prior actions remain.",
+                            this);
+                    break;
+                }
+
                 if (token.IsCancellationRequested)
                     break;
             }
         }
 
-        finishedSuccessfully = !token.IsCancellationRequested;
+        finishedSuccessfully = !token.IsCancellationRequested && !ctx.StopRequested;
         if (finishedSuccessfully)
             MarkCompletedSuccessfully();
 

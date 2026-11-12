@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Cond_Who
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_cond_who
+  entryNodeId: w1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134313
+  - rid: 8969645638822134314
+  - rid: 8969645638822134315
+  - rid: 8969645638822134316
+  - rid: 8969645638822134317
+  - rid: 8969645638822134318
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134313
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Who can answer?
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: w_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134314
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w_choice
+        promptText: Who answers
+        options:
+        - optionId: opt_any
+          text: Anyone.
+          textVariants: []
+          nextNodeId: w_any
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_ax
+          text: Ax's answer.
+          textVariants: []
+          nextNodeId: w_ax
+          requiredCharacterId: ax
+          availability: []
+        - optionId: opt_jyn
+          text: Jyn's answer.
+          textVariants: []
+          nextNodeId: w_jyn
+          requiredCharacterId: jyn
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134315
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w_any
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Everyone heard that.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: w_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134316
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w_ax
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Only Ax heard that.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: w_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134317
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w_jyn
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Only Jyn heard that.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: w_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134318
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: w_end

@@ -62,6 +62,6 @@ public class DialogueLayoutSettings
     public float planRebuildDeltaRef = 160f;
 
     [Header("Choice menu")]
-    [Tooltip("Step 3 uses LowerCenter. NearPlayerChatbox is reserved for Step 7.")]
+    [Tooltip("Default choice-menu placement. LowerCenter unless an asset overrides it.")]
     public DialogueChoicePresentation choicePresentation = DialogueChoicePresentation.LowerCenterDefault;
 }

@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_C3_Then
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_c3_then
+  entryNodeId: c3_pick
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134654
+  - rid: 8969645638822134655
+  - rid: 8969645638822134656
+  - rid: 8969645638822134657
+  - rid: 8969645638822134658
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134654
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c3_pick
+        promptText: Set it, then branch.
+        options:
+        - optionId: a
+          text: Skip.
+          textVariants: []
+          nextNodeId: c3_skip
+          requiredCharacterId: 
+          availability: []
+          consequences: []
+        - optionId: b
+          text: Set and test.
+          textVariants: []
+          nextNodeId: c3_check
+          requiredCharacterId: 
+          availability: []
+          consequences:
+          - rid: 8969645638822134659
+        fallbackNodeId: 
+    - rid: 8969645638822134655
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c3_skip
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Skipped.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: 
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134656
+      type: {class: DialogueConditionNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c3_check
+        conditions:
+        - rid: 8969645638822134660
+        trueNodeId: c3_on
+        falseNodeId: c3_off
+    - rid: 8969645638822134657
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c3_on
+        speakerId: active_player
+        speakerDisplayName: 
+        text: The condition saw the flag.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: 
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134658
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c3_off
+        speakerId: active_player
+        speakerDisplayName: 
+        text: The condition missed the flag.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: 
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134659
+      type: {class: SetFlagAction, ns: , asm: Assembly-CSharp}
+      data:
+        flagId: lab_c3_seen
+        value: 1
+    - rid: 8969645638822134660
+      type: {class: FlagIsTrueCondition, ns: , asm: Assembly-CSharp}
+      data:
+        flagId: lab_c3_seen

@@ -50,6 +50,11 @@ public class NpcDialogueHost : MonoBehaviour, IInteractable
     [Tooltip("Manual waits for Confirm. Automatic advances lines and still waits on a choice.")]
     public DialogueProgressionMode interactiveProgression = DialogueProgressionMode.Manual;
 
+    [Tooltip("Replaces the 1.75s automatic hold. Zero lets an empty line advance without waiting.")]
+    public bool overrideAutoAdvanceHold;
+
+    public float autoAdvanceHoldSeconds = 1.75f;
+
     [Tooltip("Auto = Above → Right → Left → Below. Uses global DialogueService layout settings.")]
     public DialogueChatboxPlacement interactivePreferredPlacement = DialogueChatboxPlacement.Auto;
 
@@ -327,7 +332,8 @@ public class NpcDialogueHost : MonoBehaviour, IInteractable
             interactiveMaxWidthOverride,
             interactiveLockGameplay,
             allowCancelInteractive,
-            progressionMode: interactiveProgression);
+            progressionMode: interactiveProgression,
+            autoAdvanceHoldSeconds: overrideAutoAdvanceHold ? autoAdvanceHoldSeconds : 1.75f);
     }
 
     void EnsureInteractionVolume()

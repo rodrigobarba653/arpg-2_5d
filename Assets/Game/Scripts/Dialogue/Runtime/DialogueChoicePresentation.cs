@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Where the choice panel sits. NearPlayerChatbox is reserved for Step 7.
+/// Where the choice panel sits. NearPlayerChatbox reads the player chatbox and does not move it.
 /// </summary>
 public enum DialogueChoicePlacement
 {
@@ -24,10 +24,13 @@ public struct DialogueChoicePresentation
     [Tooltip("Designer nudge, in reference units.")]
     public Vector2 offsetRef;
 
+    [Tooltip("Menu width cap, in canvas reference units.")]
     public float maxWidthRef;
+
+    [Tooltip("Menu height cap, in canvas reference units. Extra rows scroll inside the menu.")]
     public float maxHeightRef;
 
-    [Tooltip("Step 7. Stored now, unused while placement stays LowerCenter.")]
+    [Tooltip("Gap between the player chatbox and the menu, in reference units. NearPlayerChatbox only.")]
     public float gapFromBubbleRef;
 
     public static DialogueChoicePresentation LowerCenterDefault => new DialogueChoicePresentation

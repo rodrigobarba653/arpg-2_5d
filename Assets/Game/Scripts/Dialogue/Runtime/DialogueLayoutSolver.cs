@@ -140,10 +140,166 @@ public class DialogueLayoutSolver
                 localOffsetScreen = offset,
                 isPlayer = src.isPlayer,
                 visible = false,
+                isCore = true,
             });
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// Appends branch speakers on frozen offsets. Does not write core slots.
+    /// Returns true when a box still overlaps after the safe-area clamp.
+    /// </summary>
+    public bool AddBranchSlots(
+        ConversationLayoutPlan plan,
+        IList<ConversationSpeakerSlot> branchDrafts,
+        IList<int> regions,
+        IList<string[]> pathSpeakers,
+        Vector2 sizeHint)
+    {
+        if (plan == null || branchDrafts == null || branchDrafts.Count == 0)
+            return false;
+
+        float sideGap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
+        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
+        float width = sizeHint.x > 8f
+            ? sizeHint.x
+            : RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f);
+        float height = sizeHint.y > 8f
+            ? sizeHint.y
+            : RefToScreen(settings != null ? settings.interactiveHeightRef : 220f);
+        float band = sideGap + width * 0.35f;
+        Vector2 size = new Vector2(width, height);
+        bool clampedOverlap = false;
+
+        for (int i = 0; i < branchDrafts.Count; i++)
+        {
+            var src = branchDrafts[i];
+            if (src == null)
+                continue;
+            int region = regions != null && i < regions.Count ? regions[i] : i;
+            plan.speakers.Add(new ConversationSpeakerSlot
+            {
+                speakerId = src.speakerId,
+                anchor = src.anchor,
+                side = ConversationSlotSide.Above,
+                screenAnchor0 = src.screenAnchor0,
+                localOffsetScreen = BranchRecipe(region, lift, sideGap, band),
+                isPlayer = src.isPlayer,
+                visible = false,
+                isCore = false,
+            });
+        }
+
+        if (pathSpeakers == null)
+            return false;
+
+        for (int p = 0; p < pathSpeakers.Count; p++)
+        {
+            var path = pathSpeakers[p];
+            if (path == null)
+                continue;
+            for (int s = 0; s < path.Length; s++)
+            {
+                if (!plan.TryGet(path[s], out var slot) || slot == null || slot.isCore)
+                    continue;
+                if (SeparateBranchSlot(plan, slot, path, size, lift, band))
+                    clampedOverlap = true;
+            }
+        }
+
+        return clampedOverlap;
+    }
+
+    static Vector2 BranchRecipe(int region, float lift, float sideGap, float band)
+    {
+        float y = (region + 1) * (lift + sideGap);
+        float x = 0f;
+        if (region > 0)
+        {
+            int step = (region + 1) / 2;
+            float sign = (region % 2 == 1) ? 1f : -1f;
+            x = sign * step * band;
+        }
+        return new Vector2(x, y);
+    }
+
+    bool SeparateBranchSlot(
+        ConversationLayoutPlan plan,
+        ConversationSpeakerSlot slot,
+        string[] path,
+        Vector2 size,
+        float liftStep,
+        float band)
+    {
+        Rect safe = GetEffectiveSafeScreenRect();
+        Vector2 pivot = PivotForConversationSide(ConversationSlotSide.Above);
+        bool gaveUp = false;
+
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            Vector2 offset = slot.localOffsetScreen;
+            Vector2 pos = slot.screenAnchor0 + offset;
+            pos = ClampPivotPosition(pos, size, pivot, safe);
+            slot.localOffsetScreen = pos - slot.screenAnchor0;
+
+            Rect mine = PivotRect(pos, size, pivot);
+            if (!OverlapsPath(plan, slot.speakerId, path, mine))
+                return false;
+
+            float away = 0f;
+            for (int i = 0; i < path.Length; i++)
+            {
+                if (!plan.TryGet(path[i], out var other) || other == null)
+                    continue;
+                if (string.Equals(other.speakerId, slot.speakerId, System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+                Rect otherRect = SlotRect(other, size);
+                if (!mine.Overlaps(otherRect))
+                    continue;
+                away = otherRect.center.x >= mine.center.x ? -1f : 1f;
+                break;
+            }
+
+            slot.localOffsetScreen.y += liftStep;
+            if ((attempt % 2) == 1)
+                slot.localOffsetScreen.x += away * band;
+            gaveUp = true;
+        }
+
+        Vector2 finalPos = ClampPivotPosition(
+            slot.screenAnchor0 + slot.localOffsetScreen, size, pivot, safe);
+        slot.localOffsetScreen = finalPos - slot.screenAnchor0;
+        Rect finalRect = PivotRect(finalPos, size, pivot);
+        return gaveUp && OverlapsPath(plan, slot.speakerId, path, finalRect);
+    }
+
+    static bool OverlapsPath(ConversationLayoutPlan plan, string self, string[] path, Rect mine)
+    {
+        for (int i = 0; i < path.Length; i++)
+        {
+            if (string.Equals(path[i], self, System.StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!plan.TryGet(path[i], out var other) || other == null)
+                continue;
+            if (mine.Overlaps(SlotRect(other, new Vector2(mine.width, mine.height))))
+                return true;
+        }
+        return false;
+    }
+
+    static Rect SlotRect(ConversationSpeakerSlot slot, Vector2 size)
+    {
+        Vector2 pivot = PivotForConversationSide(slot.side);
+        return PivotRect(slot.screenAnchor0 + slot.localOffsetScreen, size, pivot);
+    }
+
+    static Rect PivotRect(Vector2 pivotPos, Vector2 size, Vector2 pivot)
+    {
+        float left = pivotPos.x - size.x * pivot.x;
+        float bottom = pivotPos.y - size.y * pivot.y;
+        return new Rect(left, bottom, size.x, size.y);
     }
 
     /// <summary>
@@ -197,14 +353,22 @@ public class DialogueLayoutSolver
             return true;
 
         float rebuildDelta = RefToScreen(settings != null ? settings.planRebuildDeltaRef : 160f);
-
-        // Unexpected speaker count / id.
-        if (liveSnapshots.Count != plan.speakers.Count)
-            return true;
-
+        var core = new List<ConversationSpeakerSlot>(plan.speakers.Count);
         for (int i = 0; i < plan.speakers.Count; i++)
         {
             var planned = plan.speakers[i];
+            if (planned != null && planned.isCore)
+                core.Add(planned);
+        }
+
+        if (core.Count == 0)
+            return false;
+
+        Rect safe = GetEffectiveSafeScreenRect();
+        var liveCore = new List<ConversationSpeakerSlot>(core.Count);
+        for (int i = 0; i < core.Count; i++)
+        {
+            var planned = core[i];
             ConversationSpeakerSlot live = null;
             for (int j = 0; j < liveSnapshots.Count; j++)
             {
@@ -219,8 +383,7 @@ public class DialogueLayoutSolver
             if (live == null)
                 return true;
 
-            // Left viewport (far outside safe).
-            Rect safe = GetEffectiveSafeScreenRect();
+            liveCore.Add(live);
             if (live.screenAnchor0.x < safe.xMin - rebuildDelta ||
                 live.screenAnchor0.x > safe.xMax + rebuildDelta ||
                 live.screenAnchor0.y < safe.yMin - rebuildDelta ||
@@ -228,29 +391,21 @@ public class DialogueLayoutSolver
                 return true;
         }
 
-        // Order flip: compare sorted X indices between plan snapshot and live.
-        if (plan.speakers.Count >= 2)
+        if (liveCore.Count >= 2)
         {
-            var planOrder = new List<ConversationSpeakerSlot>(plan.speakers);
+            var planOrder = new List<ConversationSpeakerSlot>(core);
             planOrder.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
-
-            var liveOrder = new List<ConversationSpeakerSlot>(liveSnapshots.Count);
-            for (int i = 0; i < liveSnapshots.Count; i++)
-                if (liveSnapshots[i] != null) liveOrder.Add(liveSnapshots[i]);
+            var liveOrder = new List<ConversationSpeakerSlot>(liveCore);
             liveOrder.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
 
-            if (planOrder.Count == liveOrder.Count)
+            for (int i = 0; i < planOrder.Count; i++)
             {
-                for (int i = 0; i < planOrder.Count; i++)
+                if (!string.Equals(planOrder[i].speakerId, liveOrder[i].speakerId,
+                        System.StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!string.Equals(planOrder[i].speakerId, liveOrder[i].speakerId,
-                            System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Only rebuild if the flip is meaningful in distance.
-                        float dx = Mathf.Abs(liveOrder[i].screenAnchor0.x - planOrder[i].screenAnchor0.x);
-                        if (dx > rebuildDelta)
-                            return true;
-                    }
+                    float dx = Mathf.Abs(liveOrder[i].screenAnchor0.x - planOrder[i].screenAnchor0.x);
+                    if (dx > rebuildDelta)
+                        return true;
                 }
             }
         }

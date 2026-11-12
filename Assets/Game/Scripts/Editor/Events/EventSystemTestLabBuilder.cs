@@ -339,6 +339,181 @@ public static class EventSystemTestLabBuilder
             "OK");
     }
 
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Branch Layout Fixtures (Phase B Step 4)", false, 210)]
+    public static void AddDialogueBranchLayoutFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateBranchLayoutFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added branch-layout NPCs along z≈-44.\n" +
+            "Look at the console line 'core=' when each talk starts.\n" +
+            "Does not rebuild Phase A or Steps 1–3. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Condition Fixtures (Phase B Step 5)", false, 211)]
+    public static void AddDialogueConditionFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateConditionFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added condition NPCs along z≈-48 and flag pads at z≈-52.\n" +
+            "Does not rebuild Phase A or Steps 1–4. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Safety Fixtures (Phase B Step 6)", false, 212)]
+    public static void AddDialogueSafetyFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateSafetyFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added safety NPCs along z≈-60.\n" +
+            "Does not rebuild Phase A or Steps 1–5. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Choice Placement Fixtures (Phase B Step 7)", false, 213)]
+    public static void AddChoicePlacementFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreatePlacementFixtures();
+        EnsureInteractionDetector();
+        EnsureDebugCommands();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added choice-placement NPCs along z≈-68.\n" +
+            "Does not rebuild Phase A or Steps 1–6. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Queue + Interrupt Fixture (Phase B Step 9)", false, 215)]
+    public static void AddQueueInterruptFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateQueueInterruptFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added four pads along z≈-76.\n" +
+            "Green A, gold B (Queue), red C (Interrupt), gray fail.\n" +
+            "Does not rebuild Phase A or Steps 1–7. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Start Dialogue Event Fixtures (Phase C Step 1)", false, 216)]
+    public static void AddStartDialogueEventFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateStartDialogueEventFixtures();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added two event pads along z≈-84.\n" +
+            "Green waits on a line. Orange fails immediately.\n" +
+            "Does not rebuild Phase A, Phase B, or the queue pads. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Conditional Dialogue Fixtures (Phase C Step 2)", false, 217)]
+    public static void AddConditionalDialogueFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateConditionalDialogueFixtures();
+        EnsureInteractionDetector();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added conditional NPCs along z≈-92 and flag pads at z≈-96.\n" +
+            "Does not rebuild Phase A, Phase B, or Step 1. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Dialogue Consequence Fixtures (Phase C Step 3)", false, 218)]
+    public static void AddDialogueConsequenceFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateDialogueConsequenceFixtures();
+        EnsureInteractionDetector();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added consequence NPCs along z≈-104.\n" +
+            "Does not rebuild Phase A, Phase B, or Steps 1–2. Save the scene.",
+            "OK");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Final Integration Fixture (Phase C Step 4)", false, 219)]
+    public static void AddFinalIntegrationFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateFinalIntegrationFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_C4_Chain at z≈-112.\n" +
+            "Does not rebuild Phase A, Phase B, or Steps 1–3. Save the scene.",
+            "OK");
+    }
+
     /// <summary>Batchmode entry: Unity -executeMethod EventSystemTestLabBuilder.SetupCameraBatch</summary>
     public static void SetupCameraBatch()
     {
@@ -1978,6 +2153,874 @@ public static class EventSystemTestLabBuilder
         EditorUtility.SetDirty(asset);
         AssetDatabase.SaveAssets();
         return asset;
+    }
+
+    static void CreateBranchLayoutFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_Branch_OneExclusive");
+        DestroyNamedRoot("NPC_Branch_Exclusive");
+        DestroyNamedRoot("NPC_Branch_Together");
+        DestroyNamedRoot("NPC_Branch_Converge");
+        DestroyNamedRoot("NPC_Branch_Linear");
+        DestroyNamedRoot("NPC_Branch_Loop");
+
+        const float z = -44f;
+        var one = CreateChoiceAsset("Lab_Branch_OneExclusive", "lab_branch_one", "o1", new DialogueNode[]
+        {
+            Line("o1", "villager_a", "Bring the scout, or go alone?", "o_choice"),
+            Choice("o_choice", "One branch speaker", new[]
+            {
+                Option("opt_scout", "Bring the scout.", "o_b"),
+                Option("opt_alone", "Go alone.", "o_player"),
+            }),
+            Line("o_b", "villager_b", "Scout here.", "o_player"),
+            Line("o_player", "active_player", "Understood.", "o_shared"),
+            Line("o_shared", "villager_a", "We keep the same places.", "o_end"),
+            new DialogueEndNode { nodeId = "o_end" },
+        });
+        var exclusive = CreateChoiceAsset("Lab_Branch_Exclusive", "lab_branch_exclusive", "e1", new DialogueNode[]
+        {
+            Line("e1", "villager_a", "Scout or lookout?", "e_choice"),
+            Choice("e_choice", "Exclusive pair", new[]
+            {
+                Option("opt_scout", "Scout.", "e_b"),
+                Option("opt_lookout", "Lookout.", "e_c"),
+            }),
+            Line("e_b", "villager_b", "Scout speaking.", "e_player"),
+            Line("e_c", "villager_c", "Lookout speaking.", "e_player"),
+            Line("e_player", "active_player", "I heard you.", "e_end"),
+            new DialogueEndNode { nodeId = "e_end" },
+        });
+        var together = CreateChoiceAsset("Lab_Branch_Together", "lab_branch_together", "t1", new DialogueNode[]
+        {
+            Line("t1", "villager_a", "Both of them, or neither?", "t_choice"),
+            Choice("t_choice", "Coexisting branches", new[]
+            {
+                Option("opt_both", "Both.", "t_b"),
+                Option("opt_neither", "Neither.", "t_player"),
+            }),
+            Line("t_b", "villager_b", "Scout, with the lookout.", "t_c"),
+            Line("t_c", "villager_c", "Lookout, beside the scout.", "t_player"),
+            Line("t_player", "active_player", "Noted.", "t_end"),
+            new DialogueEndNode { nodeId = "t_end" },
+        });
+        var converge = CreateChoiceAsset("Lab_Branch_Converge", "lab_branch_converge", "c1", new DialogueNode[]
+        {
+            Line("c1", "villager_a", "Which ally reports, then we meet?", "c_choice"),
+            Choice("c_choice", "Converge", new[]
+            {
+                Option("opt_scout", "Scout reports.", "c_b"),
+                Option("opt_lookout", "Lookout reports.", "c_c"),
+            }),
+            Line("c_b", "villager_b", "Scout report.", "c_shared"),
+            Line("c_c", "villager_c", "Lookout report.", "c_shared"),
+            Line("c_shared", "villager_a", "Same meeting, either way.", "c_player"),
+            Line("c_player", "active_player", "Then we are settled.", "c_end"),
+            new DialogueEndNode { nodeId = "c_end" },
+        });
+        var linear = CreateChoiceAsset("Lab_Branch_Linear", "lab_branch_linear", "n1", new DialogueNode[]
+        {
+            Line("n1", "villager_a", "Linear start. No choice.", "n2"),
+            Line("n2", "villager_b", "Linear middle.", "n3"),
+            Line("n3", "active_player", "Linear end.", "n_end"),
+            new DialogueEndNode { nodeId = "n_end" },
+        });
+        var loop = CreateChoiceAsset("Lab_Branch_Loop", "lab_branch_loop", "p1", new DialogueNode[]
+        {
+            Line("p1", "villager_a", "Again, or finish?", "p_choice"),
+            Choice("p_choice", "Manual loop", new[]
+            {
+                Option("opt_again", "Again.", "p_again"),
+                Option("opt_done", "Finish.", "p_done"),
+            }),
+            Line("p_again", "active_player", "Once more.", "p1"),
+            Line("p_done", "active_player", "Finished.", "p_end"),
+            new DialogueEndNode { nodeId = "p_end" },
+        });
+
+        PlaceBranchNpc("NPC_Branch_OneExclusive", new Vector3(0f, 1f, z), new Color(0.95f, 0.55f, 0.2f), one, true, false);
+        PlaceBranchNpc("NPC_Branch_Exclusive", new Vector3(8f, 1f, z), new Color(0.62f, 0.35f, 0.85f), exclusive, true, true);
+        PlaceBranchNpc("NPC_Branch_Together", new Vector3(16f, 1f, z), new Color(0.25f, 0.75f, 0.4f), together, true, true);
+        PlaceBranchNpc("NPC_Branch_Converge", new Vector3(24f, 1f, z), new Color(0.95f, 0.85f, 0.45f), converge, true, true);
+        PlaceBranchNpc("NPC_Branch_Linear", new Vector3(32f, 1f, z), new Color(0.85f, 0.85f, 0.85f), linear, true, false);
+        PlaceBranchNpc("NPC_Branch_Loop", new Vector3(40f, 1f, z), new Color(0.9f, 0.45f, 0.7f), loop, false, false);
+    }
+
+    static void PlaceBranchNpc(string name, Vector3 position, Color color, DialogueAsset asset, bool withScout, bool withLookout)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = true;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+        if (withScout)
+            AddSpeakerAnchor(host.transform, "villager_b", new Vector3(-3.2f, 0f, 0f));
+        if (withLookout)
+            AddSpeakerAnchor(host.transform, "villager_c", new Vector3(3.2f, 0f, 0f));
+    }
+
+    static void AddSpeakerAnchor(Transform npc, string speakerId, Vector3 localPosition)
+    {
+        var marker = new GameObject(speakerId);
+        marker.transform.SetParent(npc, false);
+        marker.transform.localPosition = localPosition;
+    }
+
+    const string CondGateFlag = "dialogue.test.step5.gate";
+    const string CondSecondFlag = "dialogue.test.step5.second";
+    const string CondNeverFlag = "dialogue.test.step5.never";
+
+    static void CreateConditionFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_Cond_Labels");
+        DestroyNamedRoot("NPC_Cond_Who");
+        DestroyNamedRoot("NPC_Cond_Flags");
+        DestroyNamedRoot("NPC_Cond_Fallback");
+        DestroyNamedRoot("NPC_Cond_Complete");
+        DestroyNamedRoot("NPC_Cond_Malformed");
+        DestroyNamedRoot("NPC_Cond_BadFallback");
+        DestroyNamedRoot("NPC_Cond_Frozen");
+        DestroyNamedRoot("Pad_Cond_SetGate");
+        DestroyNamedRoot("Pad_Cond_SetSecond");
+        DestroyNamedRoot("Pad_Cond_ClearFlags");
+
+        const float z = -48f;
+        var labels = CreateChoiceAsset("Lab_Cond_Labels", "lab_cond_labels", "lb1", new DialogueNode[]
+        {
+            Line("lb1", "villager_a", "What do you call this road?", "lb_choice"),
+            Choice("lb_choice", "Name the road", new[]
+            {
+                LabelOption("opt_named", "The default road.", "lb_named",
+                    Variant("ax", "Ax's road."), Variant("jyn", "Jyn's road.")),
+                LabelOption("opt_empty", "The plain road.", "lb_plain",
+                    Variant("ax", "")),
+                Option("opt_missing", "The unmarked road.", "lb_plain"),
+            }),
+            Line("lb_named", "villager_a", "That name stays with you.", "lb_end"),
+            Line("lb_plain", "villager_a", "The default name it is.", "lb_end"),
+            new DialogueEndNode { nodeId = "lb_end" },
+        });
+        var who = CreateChoiceAsset("Lab_Cond_Who", "lab_cond_who", "w1", new DialogueNode[]
+        {
+            Line("w1", "villager_a", "Who can answer?", "w_choice"),
+            Choice("w_choice", "Who answers", new[]
+            {
+                Option("opt_any", "Anyone.", "w_any"),
+                RequiredOption("opt_ax", "Ax's answer.", "w_ax", "ax"),
+                RequiredOption("opt_jyn", "Jyn's answer.", "w_jyn", "jyn"),
+            }),
+            Line("w_any", "villager_a", "Everyone heard that.", "w_end"),
+            Line("w_ax", "villager_a", "Only Ax heard that.", "w_end"),
+            Line("w_jyn", "villager_a", "Only Jyn heard that.", "w_end"),
+            new DialogueEndNode { nodeId = "w_end" },
+        });
+        var flags = CreateChoiceAsset("Lab_Cond_Flags", "lab_cond_flags", "f1", new DialogueNode[]
+        {
+            Line("f1", "villager_a", "Which gate is open?", "f_choice"),
+            Choice("f_choice", "Flags", new[]
+            {
+                Option("opt_always", "Always here.", "f_always"),
+                FlagOption("opt_gate", "Needs the gate.", "f_gate", CondGateFlag),
+                FlagOption("opt_both", "Needs both flags.", "f_both", CondGateFlag, CondSecondFlag),
+            }),
+            Line("f_always", "villager_a", "Always.", "f_end"),
+            Line("f_gate", "villager_a", "Gate is open.", "f_end"),
+            Line("f_both", "villager_a", "Both flags.", "f_end"),
+            new DialogueEndNode { nodeId = "f_end" },
+        });
+        var fallback = CreateChoiceAsset("Lab_Cond_Fallback", "lab_cond_fallback", "fb1", new DialogueNode[]
+        {
+            Line("fb1", "villager_a", "All answers are hidden. A fallback line should follow.", "fb_choice"),
+            new DialogueChoiceNode
+            {
+                nodeId = "fb_choice",
+                promptText = "Hidden",
+                fallbackNodeId = "fb_line",
+                options = new System.Collections.Generic.List<DialogueChoiceOption>
+                {
+                    FlagOption("opt_never", "Never shown.", "fb_never", CondNeverFlag),
+                },
+            },
+            Line("fb_line", "villager_a", "Fallback line.", "fb_end"),
+            new DialogueEndNode { nodeId = "fb_end" },
+        });
+        var complete = CreateChoiceAsset("Lab_Cond_Complete", "lab_cond_complete", "cp1", new DialogueNode[]
+        {
+            Line("cp1", "villager_a", "All answers are hidden. The talk should end with no menu.", "cp_choice"),
+            new DialogueChoiceNode
+            {
+                nodeId = "cp_choice",
+                promptText = "Hidden",
+                options = new System.Collections.Generic.List<DialogueChoiceOption>
+                {
+                    FlagOption("opt_never", "Never shown.", "cp_never", CondNeverFlag),
+                },
+            },
+        });
+        var malformed = CreateChoiceAsset("Lab_Cond_Malformed", "lab_cond_malformed", "mf_choice", new DialogueNode[]
+        {
+            new DialogueChoiceNode
+            {
+                nodeId = "mf_choice",
+                promptText = "Empty",
+                options = new System.Collections.Generic.List<DialogueChoiceOption>(),
+            },
+        });
+        var badFallback = CreateChoiceAsset("Lab_Cond_BadFallback", "lab_cond_bad_fallback", "bf_choice", new DialogueNode[]
+        {
+            new DialogueChoiceNode
+            {
+                nodeId = "bf_choice",
+                promptText = "Missing fallback",
+                fallbackNodeId = "missing_condition_node",
+                options = new System.Collections.Generic.List<DialogueChoiceOption>
+                {
+                    FlagOption("opt_never", "Never shown.", "bf_never", CondNeverFlag),
+                },
+            },
+        });
+        var frozen = CreateChoiceAsset("Lab_Cond_Frozen", "lab_cond_frozen", "z1", new DialogueNode[]
+        {
+            Line("z1", "villager_a", "Swap now. The menu must keep the character who started.", "z_choice"),
+            Choice("z_choice", "Frozen voice", new[]
+            {
+                LabelOption("opt_voice", "Default reply.", "z_line",
+                    Variant("ax", "Ax reply."), Variant("jyn", "Jyn reply.")),
+                RequiredOption("opt_ax", "Ax only.", "z_line", "ax"),
+                RequiredOption("opt_jyn", "Jyn only.", "z_line", "jyn"),
+            }),
+            Line("z_line", "active_player", "Still the first voice.", "z_choice"),
+        });
+
+        PlaceCondNpc("NPC_Cond_Labels", new Vector3(0f, 1f, z), new Color(0.95f, 0.78f, 0.25f), labels, true);
+        PlaceCondNpc("NPC_Cond_Who", new Vector3(8f, 1f, z), new Color(0.35f, 0.7f, 0.95f), who, true);
+        PlaceCondNpc("NPC_Cond_Flags", new Vector3(16f, 1f, z), new Color(0.25f, 0.8f, 0.45f), flags, true);
+        PlaceCondNpc("NPC_Cond_Fallback", new Vector3(24f, 1f, z), new Color(0.95f, 0.55f, 0.2f), fallback, true);
+        PlaceCondNpc("NPC_Cond_Complete", new Vector3(32f, 1f, z), new Color(0.85f, 0.85f, 0.85f), complete, true);
+        PlaceCondNpc("NPC_Cond_Malformed", new Vector3(40f, 1f, z), new Color(0.75f, 0.22f, 0.22f), malformed, true);
+        PlaceCondNpc("NPC_Cond_BadFallback", new Vector3(48f, 1f, z), new Color(0.55f, 0.15f, 0.15f), badFallback, true);
+        PlaceCondNpc("NPC_Cond_Frozen", new Vector3(56f, 1f, z), new Color(0.65f, 0.45f, 0.9f), frozen, false);
+
+        CreateFlagPad("Pad_Cond_SetGate", new Vector3(12f, 1f, -52f), new Color(1f, 0.2f, 0.85f, 0.4f),
+            "step5 gate = true", CondGateFlag, true);
+        CreateFlagPad("Pad_Cond_SetSecond", new Vector3(16f, 1f, -52f), new Color(0.2f, 0.9f, 0.95f, 0.4f),
+            "step5 second = true", CondSecondFlag, true);
+        CreateFlagPad("Pad_Cond_ClearFlags", new Vector3(20f, 1f, -52f), new Color(0.45f, 0.45f, 0.45f, 0.4f),
+            "step5 flags cleared", CondGateFlag, false, CondSecondFlag, false);
+    }
+
+    static void PlaceCondNpc(string name, Vector3 position, Color color, DialogueAsset asset, bool lockGameplay)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = lockGameplay;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+    }
+
+    static void CreateFlagPad(string name, Vector3 position, Color color, string log, params object[] flagPairs)
+    {
+        var go = CreateTriggerVolume(name, position, color);
+        var runner = go.AddComponent<EventRunner>();
+        runner.eventId = name;
+        runner.seizesPlayerControl = false;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.debugLog = true;
+        var actions = new System.Collections.Generic.List<EventAction>
+        {
+            new DebugLogAction { message = log },
+        };
+        for (int i = 0; i + 1 < flagPairs.Length; i += 2)
+        {
+            actions.Add(new SetFlagAction
+            {
+                flagId = (string)flagPairs[i],
+                value = (bool)flagPairs[i + 1],
+            });
+        }
+        runner.actions = actions;
+        go.AddComponent<EventSourceTrigger>().runner = runner;
+    }
+
+    static DialogueTextVariant Variant(string characterId, string text)
+    {
+        return new DialogueTextVariant { characterId = characterId, text = text };
+    }
+
+    static DialogueChoiceOption LabelOption(string id, string text, string next, params DialogueTextVariant[] variants)
+    {
+        var option = Option(id, text, next);
+        option.textVariants = new System.Collections.Generic.List<DialogueTextVariant>(variants);
+        return option;
+    }
+
+    static DialogueChoiceOption RequiredOption(string id, string text, string next, string requiredCharacterId)
+    {
+        var option = Option(id, text, next);
+        option.requiredCharacterId = requiredCharacterId;
+        return option;
+    }
+
+    static DialogueChoiceOption FlagOption(string id, string text, string next, params string[] flagIds)
+    {
+        var option = Option(id, text, next);
+        option.availability = new System.Collections.Generic.List<EventCondition>(flagIds.Length);
+        for (int i = 0; i < flagIds.Length; i++)
+            option.availability.Add(new FlagIsTrueCondition { flagId = flagIds[i] });
+        return option;
+    }
+
+    static void CreateSafetyFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_Safety_AutoCycle");
+        DestroyNamedRoot("NPC_Safety_ManualLoop");
+        DestroyNamedRoot("NPC_Safety_ChoiceLoop");
+        DestroyNamedRoot("NPC_Safety_LongChain");
+
+        const float z = -60f;
+        var cycle = CreateChoiceAsset("Lab_Safety_AutoCycle", "lab_safety_autocycle", "a1", new DialogueNode[]
+        {
+            Line("a1", "villager_a", "", "a2"),
+            Line("a2", "villager_a", "", "a1"),
+        });
+        var manual = CreateChoiceAsset("Lab_Safety_ManualLoop", "lab_safety_manual", "m1", new DialogueNode[]
+        {
+            Line("m1", "villager_a", "Say it again?", "m2"),
+            Line("m2", "villager_a", "Still manual.", "m1"),
+        });
+        var choiceLoop = CreateChoiceAsset("Lab_Safety_ChoiceLoop", "lab_safety_choice", "k1", new DialogueNode[]
+        {
+            Line("k1", "villager_a", "Again, or leave?", "k_choice"),
+            Choice("k_choice", "Keep going", new[]
+            {
+                Option("opt_again", "Again.", "k_again"),
+                Option("opt_leave", "Leave.", "k_end"),
+            }),
+            Line("k_again", "villager_a", "Once more.", "k_choice"),
+            new DialogueEndNode { nodeId = "k_end" },
+        });
+
+        var chain = new System.Collections.Generic.List<DialogueNode>(41);
+        for (int i = 0; i < 40; i++)
+        {
+            string id = "s" + i.ToString("00");
+            string next = i == 39 ? "s_end" : "s" + (i + 1).ToString("00");
+            chain.Add(Line(id, "villager_a", "", next));
+        }
+        chain.Add(new DialogueEndNode { nodeId = "s_end" });
+        var longChain = CreateChoiceAsset("Lab_Safety_LongChain", "lab_safety_long", "s00", chain.ToArray());
+
+        PlaceSafetyNpc("NPC_Safety_AutoCycle", new Vector3(0f, 1f, z), new Color(0.8f, 0.2f, 0.2f),
+            cycle, DialogueProgressionMode.Automatic, true);
+        PlaceSafetyNpc("NPC_Safety_ManualLoop", new Vector3(8f, 1f, z), new Color(0.3f, 0.45f, 0.9f),
+            manual, DialogueProgressionMode.Manual, false);
+        PlaceSafetyNpc("NPC_Safety_ChoiceLoop", new Vector3(16f, 1f, z), new Color(0.95f, 0.78f, 0.25f),
+            choiceLoop, DialogueProgressionMode.Manual, false);
+        PlaceSafetyNpc("NPC_Safety_LongChain", new Vector3(24f, 1f, z), new Color(0.85f, 0.85f, 0.85f),
+            longChain, DialogueProgressionMode.Automatic, true);
+    }
+
+    static void PlaceSafetyNpc(
+        string name,
+        Vector3 position,
+        Color color,
+        DialogueAsset asset,
+        DialogueProgressionMode progression,
+        bool immediateAutomatic)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = true;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+        host.interactiveProgression = progression;
+        host.overrideAutoAdvanceHold = immediateAutomatic;
+        host.autoAdvanceHoldSeconds = 0f;
+    }
+
+    static void CreatePlacementFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_Place_Left");
+        DestroyNamedRoot("NPC_Place_Right");
+        DestroyNamedRoot("NPC_Place_Edge");
+        DestroyNamedRoot("NPC_Place_Lower");
+
+        const float z = -68f;
+        var left = CreateChoiceAsset("Lab_Place_Left", "lab_place_left", "pl1", new DialogueNode[]
+        {
+            Line("pl1", "villager_a", "Your box is the one on the left.", "pl2"),
+            Line("pl2", "active_player", "Mine is on the left.", "pl_choice"),
+            Choice("pl_choice", "", new[]
+            {
+                Option("opt_here", "Here.", "pl_here"),
+                RequiredOption("opt_ax", "Ax only.", "pl_ax", "ax"),
+                Option("opt_leave", "Leave.", "pl_end"),
+            }),
+            Line("pl_here", "active_player", "Still the left box.", "pl_end"),
+            Line("pl_ax", "active_player", "Ax saw that option.", "pl_end"),
+            new DialogueEndNode { nodeId = "pl_end" },
+        });
+        var right = CreateChoiceAsset("Lab_Place_Right", "lab_place_right", "pr1", new DialogueNode[]
+        {
+            Line("pr1", "villager_a", "Your box is the one on the right.", "pr2"),
+            Line("pr2", "active_player", "Mine is on the right.", "pr_choice"),
+            Choice("pr_choice", "", new[]
+            {
+                Option("opt_here", "Here.", "pr_here"),
+                Option("opt_leave", "Leave.", "pr_end"),
+            }),
+            Line("pr_here", "active_player", "Still the right box.", "pr_end"),
+            new DialogueEndNode { nodeId = "pr_end" },
+        });
+        var edgeOptions = new DialogueChoiceOption[6];
+        for (int i = 0; i < 5; i++)
+            edgeOptions[i] = Option("opt_" + i, "Option " + (i + 1) + ".", "pe_end");
+        edgeOptions[5] = Option("opt_leave", "Leave.", "pe_end");
+        var edge = CreateChoiceAsset("Lab_Place_Edge", "lab_place_edge", "pe1", new DialogueNode[]
+        {
+            Line("pe1", "villager_a", "This menu is too tall to sit underneath.", "pe2"),
+            Line("pe2", "active_player", "Check the edge.", "pe_choice"),
+            Choice("pe_choice", "Tall menu", edgeOptions),
+            new DialogueEndNode { nodeId = "pe_end" },
+        });
+        var lower = CreateChoiceAsset("Lab_Place_Lower", "lab_place_lower", "pc1", new DialogueNode[]
+        {
+            Line("pc1", "villager_a", "This menu stays at the bottom.", "pc2"),
+            Line("pc2", "active_player", "Lower center.", "pc_choice"),
+            Choice("pc_choice", "Bottom", new[]
+            {
+                Option("opt_here", "Here.", "pc_here"),
+                Option("opt_leave", "Leave.", "pc_end"),
+            }),
+            Line("pc_here", "villager_a", "Still the bottom.", "pc_end"),
+            new DialogueEndNode { nodeId = "pc_end" },
+        });
+
+        UseNearPlayer(left);
+        UseNearPlayer(right);
+        UseNearPlayer(edge);
+
+        PlacePlacementNpc("NPC_Place_Left", new Vector3(0f, 1f, z), new Color(0.25f, 0.8f, 0.45f), left, 8f, Vector2.zero);
+        PlacePlacementNpc("NPC_Place_Right", new Vector3(12f, 1f, z), new Color(0.3f, 0.45f, 0.9f), right, -8f, Vector2.zero);
+        // Drop both boxes to the bottom of the safe area so the tall menu cannot sit underneath.
+        PlacePlacementNpc("NPC_Place_Edge", new Vector3(24f, 1f, z), new Color(0.95f, 0.55f, 0.2f), edge, 8f, new Vector2(0f, -480f));
+        PlacePlacementNpc("NPC_Place_Lower", new Vector3(36f, 1f, z), new Color(0.85f, 0.85f, 0.85f), lower, 0f, Vector2.zero);
+        AssetDatabase.SaveAssets();
+    }
+
+    static void UseNearPlayer(DialogueAsset asset)
+    {
+        var presentation = DialogueChoicePresentation.LowerCenterDefault;
+        presentation.placement = DialogueChoicePlacement.NearPlayerChatbox;
+        presentation.gapFromBubbleRef = 24f;
+        asset.overrideChoicePresentation = true;
+        asset.choicePresentation = presentation;
+        EditorUtility.SetDirty(asset);
+    }
+
+    static void PlacePlacementNpc(
+        string name,
+        Vector3 position,
+        Color color,
+        DialogueAsset asset,
+        float speakerLocalX,
+        Vector2 manualOffset)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = true;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+        host.interactiveProgression = DialogueProgressionMode.Manual;
+        host.interactiveManualOffset = manualOffset;
+        if (Mathf.Abs(speakerLocalX) > 0.01f)
+            AddSpeakerAnchor(host.transform, "villager_a", new Vector3(speakerLocalX, 0f, 0f));
+    }
+
+    static void CreateQueueInterruptFixture()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("Trigger_P1_A");
+        DestroyNamedRoot("Trigger_P1_QueueB");
+        DestroyNamedRoot("Trigger_P1_InterruptC");
+        DestroyNamedRoot("Trigger_P1_InterruptFail");
+
+        const float z = -76f;
+        var a = CreateChoiceAsset("Lab_P1_A", "lab_p1_a", "a1", new DialogueNode[]
+        {
+            Line("a1", "active_player", "This is A. Do not confirm. Walk to B, then C.", "a_end"),
+            new DialogueEndNode { nodeId = "a_end" },
+        });
+        var b = CreateChoiceAsset("Lab_P1_B", "lab_p1_b", "b1", new DialogueNode[]
+        {
+            Line("b1", "active_player", "This is B. It waited for C.", "b_end"),
+            new DialogueEndNode { nodeId = "b_end" },
+        });
+        var c = CreateChoiceAsset("Lab_P1_C", "lab_p1_c", "c1", new DialogueNode[]
+        {
+            Line("c1", "active_player", "This is C. It replaced A. B is still waiting.", "c_end"),
+            new DialogueEndNode { nodeId = "c_end" },
+        });
+        a.lockGameplay = false;
+        b.lockGameplay = false;
+        c.lockGameplay = false;
+        EditorUtility.SetDirty(a);
+        EditorUtility.SetDirty(b);
+        EditorUtility.SetDirty(c);
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_P1_A",
+            new Vector3(0f, 1f, z),
+            a,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Ignore),
+            new Color(0.25f, 0.8f, 0.45f));
+
+        var queue = CreateNarrativeTrigger(
+            "Trigger_P1_QueueB",
+            new Vector3(10f, 1f, z),
+            b,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Queue);
+        queue.cancelPendingOnExit = false;
+        TintPad(queue, new Color(0.95f, 0.75f, 0.2f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_P1_InterruptC",
+            new Vector3(20f, 1f, z),
+            c,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Interrupt),
+            new Color(0.9f, 0.25f, 0.25f));
+
+        TintPad(CreateNarrativeTrigger(
+            "Trigger_P1_InterruptFail",
+            new Vector3(30f, 1f, z),
+            null,
+            NarrativeDialogueTrigger.FireMode.Repeat,
+            NarrativeDialogueTrigger.LockOverride.ForceNonBlocking,
+            DialogueProgressionMode.Manual,
+            NarrativeDialogueTrigger.ConflictPolicy.Interrupt),
+            new Color(0.55f, 0.55f, 0.55f));
+
+        AssetDatabase.SaveAssets();
+    }
+
+    static void CreateStartDialogueEventFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("Event_Dialogue_Wait");
+        DestroyNamedRoot("Event_Dialogue_Fail");
+
+        var waitAsset = CreateChoiceAsset("Lab_Event_Dialogue", "lab_event_dialogue", "e1", new DialogueNode[]
+        {
+            Line("e1", "active_player", "Event dialogue. E finishes. Esc cancels.", "e_end"),
+            new DialogueEndNode { nodeId = "e_end" },
+        });
+        var failAsset = CreateChoiceAsset(
+            "Lab_Event_DialogueFail", "lab_event_dialogue_fail", "missing", new DialogueNode[0]);
+        waitAsset.lockGameplay = true;
+        failAsset.lockGameplay = true;
+        EditorUtility.SetDirty(waitAsset);
+        EditorUtility.SetDirty(failAsset);
+
+        const float z = -84f;
+        CreateDialogueEventPad(
+            "Event_Dialogue_Wait",
+            new Vector3(0f, 1f, z),
+            new Color(0.25f, 0.8f, 0.45f),
+            waitAsset,
+            "after dialogue");
+        CreateDialogueEventPad(
+            "Event_Dialogue_Fail",
+            new Vector3(12f, 1f, z),
+            new Color(0.95f, 0.55f, 0.2f),
+            failAsset,
+            "after failed dialogue");
+        AssetDatabase.SaveAssets();
+    }
+
+    static void CreateDialogueEventPad(
+        string name,
+        Vector3 position,
+        Color color,
+        DialogueAsset asset,
+        string afterMessage)
+    {
+        var go = CreateTriggerVolume(name, position, new Vector3(3.2f, 2f, 3.2f), color);
+        var runner = go.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = go.AddComponent<EventRunner>();
+        runner.eventId = name;
+        runner.seizesPlayerControl = false;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new StartDialogueAction
+            {
+                dialogueAsset = asset,
+                waitUntilFinished = true,
+                allowCancel = true,
+                progressionMode = DialogueProgressionMode.Manual,
+            },
+            new DebugLogAction { message = afterMessage },
+        };
+
+        var source = go.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = go.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    const string C2Flag = "lab_c2_branch";
+
+    static void CreateConditionalDialogueFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_C2_Flag");
+        DestroyNamedRoot("NPC_C2_Layout");
+        DestroyNamedRoot("NPC_C2_Missing");
+        DestroyNamedRoot("NPC_C2_Cycle");
+        DestroyNamedRoot("Pad_C2_FlagOn");
+        DestroyNamedRoot("Pad_C2_FlagOff");
+
+        var flag = CreateChoiceAsset("Lab_C2_Flag", "lab_c2_flag", "c_check", new DialogueNode[]
+        {
+            Condition("c_check", C2Flag, "c_yes", "c_no"),
+            Line("c_yes", "active_player", "The flag is on.", ""),
+            Line("c_no", "active_player", "The flag is off.", ""),
+        });
+        var layout = CreateChoiceAsset("Lab_C2_Layout", "lab_c2_layout", "l1", new DialogueNode[]
+        {
+            Line("l1", "villager_a", "Both paths were planned.", "l_check"),
+            Condition("l_check", C2Flag, "l_b", "l_you"),
+            Line("l_b", "villager_b", "Branch speaker B.", ""),
+            Line("l_you", "active_player", "Branch speaker you.", ""),
+        });
+        var missing = CreateChoiceAsset("Lab_C2_Missing", "lab_c2_missing", "m_check", new DialogueNode[]
+        {
+            new DialogueConditionNode
+            {
+                nodeId = "m_check",
+                trueNodeId = "missing",
+                falseNodeId = "",
+            },
+        });
+        var cycleNodes = new DialogueNode[40];
+        for (int i = 0; i < cycleNodes.Length; i++)
+        {
+            string id = "c" + i.ToString("00");
+            string next = "c" + ((i + 1) % cycleNodes.Length).ToString("00");
+            cycleNodes[i] = new DialogueConditionNode
+            {
+                nodeId = id,
+                trueNodeId = next,
+                falseNodeId = "",
+            };
+        }
+        var cycle = CreateChoiceAsset("Lab_C2_Cycle", "lab_c2_cycle", "c00", cycleNodes);
+
+        const float z = -92f;
+        PlaceC2Npc("NPC_C2_Flag", new Vector3(0f, 1f, z), new Color(0.25f, 0.8f, 0.45f), flag, false);
+        PlaceC2Npc("NPC_C2_Layout", new Vector3(14f, 1f, z), new Color(0.3f, 0.45f, 0.9f), layout, true);
+        PlaceC2Npc("NPC_C2_Missing", new Vector3(28f, 1f, z), new Color(0.95f, 0.55f, 0.2f), missing, false);
+        PlaceC2Npc("NPC_C2_Cycle", new Vector3(42f, 1f, z), new Color(0.9f, 0.9f, 0.9f), cycle, false);
+
+        CreateFlagPad("Pad_C2_FlagOn", new Vector3(0f, 1f, -96f), new Color(0.2f, 0.75f, 0.35f, 0.45f),
+            "lab_c2_branch set", C2Flag, true);
+        CreateFlagPad("Pad_C2_FlagOff", new Vector3(8f, 1f, -96f), new Color(0.75f, 0.25f, 0.25f, 0.45f),
+            "lab_c2_branch cleared", C2Flag, false);
+        AssetDatabase.SaveAssets();
+    }
+
+    static DialogueConditionNode Condition(string id, string flagId, string whenTrue, string whenFalse)
+    {
+        return new DialogueConditionNode
+        {
+            nodeId = id,
+            trueNodeId = whenTrue,
+            falseNodeId = whenFalse,
+            conditions = new System.Collections.Generic.List<EventCondition>
+            {
+                new FlagIsTrueCondition { flagId = flagId },
+            },
+        };
+    }
+
+    static void PlaceC2Npc(string name, Vector3 position, Color color, DialogueAsset asset, bool withBranchAnchor)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = true;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+        host.interactiveProgression = DialogueProgressionMode.Manual;
+        if (withBranchAnchor)
+            AddSpeakerAnchor(host.transform, "villager_b", new Vector3(6f, 0f, 0f));
+    }
+
+    static void CreateDialogueConsequenceFixtures()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("NPC_C3_Flag");
+        DestroyNamedRoot("NPC_C3_Then");
+        DestroyNamedRoot("NPC_C3_Wait");
+        DestroyNamedRoot("NPC_C3_Loop");
+
+        var flag = CreateChoiceAsset("Lab_C3_Flag", "lab_c3_flag", "c3_ask", new DialogueNode[]
+        {
+            Choice("c3_ask", "Set a flag?", new[]
+            {
+                Option("a", "Leave it.", "c3_no"),
+                ConsequenceOption("b", "Set it.", "c3_yes",
+                    new SetFlagAction { flagId = "lab_c3_choice", value = true }),
+            }),
+            Line("c3_no", "active_player", "Left the flag alone.", ""),
+            Line("c3_yes", "active_player", "Wrote the flag.", ""),
+        });
+        var then = CreateChoiceAsset("Lab_C3_Then", "lab_c3_then", "c3_pick", new DialogueNode[]
+        {
+            Choice("c3_pick", "Set it, then branch.", new[]
+            {
+                Option("a", "Skip.", "c3_skip"),
+                ConsequenceOption("b", "Set and test.", "c3_check",
+                    new SetFlagAction { flagId = "lab_c3_seen", value = true }),
+            }),
+            Line("c3_skip", "active_player", "Skipped.", ""),
+            Condition("c3_check", "lab_c3_seen", "c3_on", "c3_off"),
+            Line("c3_on", "active_player", "The condition saw the flag.", ""),
+            Line("c3_off", "active_player", "The condition missed the flag.", ""),
+        });
+        var wait = CreateChoiceAsset("Lab_C3_Wait", "lab_c3_wait", "c3_wait_ask", new DialogueNode[]
+        {
+            Choice("c3_wait_ask", "Wait, then set.", new[]
+            {
+                ConsequenceOption("wait", "Wait, then set.", "c3_after",
+                    new WaitAction { seconds = 2f },
+                    new SetFlagAction { flagId = "lab_c3_wait", value = true }),
+            }),
+            Line("c3_after", "active_player", "Wait finished. The flag was set.", ""),
+        });
+        var loop = CreateChoiceAsset("Lab_C3_Loop", "lab_c3_loop", "c3_loop_ask", new DialogueNode[]
+        {
+            Choice("c3_loop_ask", "Mark again?", new[]
+            {
+                ConsequenceOption("mark", "Mark.", "c3_loop_line",
+                    new DebugLogAction { message = "c3 loop mark" }),
+                Option("done", "Done.", ""),
+            }),
+            Line("c3_loop_line", "active_player", "Marked. E returns to the choice.", "c3_loop_ask"),
+        });
+
+        const float z = -104f;
+        PlaceC3Npc("NPC_C3_Flag", new Vector3(0f, 1f, z), new Color(0.25f, 0.8f, 0.45f), flag);
+        PlaceC3Npc("NPC_C3_Then", new Vector3(14f, 1f, z), new Color(0.3f, 0.45f, 0.9f), then);
+        PlaceC3Npc("NPC_C3_Wait", new Vector3(28f, 1f, z), new Color(0.95f, 0.55f, 0.2f), wait);
+        PlaceC3Npc("NPC_C3_Loop", new Vector3(42f, 1f, z), new Color(0.9f, 0.9f, 0.9f), loop);
+        AssetDatabase.SaveAssets();
+    }
+
+    static DialogueChoiceOption ConsequenceOption(string id, string text, string next, params EventAction[] actions)
+    {
+        DialogueChoiceOption option = Option(id, text, next);
+        option.consequences = new System.Collections.Generic.List<EventAction>(actions);
+        return option;
+    }
+
+    static void PlaceC3Npc(string name, Vector3 position, Color color, DialogueAsset asset)
+    {
+        var host = CreateNpcCapsule(
+            name,
+            position,
+            color,
+            NpcDialogueMode.InteractiveOnly,
+            null,
+            asset,
+            InteractPromptMode.DiscoveryAndInteraction);
+        host.interactiveLockGameplay = true;
+        host.allowCancelInteractive = true;
+        host.npcSpeakerId = "villager_a";
+        host.interactiveProgression = DialogueProgressionMode.Manual;
+    }
+
+    static void CreateFinalIntegrationFixture()
+    {
+        EnsureDialogueAssetFolder();
+        DestroyNamedRoot("Event_C4_Chain");
+
+        var chain = CreateChoiceAsset("Lab_C4_Chain", "lab_c4_chain", "c4_ask", new DialogueNode[]
+        {
+            Choice("c4_ask", "Set the chain flag?", new[]
+            {
+                Option("a", "Leave it.", "c4_leave"),
+                ConsequenceOption("b", "Set the flag.", "c4_check",
+                    new SetFlagAction { flagId = "lab_c4_chain_flag", value = true }),
+            }),
+            Line("c4_leave", "active_player", "C4 left the flag alone.", ""),
+            Condition("c4_check", "lab_c4_chain_flag", "c4_yes", "c4_no"),
+            Line("c4_yes", "active_player", "C4 condition passed.", ""),
+            Line("c4_no", "active_player", "C4 condition failed.", ""),
+        });
+
+        CreateDialogueEventPad(
+            "Event_C4_Chain",
+            new Vector3(0f, 1f, -112f),
+            new Color(0.72f, 0.45f, 0.95f),
+            chain,
+            "C4 after chain");
+
+        var pad = GameObject.Find("Event_C4_Chain");
+        if (pad != null)
+        {
+            var runner = pad.GetComponent<EventRunner>();
+            if (runner != null)
+                runner.eventId = "lab_c4_chain";
+        }
+
+        AssetDatabase.SaveAssets();
     }
 
     static void TintPad(Component owner, Color color)

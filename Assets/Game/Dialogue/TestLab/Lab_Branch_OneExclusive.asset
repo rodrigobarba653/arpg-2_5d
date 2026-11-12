@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Branch_OneExclusive
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_branch_one
+  entryNodeId: o1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134272
+  - rid: 8969645638822134273
+  - rid: 8969645638822134274
+  - rid: 8969645638822134275
+  - rid: 8969645638822134276
+  - rid: 8969645638822134277
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134272
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Bring the scout, or go alone?
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: o_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134273
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o_choice
+        promptText: One branch speaker
+        options:
+        - optionId: opt_scout
+          text: Bring the scout.
+          textVariants: []
+          nextNodeId: o_b
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_alone
+          text: Go alone.
+          textVariants: []
+          nextNodeId: o_player
+          requiredCharacterId: 
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134274
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o_b
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Scout here.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: o_player
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134275
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o_player
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Understood.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: o_shared
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134276
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o_shared
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: We keep the same places.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: o_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134277
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: o_end

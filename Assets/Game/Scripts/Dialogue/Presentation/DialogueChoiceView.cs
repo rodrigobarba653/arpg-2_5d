@@ -48,8 +48,17 @@ public class DialogueChoiceView : MonoBehaviour
         for (int i = 0; i < count; i++)
             CreateRow(i, labels[i] ?? "");
 
-        gameObject.SetActive(true);
+        // Stay hidden until the session has set the screen pivot. Same-frame Reveal
+        // is the first visible state, so the menu does not appear at the placeholder spot.
+        gameObject.SetActive(false);
         SetSelected(selected);
+    }
+
+    public void Reveal()
+    {
+        if (rowLabels.Count == 0)
+            return;
+        gameObject.SetActive(true);
     }
 
     public void SetSelected(int index)

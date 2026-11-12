@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -55,9 +57,20 @@ public class DialogueSession
     Coroutine routine;
     bool holdsLock;
     bool warnedMissingActive;
+    bool loggedPathLimit;
+    bool loggedBranchClamp;
+    int transitionsThisFrame;
+    int transitionFrame = -1;
+    readonly HashSet<string> automaticVisited = new HashSet<string>();
+    readonly HashSet<string> immediateVisited = new HashSet<string>();
     DialogueChoiceView choiceView;
     string choiceDestination;
+    CancellationTokenSource consequenceCts;
+    EventContext consequenceContext;
+    EventAction activeConsequence;
     readonly List<DialogueChoiceOption> choiceScratch = new List<DialogueChoiceOption>(8);
+    readonly List<Rect> choiceBlockerScratch = new List<Rect>(4);
+    bool choicePlacementLogged;
 
     public DialogueSession(
         DialogueService service,
@@ -90,7 +103,8 @@ public class DialogueSession
         this.initiatorCharacterIdOverride = initiatorCharacterIdOverride;
         this.initiatorTransformOverride = initiatorTransformOverride;
         this.progressionMode = progressionMode;
-        this.autoAdvanceHoldSeconds = autoAdvanceHoldSeconds > 0.05f ? autoAdvanceHoldSeconds : 1.75f;
+        // 0 is a real immediate advance. Only a negative value falls back to the default hold.
+        this.autoAdvanceHoldSeconds = autoAdvanceHoldSeconds < 0f ? 1.75f : autoAdvanceHoldSeconds;
     }
 
     public void CollectScreenRects(List<Rect> into)
@@ -155,6 +169,8 @@ public class DialogueSession
         if (Outcome == DialogueSessionOutcome.None)
             Outcome = DialogueSessionOutcome.Cancelled;
 
+        AbortConsequences();
+
         if (stopRoutine && runnerHost != null && routine != null)
         {
             var r = routine;
@@ -184,9 +200,23 @@ public class DialogueSession
                 if (node is DialogueEndNode)
                     break;
 
+                if (!AdmitNode(node))
+                {
+                    if (Outcome != DialogueSessionOutcome.None)
+                        break;
+                    yield return null;
+                    continue;
+                }
+
                 if (node is DialogueLineNode line)
                 {
-                    yield return PlayLine(line);
+                    var play = PlayLine(line);
+                    if (BeganWaiting(play, out var lineWait))
+                    {
+                        immediateVisited.Clear();
+                        yield return lineWait;
+                        yield return play;
+                    }
                     if (Outcome != DialogueSessionOutcome.None)
                         break;
 
@@ -209,7 +239,13 @@ public class DialogueSession
 
                 if (node is DialogueChoiceNode choice)
                 {
-                    yield return PlayChoice(choice);
+                    var menu = PlayChoice(choice);
+                    if (BeganWaiting(menu, out var menuWait))
+                    {
+                        immediateVisited.Clear();
+                        yield return menuWait;
+                        yield return menu;
+                    }
                     if (Outcome != DialogueSessionOutcome.None)
                         break;
 
@@ -230,12 +266,53 @@ public class DialogueSession
                     continue;
                 }
 
+                if (node is DialogueConditionNode condition)
+                {
+                    bool passed = DialogueChoiceAvailability.ConditionsAllow(condition.conditions);
+                    string nextId = passed ? condition.trueNodeId : condition.falseNodeId;
+                    if (service.debugLog)
+                    {
+                        Debug.Log(
+                            $"[Dialogue] Condition '{condition.nodeId}' passed={passed} next='{nextId}' asset='{Asset?.dialogueId}'.",
+                            runnerHost);
+                    }
+
+                    if (string.IsNullOrEmpty(nextId))
+                    {
+                        node = null;
+                        break;
+                    }
+
+                    var next = Asset.FindNode(nextId);
+                    if (next == null)
+                    {
+                        Fail("missing-node", condition.nodeId, $"next='{nextId}'");
+                        break;
+                    }
+
+                    node = next;
+                    continue;
+                }
+
                 Fail("unsupported-node", node.nodeId, $"type='{node.GetType().Name}'");
                 break;
             }
         }
 
         Finish();
+    }
+
+    /// <summary>
+    /// True when the routine actually suspended. A routine that finishes on the
+    /// first step stays in this frame so the 32-transition fuse can see it.
+    /// </summary>
+    static bool BeganWaiting(IEnumerator routine, out object yielded)
+    {
+        yielded = null;
+        if (routine == null || !routine.MoveNext())
+            return false;
+        yielded = routine.Current;
+        return true;
     }
 
     void Fail(string reason, string nodeId, string detail)
@@ -259,8 +336,10 @@ public class DialogueSession
         string resolvedId = DialogueActiveCharacter.ResolveSpeakerId(line.speakerId, SessionActiveCharacterId);
         string speakerKey = string.IsNullOrEmpty(resolvedId) ? "_default" : resolvedId;
 
-        if (plan == null || !plan.TryGet(speakerKey, out _))
+        if (plan == null)
             BuildOrRebuildConversationPlan(force: true);
+        else if (!plan.TryGet(speakerKey, out _))
+            AppendUnplannedSpeaker(speakerKey);
 
         var view = GetOrCreateBubble(speakerKey);
         View = view;
@@ -389,13 +468,119 @@ public class DialogueSession
     {
         service.SyncLayoutFromUI();
         var layout = service.Layout;
+        var analysis = DialogueGraph.Analyze(Asset, SessionActiveCharacterId);
+        if (analysis.exceededPathLimit && !loggedPathLimit)
+        {
+            loggedPathLimit = true;
+            Debug.LogWarning(
+                "[Dialogue] Path enumeration stopped at 1024. Core is the trunk before the first choice; other speakers get unique regions. asset='" +
+                (Asset != null ? Asset.dialogueId : "") + "'.",
+                runnerHost);
+        }
 
-        CollectSpeakersIntoOrder();
-        draftScratch.Clear();
+        speakerOrder.Clear();
+        for (int i = 0; i < analysis.core.Count; i++)
+            speakerOrder.Add(analysis.core[i]);
+        for (int i = 0; i < analysis.branch.Count; i++)
+            speakerOrder.Add(analysis.branch[i]);
+        foreach (var kvp in bubbles)
+        {
+            if (kvp.Value != null && !ContainsSpeaker(speakerOrder, kvp.Key))
+                speakerOrder.Add(kvp.Key);
+        }
+
+        FillDraft(speakerOrder);
+        if (!force && plan != null && !layout.ShouldRebuildConversationPlan(plan, draftScratch))
+        {
+            for (int i = 0; i < plan.speakers.Count; i++)
+            {
+                var s = plan.speakers[i];
+                if (s == null) continue;
+                if (anchorBySpeaker.TryGetValue(s.speakerId, out var a) && IsAlive(a))
+                    s.anchor = a;
+            }
+            return;
+        }
+
+        var wasVisible = new Dictionary<string, bool>(speakerOrder.Count);
+        if (plan != null)
+        {
+            for (int i = 0; i < plan.speakers.Count; i++)
+            {
+                var s = plan.speakers[i];
+                if (s != null)
+                    wasVisible[s.speakerId] = s.visible;
+            }
+        }
+
+        var coreDraft = new List<ConversationSpeakerSlot>(analysis.core.Count);
+        for (int i = 0; i < draftScratch.Count; i++)
+        {
+            if (ContainsSpeaker(analysis.core, draftScratch[i].speakerId))
+                coreDraft.Add(draftScratch[i]);
+        }
+
+        Vector2 sizeHint = GetInteractiveSizeHint(layout);
+        plan = layout.BuildConversationPlan(coreDraft, sizeHint);
+
+        var branchDraft = new List<ConversationSpeakerSlot>(analysis.branch.Count);
+        for (int i = 0; i < draftScratch.Count; i++)
+        {
+            if (ContainsSpeaker(analysis.branch, draftScratch[i].speakerId))
+                branchDraft.Add(draftScratch[i]);
+        }
+
+        bool clamped = layout.AddBranchSlots(
+            plan, branchDraft, analysis.branchRegion, analysis.paths, sizeHint);
+        if (clamped && !loggedBranchClamp)
+        {
+            loggedBranchClamp = true;
+            Debug.LogWarning(
+                "[Dialogue] Branch chatbox clamped; not all regions fit in the safe area. asset='" +
+                (Asset != null ? Asset.dialogueId : "") + "'.",
+                runnerHost);
+        }
 
         for (int i = 0; i < speakerOrder.Count; i++)
         {
-            string key = speakerOrder[i];
+            if (plan.TryGet(speakerOrder[i], out _))
+                continue;
+            AppendUnplannedSpeaker(speakerOrder[i]);
+        }
+
+        for (int i = 0; i < plan.speakers.Count; i++)
+        {
+            var s = plan.speakers[i];
+            if (s == null) continue;
+            if (wasVisible.TryGetValue(s.speakerId, out bool v))
+                s.visible = v;
+        }
+
+        if (service.debugLog)
+        {
+            int regions = 0;
+            for (int i = 0; i < analysis.branchRegion.Count; i++)
+                regions = Mathf.Max(regions, analysis.branchRegion[i] + 1);
+            var branchNote = new System.Text.StringBuilder();
+            for (int i = 0; i < analysis.branch.Count; i++)
+            {
+                if (i > 0) branchNote.Append(", ");
+                branchNote.Append(analysis.branch[i]);
+                branchNote.Append("@");
+                branchNote.Append(analysis.branchRegion[i]);
+            }
+            Debug.Log(
+                $"[Dialogue] Conversation layout plan built for {plan.speakers.Count} speaker(s). core={analysis.core.Count} branchRegions={regions} [{branchNote}].",
+                runnerHost);
+        }
+    }
+
+    void FillDraft(List<string> keys)
+    {
+        draftScratch.Clear();
+        for (int i = 0; i < keys.Count; i++)
+        {
+            string key = keys[i];
             Transform anchor = null;
             if (!anchorBySpeaker.TryGetValue(key, out anchor) || !IsAlive(anchor))
                 anchor = ResolveAnchorForResolvedId(key, key);
@@ -414,120 +599,56 @@ public class DialogueSession
                 isPlayer = IsSessionPlayerKey(key),
             });
         }
+    }
 
-        if (!force && plan != null && !layout.ShouldRebuildConversationPlan(plan, draftScratch))
-        {
-            // Refresh live anchors on existing slots only.
-            for (int i = 0; i < plan.speakers.Count; i++)
-            {
-                var s = plan.speakers[i];
-                if (s == null) continue;
-                if (anchorBySpeaker.TryGetValue(s.speakerId, out var a) && IsAlive(a))
-                    s.anchor = a;
-            }
+    void AppendUnplannedSpeaker(string speakerKey)
+    {
+        if (plan == null || string.IsNullOrEmpty(speakerKey) || plan.TryGet(speakerKey, out _))
             return;
-        }
 
-        // Preserve visibility flags across rebuild.
-        var wasVisible = new Dictionary<string, bool>(speakerOrder.Count);
-        if (plan != null)
-        {
-            for (int i = 0; i < plan.speakers.Count; i++)
-            {
-                var s = plan.speakers[i];
-                if (s != null)
-                    wasVisible[s.speakerId] = s.visible;
-            }
-        }
-
-        Vector2 sizeHint = GetInteractiveSizeHint(layout);
-        plan = layout.BuildConversationPlan(draftScratch, sizeHint);
-
+        int region = 0;
         for (int i = 0; i < plan.speakers.Count; i++)
         {
             var s = plan.speakers[i];
-            if (s == null) continue;
-            if (wasVisible.TryGetValue(s.speakerId, out bool v))
-                s.visible = v;
+            if (s != null && !s.isCore)
+                region++;
         }
 
-        if (service.debugLog)
-            Debug.Log(
-                $"[Dialogue] Conversation layout plan built for {plan.speakers.Count} speaker(s).",
-                runnerHost);
+        Transform anchor = ResolveAnchorForResolvedId(speakerKey, speakerKey);
+        if (IsAlive(anchor))
+            anchorBySpeaker[speakerKey] = anchor;
+        Vector2 screen = IsAlive(anchor)
+            ? WorldToScreen(anchor.position)
+            : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+        var layout = service.Layout;
+        float sideGap = layout.RefToScreen(service.LayoutSettings != null ? service.LayoutSettings.conversationSideGapRef : 36f);
+        float lift = layout.RefToScreen(service.LayoutSettings != null ? service.LayoutSettings.conversationLiftRef : 48f);
+        float y = (region + 1) * (lift + sideGap);
+        plan.speakers.Add(new ConversationSpeakerSlot
+        {
+            speakerId = speakerKey,
+            anchor = anchor,
+            side = ConversationSlotSide.Above,
+            screenAnchor0 = screen,
+            localOffsetScreen = new Vector2(0f, y),
+            isPlayer = IsSessionPlayerKey(speakerKey),
+            visible = false,
+            isCore = false,
+        });
+
+        if (!ContainsSpeaker(speakerOrder, speakerKey))
+            speakerOrder.Add(speakerKey);
     }
 
-    void CollectSpeakersIntoOrder()
+    static bool ContainsSpeaker(List<string> ids, string key)
     {
-        speakerOrder.Clear();
-        var seen = new HashSet<string>();
-
-        if (Asset == null || Asset.nodes == null)
-            return;
-
-        // Reachable walk from entry (Phase A linear + simple branches via next ids).
-        var queue = new Queue<string>();
-        string entry = Asset.entryNodeId;
-        if (string.IsNullOrEmpty(entry) && Asset.nodes.Count > 0 && Asset.nodes[0] != null)
-            entry = Asset.nodes[0].nodeId;
-        if (!string.IsNullOrEmpty(entry))
-            queue.Enqueue(entry);
-
-        var visitedNodes = new HashSet<string>();
-        while (queue.Count > 0)
+        for (int i = 0; i < ids.Count; i++)
         {
-            string id = queue.Dequeue();
-            if (string.IsNullOrEmpty(id) || !visitedNodes.Add(id))
-                continue;
-
-            var node = Asset.FindNode(id);
-            if (node == null)
-                continue;
-
-            if (node is DialogueLineNode line)
-            {
-                string resolved = DialogueActiveCharacter.ResolveSpeakerId(line.speakerId, SessionActiveCharacterId);
-                string key = string.IsNullOrEmpty(resolved) ? "_default" : resolved;
-                if (seen.Add(key))
-                    speakerOrder.Add(key);
-
-                if (!string.IsNullOrEmpty(line.nextNodeId))
-                    queue.Enqueue(line.nextNodeId);
-            }
-            else if (node is DialogueEndNode)
-            {
-                // stop branch
-            }
-            else if (node is DialogueChoiceNode choiceNode)
-            {
-                // Follow authored destinations so the existing plan already
-                // contains every speaker on those branches. Opening the menu
-                // does not rebuild. Step 4 replaces this with core/branch slots.
-                if (choiceNode.options != null)
-                {
-                    for (int i = 0; i < choiceNode.options.Count; i++)
-                    {
-                        var option = choiceNode.options[i];
-                        if (option != null && !string.IsNullOrEmpty(option.nextNodeId))
-                            queue.Enqueue(option.nextNodeId);
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(choiceNode.fallbackNodeId))
-                    queue.Enqueue(choiceNode.fallbackNodeId);
-            }
-            else
-            {
-                // Unknown node types have no edges.
-            }
+            if (string.Equals(ids[i], key, System.StringComparison.OrdinalIgnoreCase))
+                return true;
         }
-
-        // Also ensure any already-created bubbles remain in the plan.
-        foreach (var kvp in bubbles)
-        {
-            if (kvp.Value != null && seen.Add(kvp.Key))
-                speakerOrder.Add(kvp.Key);
-        }
+        return false;
     }
 
     void RelayoutAll()
@@ -636,6 +757,13 @@ public class DialogueSession
         if (byId != null)
             return byId.transform;
 
+        if (IsAlive(npcAnchor))
+        {
+            var marker = npcAnchor.Find(resolvedId);
+            if (IsAlive(marker))
+                return marker;
+        }
+
         if (!string.IsNullOrEmpty(npcSpeakerId) &&
             string.Equals(resolvedId, npcSpeakerId, System.StringComparison.OrdinalIgnoreCase) &&
             IsAlive(npcAnchor))
@@ -703,9 +831,10 @@ public class DialogueSession
     IEnumerator PlayChoice(DialogueChoiceNode choice)
     {
         choiceDestination = null;
-        CollectAuthoredOptions(choice, choiceScratch);
+        int authored = CountAuthoredOptions(choice);
+        CollectVisibleOptions(choice, choiceScratch);
 
-        if (choiceScratch.Count == 0)
+        if (authored == 0)
         {
             if (string.IsNullOrEmpty(choice.fallbackNodeId))
             {
@@ -714,6 +843,30 @@ public class DialogueSession
             }
 
             choiceDestination = choice.fallbackNodeId;
+            yield break;
+        }
+
+        if (choiceScratch.Count == 0)
+        {
+            if (string.IsNullOrEmpty(choice.fallbackNodeId))
+            {
+                choiceDestination = "";
+                if (service.debugLog)
+                {
+                    Debug.Log(
+                        $"[Dialogue] Choice '{choice.nodeId}' visible=0 completed asset='{Asset?.dialogueId}'.",
+                        runnerHost);
+                }
+                yield break;
+            }
+
+            choiceDestination = choice.fallbackNodeId;
+            if (service.debugLog)
+            {
+                Debug.Log(
+                    $"[Dialogue] Choice '{choice.nodeId}' visible=0 fallback='{choice.fallbackNodeId}' asset='{Asset?.dialogueId}'.",
+                    runnerHost);
+            }
             yield break;
         }
 
@@ -730,7 +883,9 @@ public class DialogueSession
         for (int i = 0; i < choiceScratch.Count; i++)
         {
             var option = choiceScratch[i];
-            labels[i] = string.IsNullOrEmpty(option.text) ? option.optionId : option.text;
+            string resolved = DialogueTextResolver.Resolve(
+                option.text, option.textVariants, SessionActiveCharacterId);
+            labels[i] = string.IsNullOrEmpty(resolved) ? option.optionId : resolved;
         }
 
         var menu = GetOrCreateChoice();
@@ -741,13 +896,17 @@ public class DialogueSession
         if (service.debugLog)
         {
             Debug.Log(
-                $"[Dialogue] Choice '{choice.nodeId}' options={choiceScratch.Count} asset='{Asset?.dialogueId}'.",
+                $"[Dialogue] Choice '{choice.nodeId}' visible={choiceScratch.Count} authored={authored} asset='{Asset?.dialogueId}'.",
                 runnerHost);
         }
 
+        // LowerCenter keeps its existing per-frame placement. NearPlayerChatbox is placed once.
+        bool holdPlacement = ResolveChoicePresentation().placement == DialogueChoicePlacement.NearPlayerChatbox;
+
         while (Outcome == DialogueSessionOutcome.None)
         {
-            PlaceChoiceMenu();
+            if (!holdPlacement)
+                PlaceChoiceMenu();
 
             int nav = DialogueInput.ChoiceNavigationThisFrame();
             if (nav != 0 && choiceScratch.Count > 1)
@@ -767,8 +926,14 @@ public class DialogueSession
             if (DialogueInput.ConfirmPressedThisFrame())
             {
                 DialogueInput.SuppressConfirmUntilReleased();
-                choiceDestination = choiceScratch[index].nextNodeId ?? "";
-                break;
+                ClearAutomaticCycle();
+                DialogueChoiceOption selected = choiceScratch[index];
+                HideChoice();
+                yield return RunConsequences(choice, selected);
+                if (Outcome != DialogueSessionOutcome.None)
+                    yield break;
+                choiceDestination = selected != null ? selected.nextNodeId ?? "" : "";
+                yield break;
             }
 
             yield return null;
@@ -777,7 +942,235 @@ public class DialogueSession
         HideChoice();
     }
 
-    static void CollectAuthoredOptions(DialogueChoiceNode choice, List<DialogueChoiceOption> into)
+    /// <summary>
+    /// Runs the confirmed option's actions on a context with no EventRunner.
+    /// The destination stays unread until every action finishes without stop or cancel.
+    /// </summary>
+    IEnumerator RunConsequences(DialogueChoiceNode choice, DialogueChoiceOption option)
+    {
+        var list = option != null ? option.consequences : null;
+        if (list == null || list.Count == 0)
+            yield break;
+
+        consequenceCts = new CancellationTokenSource();
+        consequenceContext = new EventContext(null, consequenceCts.Token);
+        try
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (Outcome != DialogueSessionOutcome.None)
+                    yield break;
+
+                EventAction action = list[i];
+                if (action == null)
+                {
+                    Debug.LogWarning(
+                        $"[Dialogue] Skipping null consequence [{i}] option='{option.optionId}' asset='{Asset?.dialogueId}'.",
+                        runnerHost);
+                    continue;
+                }
+
+                if (action is StartDialogueAction)
+                {
+                    Fail(
+                        "unsupported-consequence",
+                        choice != null ? choice.nodeId : "",
+                        $"option='{option.optionId}' index={i} StartDialogueAction");
+                    yield break;
+                }
+
+                if (service.debugLog)
+                {
+                    Debug.Log(
+                        $"[Dialogue] Consequence [{i}] {action.DisplayName} option='{option.optionId}' asset='{Asset?.dialogueId}'.",
+                        runnerHost);
+                }
+
+                activeConsequence = action;
+                IEnumerator step;
+                try
+                {
+                    step = action.Execute(consequenceContext);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex, runnerHost);
+                    Fail(
+                        "consequence-exception",
+                        choice != null ? choice.nodeId : "",
+                        $"option='{option.optionId}' index={i} {action.DisplayName}");
+                    yield break;
+                }
+
+                if (step != null)
+                {
+                    bool pending = true;
+                    while (pending)
+                    {
+                        if (Outcome != DialogueSessionOutcome.None)
+                            yield break;
+
+                        if (allowCancel && DialogueInput.CancelPressedThisFrame())
+                        {
+                            Cancel("user-cancel", stopRoutine: false);
+                            yield break;
+                        }
+
+                        try
+                        {
+                            pending = step.MoveNext();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogException(ex, runnerHost);
+                            Fail(
+                                "consequence-exception",
+                                choice != null ? choice.nodeId : "",
+                                $"option='{option.optionId}' index={i} {action.DisplayName}");
+                            yield break;
+                        }
+
+                        if (!pending)
+                            break;
+
+                        yield return step.Current;
+                    }
+                }
+
+                activeConsequence = null;
+
+                if (consequenceContext != null && consequenceContext.StopRequested)
+                {
+                    Fail(
+                        "consequence-stop",
+                        choice != null ? choice.nodeId : "",
+                        $"option='{option.optionId}' index={i} {consequenceContext.StopReason}");
+                    yield break;
+                }
+            }
+        }
+        finally
+        {
+            ReleaseConsequenceScope();
+        }
+    }
+
+    void AbortConsequences()
+    {
+        if (consequenceCts != null && !consequenceCts.IsCancellationRequested)
+            consequenceCts.Cancel();
+
+        EventAction action = activeConsequence;
+        EventContext ctx = consequenceContext;
+        activeConsequence = null;
+        if (action == null || ctx == null)
+            return;
+
+        try
+        {
+            action.Cancel(ctx);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex, runnerHost);
+        }
+    }
+
+    void ReleaseConsequenceScope()
+    {
+        activeConsequence = null;
+        consequenceContext = null;
+        if (consequenceCts == null)
+            return;
+
+        CancellationTokenSource cts = consequenceCts;
+        consequenceCts = null;
+        cts.Dispose();
+    }
+
+    const int MaxTransitionsPerFrame = 32;
+
+    /// <summary>
+    /// Counts this node entry. Automatic mode fails if a line id was already entered
+    /// since the last confirmed choice. A condition node fails the same way in every
+    /// mode when it repeats before the player has to wait. More than 32 entries in
+    /// one frame yields and retries the same node next frame.
+    /// </summary>
+    bool AdmitNode(DialogueNode node)
+    {
+        int frame = Time.frameCount;
+        if (frame != transitionFrame)
+        {
+            transitionFrame = frame;
+            transitionsThisFrame = 0;
+        }
+
+        if (transitionsThisFrame >= MaxTransitionsPerFrame)
+        {
+            if (service.debugLog)
+            {
+                Debug.Log(
+                    $"[Dialogue] Frame fuse yielded after 32 transitions. asset='{Asset?.dialogueId}'.",
+                    runnerHost);
+            }
+            return false;
+        }
+
+        transitionsThisFrame++;
+
+        if (node == null)
+            return true;
+
+        if (node is DialogueConditionNode)
+            return AdmitImmediate(node.nodeId);
+
+        if (progressionMode != DialogueProgressionMode.Automatic)
+            return true;
+
+        return AdmitAutomatic(node.nodeId);
+    }
+
+    bool AdmitImmediate(string nodeId)
+    {
+        string id = nodeId ?? "";
+        if (immediateVisited.Add(id))
+            return true;
+
+        Fail("automatic-cycle", id, "revisited without a player wait");
+        return false;
+    }
+
+    bool AdmitAutomatic(string nodeId)
+    {
+        string id = nodeId ?? "";
+        if (automaticVisited.Add(id))
+            return true;
+
+        Fail("automatic-cycle", id, "revisited without a choice confirmation");
+        return false;
+    }
+
+    void ClearAutomaticCycle()
+    {
+        automaticVisited.Clear();
+        immediateVisited.Clear();
+    }
+
+    static int CountAuthoredOptions(DialogueChoiceNode choice)
+    {
+        if (choice == null || choice.options == null)
+            return 0;
+
+        int count = 0;
+        for (int i = 0; i < choice.options.Count; i++)
+        {
+            if (choice.options[i] != null)
+                count++;
+        }
+        return count;
+    }
+
+    void CollectVisibleOptions(DialogueChoiceNode choice, List<DialogueChoiceOption> into)
     {
         into.Clear();
         if (choice == null || choice.options == null)
@@ -785,8 +1178,12 @@ public class DialogueSession
 
         for (int i = 0; i < choice.options.Count; i++)
         {
-            if (choice.options[i] != null)
-                into.Add(choice.options[i]);
+            DialogueChoiceOption option = choice.options[i];
+            if (option == null)
+                continue;
+            if (!DialogueChoiceAvailability.IsAvailable(option, SessionActiveCharacterId))
+                continue;
+            into.Add(option);
         }
     }
 
@@ -801,6 +1198,7 @@ public class DialogueSession
 
     void HideChoice()
     {
+        choicePlacementLogged = false;
         if (choiceView != null)
             choiceView.Hide();
     }
@@ -827,7 +1225,7 @@ public class DialogueSession
 
     void PlaceChoiceMenu()
     {
-        if (choiceView == null || !choiceView.IsShown)
+        if (choiceView == null || choiceView.OptionCount == 0 || choiceView.rectTransform == null)
             return;
 
         service.SyncLayoutFromUI();
@@ -845,17 +1243,79 @@ public class DialogueSession
         Rect safe = layout != null
             ? layout.GetEffectiveSafeScreenRect()
             : new Rect(0f, 0f, Screen.width, Screen.height);
-        Vector2 pivot = DialogueChoiceLayout.ResolveBottomCenter(
+
+        bool nearPlayer = presentation.placement == DialogueChoicePlacement.NearPlayerChatbox;
+        Rect playerRect = default;
+        bool hasPlayer = nearPlayer && TryGetPlayerChatboxRect(out playerRect);
+        if (!nearPlayer)
+            choiceBlockerScratch.Clear();
+
+        var decision = DialogueChoiceLayout.Resolve(
             presentation,
             safe,
             sizeLocal * scale,
-            scale);
+            scale,
+            hasPlayer,
+            playerRect,
+            choiceBlockerScratch);
 
         var rt = choiceView.rectTransform;
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0f);
-        rt.position = new Vector3(pivot.x, pivot.y, 0f);
+        rt.position = new Vector3(decision.pivotScreen.x, decision.pivotScreen.y, 0f);
+
+        if (!choicePlacementLogged && service.debugLog)
+        {
+            choicePlacementLogged = true;
+            string assetId = Asset != null ? Asset.dialogueId : "";
+            Debug.Log(
+                $"[Dialogue] Choice placement requested={presentation.placement} used={decision.used} fallback={(decision.fellBackToLowerCenter ? "true" : "false")} asset='{assetId}'.",
+                runnerHost);
+        }
+
+        choiceView.Reveal();
+    }
+
+    /// <summary>
+    /// Reads the visible chatbox of the frozen session character. Other visible bubbles
+    /// are collected so the menu can avoid them. Does not move any bubble.
+    /// </summary>
+    bool TryGetPlayerChatboxRect(out Rect playerRect)
+    {
+        playerRect = default;
+        choiceBlockerScratch.Clear();
+
+        DialogueChatboxView playerView = null;
+        foreach (var kvp in bubbles)
+        {
+            var view = kvp.Value;
+            if (!IsVisibleBubble(view))
+                continue;
+
+            if (playerView == null && IsSessionPlayerKey(kvp.Key))
+            {
+                playerView = view;
+                continue;
+            }
+
+            choiceBlockerScratch.Add(view.GetScreenRect());
+        }
+
+        if (playerView == null)
+            return false;
+
+        playerRect = playerView.GetScreenRect();
+        return playerRect.width > 1f && playerRect.height > 1f;
+    }
+
+    static bool IsVisibleBubble(DialogueChatboxView view)
+    {
+        if (view == null || !view.gameObject.activeInHierarchy)
+            return false;
+        if (view.canvasGroup != null && view.canvasGroup.alpha < 0.01f)
+            return false;
+        return true;
     }
 
     void Finish()
@@ -868,8 +1328,12 @@ public class DialogueSession
         if (Outcome == DialogueSessionOutcome.None)
             Outcome = DialogueSessionOutcome.Completed;
 
+        if (service.debugLog && Outcome == DialogueSessionOutcome.Completed)
+            Debug.Log($"[Dialogue] Session completed asset='{Asset?.dialogueId}'.", runnerHost);
+
         IsFinished = true;
         routine = null;
+        ReleaseConsequenceScope();
 
         foreach (var kvp in bubbles)
         {

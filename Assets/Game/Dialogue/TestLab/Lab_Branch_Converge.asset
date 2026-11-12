@@ -1,0 +1,120 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Branch_Converge
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_branch_converge
+  entryNodeId: c1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134290
+  - rid: 8969645638822134291
+  - rid: 8969645638822134292
+  - rid: 8969645638822134293
+  - rid: 8969645638822134294
+  - rid: 8969645638822134295
+  - rid: 8969645638822134296
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134290
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Which ally reports, then we meet?
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: c_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134291
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_choice
+        promptText: Converge
+        options:
+        - optionId: opt_scout
+          text: Scout reports.
+          textVariants: []
+          nextNodeId: c_b
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_lookout
+          text: Lookout reports.
+          textVariants: []
+          nextNodeId: c_c
+          requiredCharacterId: 
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134292
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_b
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Scout report.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: c_shared
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134293
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_c
+        speakerId: villager_c
+        speakerDisplayName: 
+        text: Lookout report.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: c_shared
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134294
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_shared
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Same meeting, either way.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: c_player
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134295
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_player
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Then we are settled.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: c_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134296
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: c_end

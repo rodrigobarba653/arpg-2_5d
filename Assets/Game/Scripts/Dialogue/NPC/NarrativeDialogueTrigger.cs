@@ -155,12 +155,15 @@ public class NarrativeDialogueTrigger : MonoBehaviour
                 return;
             }
 
-            // Interrupt: stop the active session, then start ours.
-            // Interrupted session is cancelled → its Once flags are NOT consumed.
+            // Interrupt claims the slot before queued listeners can start on the cancel callback.
+            // The cancelled session does not consume Once.
             pending = false;
             pendingActor = null;
             pendingAnchor = null;
-            service.CancelInteractive("narrative-interrupt");
+            service.InterruptInteractive(
+                "narrative-interrupt",
+                () => StartDialogue(service, actor, anchor));
+            return;
         }
 
         StartDialogue(service, actor, anchor);
@@ -209,7 +212,8 @@ public class NarrativeDialogueTrigger : MonoBehaviour
         if (service == null || service.HasInteractive)
         {
             // Still busy — keep pending and re-arm callback.
-            if (pending && conflictPolicy == ConflictPolicy.Queue)
+            // A null service means the scene is closing; do not enqueue into it.
+            if (service != null && pending && conflictPolicy == ConflictPolicy.Queue)
                 EnsureFinishCallback(service);
             return;
         }

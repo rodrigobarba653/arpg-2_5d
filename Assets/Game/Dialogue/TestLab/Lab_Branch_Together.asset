@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: Lab_Branch_Together
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: lab_branch_together
+  entryNodeId: t1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645638822134284
+  - rid: 8969645638822134285
+  - rid: 8969645638822134286
+  - rid: 8969645638822134287
+  - rid: 8969645638822134288
+  - rid: 8969645638822134289
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645638822134284
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t1
+        speakerId: villager_a
+        speakerDisplayName: 
+        text: Both of them, or neither?
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: t_choice
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134285
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t_choice
+        promptText: Coexisting branches
+        options:
+        - optionId: opt_both
+          text: Both.
+          textVariants: []
+          nextNodeId: t_b
+          requiredCharacterId: 
+          availability: []
+        - optionId: opt_neither
+          text: Neither.
+          textVariants: []
+          nextNodeId: t_player
+          requiredCharacterId: 
+          availability: []
+        fallbackNodeId: 
+    - rid: 8969645638822134286
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t_b
+        speakerId: villager_b
+        speakerDisplayName: 
+        text: Scout, with the lookout.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: t_c
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134287
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t_c
+        speakerId: villager_c
+        speakerDisplayName: 
+        text: Lookout, beside the scout.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: t_player
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134288
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t_player
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Noted.
+        textVariants: []
+        portraitExpression: Neutral
+        nextNodeId: t_end
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645638822134289
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: t_end

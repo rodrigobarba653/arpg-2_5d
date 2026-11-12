@@ -36,12 +36,34 @@ public class DialogueService : MonoBehaviour
 
     public DialogueLayoutSolver Layout { get; private set; }
 
-    public bool HasInteractive => interactive != null && !interactive.IsFinished;
+    /// <summary>
+    /// True while a session is running, and also while an Interrupt is cancelling
+    /// the current one and has not started its replacement yet.
+    /// </summary>
+    public bool HasInteractive => SessionRunning || interruptReserved;
+
+    bool SessionRunning => interactive != null && !interactive.IsFinished;
+
     public DialogueSession InteractiveSession => interactive;
+
+    /// <summary>
+    /// The session from the latest successful <see cref="TryStartInteractive"/>.
+    /// Stays set after that session finishes, including a finish inside <c>Start</c>.
+    /// </summary>
+    public DialogueSession LastInteractiveSession { get; private set; }
 
     readonly List<AmbientDialogueHandle> ambients = new List<AmbientDialogueHandle>(4);
     DialogueSession interactive;
     readonly List<System.Action> deferredOnInteractiveEnd = new List<System.Action>(4);
+    bool interruptReserved;
+    bool allowReplacementStart;
+    static bool suppressCreate;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetCreateGuard()
+    {
+        suppressCreate = false;
+    }
 
     /// <summary>
     /// Phase C hook: queue work until interactive dialogue ends (e.g. deferred EventRunners).
@@ -73,6 +95,9 @@ public class DialogueService : MonoBehaviour
     {
         if (Instance != null)
             return Instance;
+
+        if (suppressCreate || !Application.isPlaying)
+            return null;
 
         var existing = Object.FindFirstObjectByType<DialogueService>();
         if (existing != null)
@@ -119,8 +144,13 @@ public class DialogueService : MonoBehaviour
 
     void OnDestroy()
     {
+        // Callbacks call Ensure() and would spawn another service while the scene closes.
+        suppressCreate = true;
+
         if (Instance == this)
             Instance = null;
+
+        ClearDeferredAfterInteractive("service-destroy");
 
         if (interactive != null && !interactive.IsFinished)
             interactive.Cancel("service-destroy");
@@ -129,7 +159,6 @@ public class DialogueService : MonoBehaviour
             ambients[i]?.Dismiss(suppressCooldown: true);
 
         ambients.Clear();
-        ClearDeferredAfterInteractive("service-destroy");
     }
 
     void LateUpdate()
@@ -137,7 +166,7 @@ public class DialogueService : MonoBehaviour
         SyncLayoutFromUI();
 
         var interactiveRects = new List<Rect>(4);
-        if (HasInteractive)
+        if (SessionRunning)
             interactive.CollectScreenRects(interactiveRects);
 
         if (interactiveRects.Count > 0)
@@ -183,7 +212,7 @@ public class DialogueService : MonoBehaviour
             return false;
         }
 
-        if (HasInteractive)
+        if (SessionRunning || (interruptReserved && !allowReplacementStart))
         {
             if (debugLog)
                 Debug.Log("[Dialogue] Interactive already running — reject start.", this);
@@ -215,6 +244,7 @@ public class DialogueService : MonoBehaviour
             progressionMode,
             autoAdvanceHoldSeconds);
 
+        LastInteractiveSession = interactive;
         interactive.Start(this);
         if (debugLog)
             Debug.Log($"[Dialogue] Interactive start '{asset.dialogueId}'.", this);
@@ -229,6 +259,35 @@ public class DialogueService : MonoBehaviour
         interactive.Cancel(reason);
     }
 
+    /// <summary>
+    /// Cancel the running session and start the replacement before any queued listener can.
+    /// The reservation is cleared if the replacement does not start, and those listeners then run.
+    /// </summary>
+    public void InterruptInteractive(string reason, System.Action startReplacement)
+    {
+        interruptReserved = true;
+        try
+        {
+            if (debugLog)
+                Debug.Log("[Dialogue] Interrupt claimed the interactive slot.", this);
+
+            CancelInteractive(reason);
+            allowReplacementStart = true;
+            startReplacement?.Invoke();
+        }
+        finally
+        {
+            allowReplacementStart = false;
+            interruptReserved = false;
+            if (!SessionRunning)
+            {
+                if (debugLog)
+                    Debug.Log("[Dialogue] Interrupt did not start. Queued listeners may continue.", this);
+                InvokeDeferred();
+            }
+        }
+    }
+
     public void NotifyInteractiveFinished(DialogueSession session)
     {
         if (interactive != session)
@@ -239,6 +298,16 @@ public class DialogueService : MonoBehaviour
         // Deferred work runs for every terminal outcome (Completed, Cancelled, Failed).
         // Phase C consumers that grant narrative consequences must check
         // session.Outcome == DialogueSessionOutcome.Completed before applying them.
+        // An Interrupt holds the slot across this call so a queued listener re-arms
+        // instead of starting ahead of the replacement.
+        InvokeDeferred();
+    }
+
+    void InvokeDeferred()
+    {
+        if (deferredOnInteractiveEnd.Count == 0)
+            return;
+
         var copy = deferredOnInteractiveEnd.ToArray();
         deferredOnInteractiveEnd.Clear();
         for (int i = 0; i < copy.Length; i++)

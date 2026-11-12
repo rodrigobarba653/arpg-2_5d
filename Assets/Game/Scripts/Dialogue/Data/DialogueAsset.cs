@@ -19,6 +19,7 @@ public class DialogueAsset : ScriptableObject
     [Tooltip("When set, this asset's choice panel placement replaces DialogueLayoutSettings.")]
     public bool overrideChoicePresentation;
 
+    [Tooltip("Used when Override Choice Presentation is on. Otherwise the service uses DialogueLayoutSettings.")]
     public DialogueChoicePresentation choicePresentation = DialogueChoicePresentation.LowerCenterDefault;
 
     [SerializeReference]
@@ -46,23 +47,4 @@ public class DialogueAsset : ScriptableObject
 
         return nodes != null && nodes.Count > 0 ? nodes[0] : null;
     }
-
-#if UNITY_EDITOR
-    void OnValidate()
-    {
-        if (nodes == null)
-            return;
-
-        var seen = new HashSet<string>();
-        for (int i = 0; i < nodes.Count; i++)
-        {
-            var n = nodes[i];
-            if (n == null || string.IsNullOrEmpty(n.nodeId))
-                continue;
-
-            if (!seen.Add(n.nodeId))
-                Debug.LogWarning($"[DialogueAsset] Duplicate nodeId '{n.nodeId}' in '{name}'.", this);
-        }
-    }
-#endif
 }
