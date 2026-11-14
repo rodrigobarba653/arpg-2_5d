@@ -1,0 +1,6 @@
+fileFormatVersion: 2
+guid: 95e0e906b3192b1d30eeef0eeda241ae
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _Wear: {fileID: 2800000, guid: 41de531fe5cfaa7049cf54b25ae7ff73, type: 3}

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_Name: 03 Smoked Oil Film
+  m_Shader: {fileID: 4800000, guid: 95e0e906b3192b1d30eeef0eeda241ae, type: 3}
+  m_ValidKeywords:
+  - _REFRACTION_OFF
+  m_InvalidKeywords: []
+  m_CustomRenderQueue: -1
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Wear:
+        m_Texture: {fileID: 2800000, guid: 41de531fe5cfaa7049cf54b25ae7ff73, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Refraction: 0
+    - _Body: 0.27
+    - _Thickness: 1.25
+    - _Rough: 0.26
+    - _Face: 0.14
+    - _Reflect: 1.24
+    - _Scratch: 0.31
+    - _Smudge: 0.47
+    - _Bump: 0.26
+    - _Film: 0.83
+    - _Bands: 1.9
+    m_Colors:
+    - _Tint: {r: 0.24, g: 0.29, b: 0.35, a: 1}

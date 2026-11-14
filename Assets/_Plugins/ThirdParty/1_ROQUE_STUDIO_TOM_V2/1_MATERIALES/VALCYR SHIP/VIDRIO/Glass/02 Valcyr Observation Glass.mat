@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 02 Valcyr Observation Glass
+  m_Shader: {fileID: 4800000, guid: 95e0e906b3192b1d30eeef0eeda241ae, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _REFRACTION_OFF
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Wear:
+        m_Texture: {fileID: 2800000, guid: 41de531fe5cfaa7049cf54b25ae7ff73, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Bands: 0.5
+    - _Bend: 6.6
+    - _Body: 0.06
+    - _Bump: 0.135
+    - _Cull: 2
+    - _Face: 0.024
+    - _Facets: 0
+    - _Film: 0.015
+    - _Grazing: 0.3
+    - _Highlight: 2.46
+    - _Mix: 0.55
+    - _Reflect: 1.65
+    - _Refraction: 0
+    - _Rough: 1
+    - _Scratch: 0.257
+    - _Smudge: 0.151
+    - _Split: 0.458
+    - _Thickness: 0.66
+    - _WearRough: 0.45
+    m_Colors:
+    - _Offset: {r: -0.12, g: 0, b: 0, a: 0}
+    - _Tile: {r: 12, g: 12, b: 12, a: 20}
+    - _Tint: {r: 0.6415094, g: 0.6415094, b: 0.6415094, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
