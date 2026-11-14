@@ -1,0 +1,16 @@
+{
+  "png_frames": 32,
+  "native_clips": 7,
+  "prefabs": 3,
+  "serialized_assets_checked": 12,
+  "external_references_resolved": 137,
+  "packaged_entries": 63,
+  "original_pngs_byte_identical": 16,
+  "original_GUIDs_preserved": true,
+  "run_cycle_seconds": 0.72,
+  "unity_editor_runtime_tested": false,
+  "csharp_shader_compilation_tested": false,
+  "scope": "Assets/RoqueWildlife/DeerV1 and parent folders",
+  "native_import_repair": "rebuilds clips/controller/prefab references using actual imported Sprite objects; validates every keyframe in Unity",
+  "art": "Original 16 PNGs unchanged; 16 new generated inbetweens aligned and sized with nearest-neighbour sampling"
+}
