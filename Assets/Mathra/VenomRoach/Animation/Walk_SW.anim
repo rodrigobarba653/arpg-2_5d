@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!74 &7400000
+AnimationClip:
+  m_Name: Walk_SW
+  serializedVersion: 6
+  m_Legacy: 0
+  m_Compressed: 0
+  m_UseHighQualityCurve: 1
+  m_RotationCurves: []
+  m_CompressedRotationCurves: []
+  m_EulerCurves: []
+  m_PositionCurves: []
+  m_ScaleCurves: []
+  m_FloatCurves: []
+  m_PPtrCurves:
+  - curve:
+    - time: 0.0
+      value: {fileID: 21300000, guid: f6090ff28ad5d60eea2bdf5cd5a49f1f, type: 3}
+    - time: 0.0625
+      value: {fileID: 21300000, guid: 5a61cc46d82cfb1fc4bd7450ed5c3326, type: 3}
+    - time: 0.125
+      value: {fileID: 21300000, guid: accfe3e149e9514386af33c34563b9e0, type: 3}
+    - time: 0.1875
+      value: {fileID: 21300000, guid: b1086a330842e760f78d03783252ed3e, type: 3}
+    - time: 0.25
+      value: {fileID: 21300000, guid: 1cc338ba802f9bd614fed57b44830a29, type: 3}
+    - time: 0.3125
+      value: {fileID: 21300000, guid: 58d356a4992383cc87cb3694fc1cd346, type: 3}
+    - time: 0.375
+      value: {fileID: 21300000, guid: 833345f5a20295922d5be8456bc809a9, type: 3}
+    - time: 0.4375
+      value: {fileID: 21300000, guid: 017617e9c3b8297a34978c899a426f1d, type: 3}
+    attribute: m_Sprite
+    path:
+    classID: 212
+    script: {fileID: 0}
+  m_SampleRate: 16
+  m_WrapMode: 0
+  m_ClipBindingConstant:
+    genericBindings:
+    - serializedVersion: 2
+      path: 0
+      attribute: 0
+      script: {fileID: 0}
+      typeID: 212
+      customType: 23
+      isPPtrCurve: 1
+    pptrCurveMapping:
+    - {fileID: 21300000, guid: f6090ff28ad5d60eea2bdf5cd5a49f1f, type: 3}
+    - {fileID: 21300000, guid: 5a61cc46d82cfb1fc4bd7450ed5c3326, type: 3}
+    - {fileID: 21300000, guid: accfe3e149e9514386af33c34563b9e0, type: 3}
+    - {fileID: 21300000, guid: b1086a330842e760f78d03783252ed3e, type: 3}
+    - {fileID: 21300000, guid: 1cc338ba802f9bd614fed57b44830a29, type: 3}
+    - {fileID: 21300000, guid: 58d356a4992383cc87cb3694fc1cd346, type: 3}
+    - {fileID: 21300000, guid: 833345f5a20295922d5be8456bc809a9, type: 3}
+    - {fileID: 21300000, guid: 017617e9c3b8297a34978c899a426f1d, type: 3}
+  m_AnimationClipSettings:
+    serializedVersion: 2
+    m_StartTime: 0
+    m_StopTime: 0.5
+    m_LoopTime: 1
+  m_Events: []
