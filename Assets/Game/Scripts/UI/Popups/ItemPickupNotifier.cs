@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -25,6 +26,9 @@ public class ItemPickupNotifier : MonoBehaviour
              "player moves while the popup is alive.")]
     public bool parentToPlayer = false;
 
+    readonly List<ItemPickupPopup> screenNotices = new List<ItemPickupPopup>();
+    const float ScreenRowStep = 52f;
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -49,6 +53,51 @@ public class ItemPickupNotifier : MonoBehaviour
         var inst = Instance;
         if (inst == null) return;
         inst.SpawnPopup(itemDisplayName, icon);
+    }
+
+    /// <summary>
+    /// Screen-space notice for event rewards. Stays on screen during a directed
+    /// shot. Falls back to the world-space popup when the screen path cannot start.
+    /// </summary>
+    public static void ShowEventReward(string label, Sprite icon)
+    {
+        var inst = Instance;
+        if (inst == null)
+        {
+            Debug.LogWarning("[ItemPickupNotifier] No instance; event reward notice skipped.");
+            return;
+        }
+
+        if (!inst.TryShowScreen(label, icon))
+            inst.SpawnPopup(label, icon);
+    }
+
+    bool TryShowScreen(string label, Sprite icon)
+    {
+        if (popupPrefab == null)
+            return false;
+
+        var popup = Instantiate(popupPrefab);
+        popup.Setup(label, icon);
+        if (!popup.BeginScreenPresentation(screenNotices.Count, ScreenRowStep))
+        {
+            Destroy(popup.gameObject);
+            return false;
+        }
+
+        popup.BindScreenHost(this);
+        screenNotices.Add(popup);
+        return true;
+    }
+
+    public void ReleaseScreenNotice(ItemPickupPopup popup)
+    {
+        screenNotices.Remove(popup);
+        for (int i = 0; i < screenNotices.Count; i++)
+        {
+            if (screenNotices[i] != null)
+                screenNotices[i].SetScreenStack(i, ScreenRowStep);
+        }
     }
 
     void SpawnPopup(string itemDisplayName, Sprite icon)

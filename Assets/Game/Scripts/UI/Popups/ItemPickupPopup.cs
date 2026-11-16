@@ -50,6 +50,9 @@ public class ItemPickupPopup : MonoBehaviour
     Vector3 startPos;
     float spawnTime;
     Camera cam;
+    bool screenMode;
+    float screenBaseY;
+    ItemPickupNotifier screenHost;
 
     public void Setup(string itemDisplayName, Sprite icon)
     {
@@ -78,9 +81,77 @@ public class ItemPickupPopup : MonoBehaviour
         if (canvasGroup != null) canvasGroup.alpha = 1f;
     }
 
+    /// <summary>
+    /// Switches this popup onto the screen at the notification band.
+    /// Returns false when the prefab has no canvas, so the caller can use the world path.
+    /// </summary>
+    public bool BeginScreenPresentation(int stackIndex, float rowStep)
+    {
+        var canvas = GetComponent<Canvas>();
+        if (canvas == null)
+            return false;
+
+        screenMode = true;
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = (int)DialoguePresentationPriority.Notification;
+
+        var raycaster = GetComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (raycaster != null)
+            raycaster.enabled = false;
+
+        transform.localScale = Vector3.one;
+        var rect = (RectTransform)transform;
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.sizeDelta = new Vector2(420f, 44f);
+        SetScreenStack(stackIndex, rowStep);
+
+        spawnTime = Time.time;
+        if (canvasGroup != null)
+            canvasGroup.alpha = 1f;
+        return true;
+    }
+
+    public void SetScreenStack(int stackIndex, float rowStep)
+    {
+        if (!screenMode)
+            return;
+
+        screenBaseY = -12f - stackIndex * rowStep;
+        var rect = (RectTransform)transform;
+        rect.anchoredPosition = new Vector2(0f, screenBaseY);
+    }
+
+    public void BindScreenHost(ItemPickupNotifier host)
+    {
+        screenHost = host;
+    }
+
+    void OnDestroy()
+    {
+        if (screenHost != null)
+            screenHost.ReleaseScreenNotice(this);
+    }
+
     void LateUpdate()
     {
-        float t = (Time.time - spawnTime) / lifetime;
+        float t = (Time.time - spawnTime) / Mathf.Max(0.01f, lifetime);
+        if (screenMode)
+        {
+            if (t >= 1f)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            var rect = (RectTransform)transform;
+            rect.anchoredPosition = new Vector2(0f, screenBaseY + 28f * t);
+            ApplyFade(t);
+            return;
+        }
+
         if (t >= 1f)
         {
             Destroy(gameObject);
@@ -90,15 +161,7 @@ public class ItemPickupPopup : MonoBehaviour
         // Rise
         transform.position = startPos + Vector3.up * (riseDistance * t);
 
-        // Fade after fadeStartAt
-        if (canvasGroup != null)
-        {
-            if (t > fadeStartAt)
-            {
-                float fadeT = (t - fadeStartAt) / Mathf.Max(0.0001f, 1f - fadeStartAt);
-                canvasGroup.alpha = 1f - fadeT;
-            }
-        }
+        ApplyFade(t);
 
         // Billboard
         if (billboardToCamera)
@@ -111,5 +174,14 @@ public class ItemPickupPopup : MonoBehaviour
                     transform.rotation = Quaternion.LookRotation(-dir);
             }
         }
+    }
+
+    void ApplyFade(float t)
+    {
+        if (canvasGroup == null || t <= fadeStartAt)
+            return;
+
+        float fadeT = (t - fadeStartAt) / Mathf.Max(0.0001f, 1f - fadeStartAt);
+        canvasGroup.alpha = 1f - fadeT;
     }
 }

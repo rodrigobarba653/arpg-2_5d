@@ -18,6 +18,8 @@ public class EventRunnerEditor : Editor
         typeof(ParallelActions),
         typeof(StartDialogueAction),
         typeof(UnityEventAction),
+        typeof(GrantRewardsAction),
+        typeof(ClaimChestAction),
         typeof(SetFlagAction),
         typeof(ClearFlagAction),
         typeof(MarkEventCompletedAction),

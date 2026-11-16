@@ -11,6 +11,7 @@ public class DialogueConsequenceListDrawer : PropertyDrawer
         typeof(WaitAction),
         typeof(DebugLogAction),
         typeof(UnityEventAction),
+        typeof(GrantRewardsAction),
         typeof(SetFlagAction),
         typeof(ClearFlagAction),
         typeof(MarkEventCompletedAction),

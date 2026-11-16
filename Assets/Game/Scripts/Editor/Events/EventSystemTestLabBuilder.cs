@@ -1216,6 +1216,126 @@ public static class EventSystemTestLabBuilder
         source.mode = EventSourceTrigger.TriggerMode.OnEnter;
     }
 
+    [MenuItem("Tools/ARPG/Events/Add Chest Fixture (Sprint 07 Phase 1)", false, 227)]
+    public static void AddChestFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        var potion = AssetDatabase.LoadAssetAtPath<ItemDefinition>(
+            "Assets/Game/Prefabs/Items/Potion.asset");
+        if (potion == null)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Missing Assets/Game/Prefabs/Items/Potion.asset.", "OK");
+            return;
+        }
+
+        CreateChestFixture(potion);
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Chest_S7 at (8, 0.75, -308), off the lane past the yellow pad.\n" +
+            "Does not rebuild the earlier camera pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateChestFixture(ItemDefinition potion)
+    {
+        DestroyNamedRoot("Chest_S7");
+        DestroyNamedRoot("Shot_S7_Chest");
+
+        var root = new GameObject("Chest_S7");
+        root.transform.position = new Vector3(8f, 0.75f, -308f);
+
+        var closed = CreateShotSubject(
+            "Chest_S7_Closed", root.transform.position, new Vector3(0.9f, 0.55f, 0.6f),
+            new Color(0.45f, 0.28f, 0.12f, 1f));
+        closed.transform.SetParent(root.transform, true);
+
+        var open = CreateShotSubject(
+            "Chest_S7_Open", root.transform.position + new Vector3(0f, 0.42f, 0f),
+            new Vector3(0.9f, 0.16f, 0.6f),
+            new Color(0.78f, 0.58f, 0.22f, 1f));
+        open.transform.SetParent(root.transform, true);
+        open.SetActive(false);
+
+        var view = root.AddComponent<ChestView>();
+        view.persistentId = "lab_s7_chest";
+        view.closedVisual = closed;
+        view.openVisual = open;
+
+        var shot = CreateFixedMoveMarker(
+            "Shot_S7_Chest",
+            new Vector3(8f, 2.5f, -304.2f),
+            root.transform.position,
+            32f,
+            true);
+
+        var runner = root.AddComponent<EventRunner>();
+        runner.eventId = "lab_s7_chest";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction
+            {
+                marker = shot,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1f,
+            },
+            new ClaimChestAction
+            {
+                chest = view,
+                varium = 200,
+                items = new System.Collections.Generic.List<RewardItemEntry>
+                {
+                    new RewardItemEntry { item = potion, quantity = 3 },
+                },
+            },
+            new WaitAction { seconds = 2f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S7 chest restored" },
+        };
+
+        var interactable = root.AddComponent<WorldInteractable>();
+        interactable.promptMode = InteractPromptMode.DiscoveryAndInteraction;
+        interactable.discoveryRadius = 3.5f;
+        interactable.interactionRadius = 1.6f;
+        interactable.useCentralDetector = true;
+        interactable.eventRunner = runner;
+        interactable.conditions = new System.Collections.Generic.List<EventCondition>
+        {
+            new FlagIsFalseCondition { flagId = "lab_s7_chest" },
+        };
+
+        EnsureEventRewardNotifier();
+    }
+
+    static void EnsureEventRewardNotifier()
+    {
+        var notifier = Object.FindFirstObjectByType<ItemPickupNotifier>();
+        var popup = AssetDatabase.LoadAssetAtPath<ItemPickupPopup>(
+            "Assets/Game/UI/ItemPickupPopup.prefab");
+
+        if (notifier == null)
+        {
+            var go = new GameObject("Notifier_S7");
+            notifier = go.AddComponent<ItemPickupNotifier>();
+        }
+
+        if (notifier.popupPrefab == null && popup != null)
+            notifier.popupPrefab = popup;
+
+        if (notifier.popupPrefab == null)
+            Debug.LogWarning("[EventSystemTestLab] ItemPickupPopup prefab is missing. Reward notices will warn at runtime.");
+    }
+
     /// <summary>Batchmode entry: Unity -executeMethod EventSystemTestLabBuilder.SetupCameraBatch</summary>
     public static void SetupCameraBatch()
     {
