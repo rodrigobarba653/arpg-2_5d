@@ -343,7 +343,9 @@ public class DialogueLayoutSolver
     }
 
     /// <summary>
-    /// True when speaker screen positions have flipped order or drifted enough to invalidate the plan.
+    /// True when a core speaker crosses into or out of the safe area, disappears,
+    /// or two or more speakers change left-right order by more than the rebuild delta.
+    /// Staying off-screen does not rebuild. The reserved slot keeps following.
     /// </summary>
     public bool ShouldRebuildConversationPlan(
         ConversationLayoutPlan plan,
@@ -384,10 +386,11 @@ public class DialogueLayoutSolver
                 return true;
 
             liveCore.Add(live);
-            if (live.screenAnchor0.x < safe.xMin - rebuildDelta ||
-                live.screenAnchor0.x > safe.xMax + rebuildDelta ||
-                live.screenAnchor0.y < safe.yMin - rebuildDelta ||
-                live.screenAnchor0.y > safe.yMax + rebuildDelta)
+            // A directed shot can leave the speaker outside the safe rect for the whole line.
+            // Rebuilding on every off-screen sample logged a new plan each frame.
+            bool liveOutside = IsOutsideSafe(live.screenAnchor0, safe, rebuildDelta);
+            bool plannedOutside = IsOutsideSafe(planned.screenAnchor0, safe, rebuildDelta);
+            if (liveOutside != plannedOutside)
                 return true;
         }
 
@@ -411,6 +414,14 @@ public class DialogueLayoutSolver
         }
 
         return false;
+    }
+
+    static bool IsOutsideSafe(Vector2 screen, Rect safe, float margin)
+    {
+        return screen.x < safe.xMin - margin ||
+               screen.x > safe.xMax + margin ||
+               screen.y < safe.yMin - margin ||
+               screen.y > safe.yMax + margin;
     }
 
     static Vector2 PivotForConversationSide(ConversationSlotSide side)

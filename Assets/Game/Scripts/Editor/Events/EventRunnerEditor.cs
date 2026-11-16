@@ -10,6 +10,12 @@ public class EventRunnerEditor : Editor
     {
         typeof(WaitAction),
         typeof(DebugLogAction),
+        typeof(CameraFocusAction),
+        typeof(CameraRestoreAction),
+        typeof(CameraShotAction),
+        typeof(CameraMoveAction),
+        typeof(CameraShakeAction),
+        typeof(ParallelActions),
         typeof(StartDialogueAction),
         typeof(UnityEventAction),
         typeof(SetFlagAction),
@@ -20,6 +26,20 @@ public class EventRunnerEditor : Editor
         typeof(SetDoorStateAction),
         typeof(UnlockDoorAction),
     };
+
+    internal static readonly Type[] ChildActionTypes;
+
+    static EventRunnerEditor()
+    {
+        var children = new System.Collections.Generic.List<Type>(ActionTypes.Length);
+        for (int i = 0; i < ActionTypes.Length; i++)
+        {
+            if (ActionTypes[i] != typeof(ParallelActions))
+                children.Add(ActionTypes[i]);
+        }
+
+        ChildActionTypes = children.ToArray();
+    }
 
     static readonly Type[] ConditionTypes =
     {
@@ -173,7 +193,7 @@ public class EventRunnerEditor : Editor
         EditorGUI.PropertyField(rect, element, new GUIContent(label), true);
     }
 
-    void ShowAddMenu(Rect buttonRect, SerializedProperty listProp, Type[] types)
+    internal static void ShowAddMenu(Rect buttonRect, SerializedProperty listProp, Type[] types)
     {
         var menu = new GenericMenu();
         for (int i = 0; i < types.Length; i++)
@@ -184,13 +204,86 @@ public class EventRunnerEditor : Editor
         menu.DropDown(buttonRect);
     }
 
-    void AddManaged(SerializedProperty listProp, Type type)
+    internal static void AddManaged(SerializedProperty listProp, Type type)
     {
+        var serializedObject = listProp.serializedObject;
         serializedObject.Update();
         int index = listProp.arraySize;
         listProp.arraySize++;
         var element = listProp.GetArrayElementAtIndex(index);
         element.managedReferenceValue = Activator.CreateInstance(type);
         serializedObject.ApplyModifiedProperties();
+    }
+}
+
+[CustomPropertyDrawer(typeof(ParallelActions))]
+public class ParallelActionsDrawer : PropertyDrawer
+{
+    const float RemoveWidth = 22f;
+    const float Gap = 2f;
+
+    public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+    {
+        var actions = property.FindPropertyRelative("actions");
+        float height = EditorGUIUtility.singleLineHeight + Gap;
+        if (actions == null)
+            return height;
+
+        for (int i = 0; i < actions.arraySize; i++)
+        {
+            var element = actions.GetArrayElementAtIndex(i);
+            height += EditorGUI.GetPropertyHeight(element, true) + Gap;
+        }
+
+        height += EditorGUIUtility.singleLineHeight + Gap;
+        return height;
+    }
+
+    public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+    {
+        var actions = property.FindPropertyRelative("actions");
+        if (actions == null)
+        {
+            EditorGUI.LabelField(position, label);
+            return;
+        }
+
+        var header = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+        EditorGUI.LabelField(header, label, EditorStyles.boldLabel);
+        float y = header.yMax + Gap;
+
+        int removeIndex = -1;
+        for (int i = 0; i < actions.arraySize; i++)
+        {
+            var element = actions.GetArrayElementAtIndex(i);
+            float rowHeight = EditorGUI.GetPropertyHeight(element, true);
+            var row = new Rect(position.x, y, position.width - RemoveWidth - Gap, rowHeight);
+            var remove = new Rect(row.xMax + Gap, y, RemoveWidth, EditorGUIUtility.singleLineHeight);
+
+            string childLabel = $"[{i}]";
+            if (element.managedReferenceValue is EventAction action)
+                childLabel = $"[{i}] {action.DisplayName}";
+            else if (element.managedReferenceValue == null)
+                childLabel = $"[{i}] Null";
+
+            EditorGUI.PropertyField(row, element, new GUIContent(childLabel), true);
+            if (GUI.Button(remove, "−"))
+                removeIndex = i;
+
+            y += rowHeight + Gap;
+        }
+
+        if (removeIndex >= 0)
+        {
+            var removed = actions.GetArrayElementAtIndex(removeIndex);
+            removed.managedReferenceValue = null;
+            actions.DeleteArrayElementAtIndex(removeIndex);
+            property.serializedObject.ApplyModifiedProperties();
+            return;
+        }
+
+        var add = new Rect(position.x, y, position.width, EditorGUIUtility.singleLineHeight);
+        if (GUI.Button(add, "Add child action"))
+            EventRunnerEditor.ShowAddMenu(add, actions, EventRunnerEditor.ChildActionTypes);
     }
 }

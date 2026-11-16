@@ -300,6 +300,8 @@ public class EventRunner : MonoBehaviour
             CurrentActionIndex = -1;
             running = null;
 
+            CameraDirector.NotifyRunnerFinished(this);
+
             if (holdsGameplayLock)
             {
                 GameplayLock.Release(this);

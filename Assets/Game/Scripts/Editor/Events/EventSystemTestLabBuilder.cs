@@ -514,6 +514,708 @@ public static class EventSystemTestLabBuilder
             "OK");
     }
 
+    [MenuItem("Tools/ARPG/Events/Add Camera Switch Fixture (Sprint 06 Phase 1)", false, 220)]
+    public static void AddCameraSwitchFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraSwitchFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Focus at z≈-120.\n" +
+            "Does not rebuild earlier fixtures or the gameplay camera. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraSwitchFixture()
+    {
+        DestroyNamedRoot("Event_S6_Focus");
+        DestroyNamedRoot("Marker_S6_Focus");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Focus",
+            new Vector3(0f, 1f, -120f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.15f, 0.75f, 0.7f, 0.4f));
+
+        var marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        marker.name = "Marker_S6_Focus";
+        marker.transform.position = new Vector3(6f, 1.5f, -120f);
+        marker.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+        var markerCollider = marker.GetComponent<Collider>();
+        if (markerCollider != null)
+            Object.DestroyImmediate(markerCollider);
+
+        var markerRenderer = marker.GetComponent<MeshRenderer>();
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+        if (shader != null && markerRenderer != null)
+        {
+            var mat = new Material(shader);
+            var yellow = new Color(0.95f, 0.8f, 0.15f, 1f);
+            if (mat.HasProperty("_BaseColor"))
+                mat.SetColor("_BaseColor", yellow);
+            else if (mat.HasProperty("_Color"))
+                mat.SetColor("_Color", yellow);
+            markerRenderer.sharedMaterial = mat;
+        }
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_focus";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraFocusAction
+            {
+                target = marker.transform,
+                blendSeconds = 1f,
+            },
+            new WaitAction { seconds = 1.5f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 camera restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Cut Fixture (Sprint 06 Phase 2 Step 1)", false, 221)]
+    public static void AddCameraCutFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraCutFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Cut at z≈-132.\n" +
+            "Does not rebuild the Phase 1 camera pad. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraCutFixture()
+    {
+        DestroyNamedRoot("Event_S6_Cut");
+        DestroyNamedRoot("Shot_S6_Cut");
+        DestroyNamedRoot("Subject_S6_Cut");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Cut",
+            new Vector3(0f, 1f, -132f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.9f, 0.45f, 0.15f, 0.4f));
+
+        var subject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        subject.name = "Subject_S6_Cut";
+        subject.transform.position = new Vector3(6f, 1.2f, -137f);
+        subject.transform.localScale = new Vector3(0.8f, 0.8f, 0.8f);
+        var subjectCollider = subject.GetComponent<Collider>();
+        if (subjectCollider != null)
+            Object.DestroyImmediate(subjectCollider);
+
+        var subjectRenderer = subject.GetComponent<MeshRenderer>();
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+        if (shader != null && subjectRenderer != null)
+        {
+            var mat = new Material(shader);
+            var magenta = new Color(0.85f, 0.2f, 0.55f, 1f);
+            if (mat.HasProperty("_BaseColor"))
+                mat.SetColor("_BaseColor", magenta);
+            else if (mat.HasProperty("_Color"))
+                mat.SetColor("_Color", magenta);
+            subjectRenderer.sharedMaterial = mat;
+        }
+
+        var shotObject = new GameObject("Shot_S6_Cut");
+        shotObject.transform.position = new Vector3(6f, 2.4f, -132f);
+        shotObject.transform.rotation = Quaternion.LookRotation(
+            subject.transform.position - shotObject.transform.position,
+            Vector3.up);
+        var shot = shotObject.AddComponent<CameraShotMarker>();
+        shot.mode = CameraShotMarker.CameraShotMode.Fixed;
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_cut";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction { marker = shot },
+            new WaitAction { seconds = 1.5f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 shot cut restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Blend Fixture (Sprint 06 Phase 2 Step 2)", false, 222)]
+    public static void AddCameraBlendFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraBlendFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Blend at z≈-148.\n" +
+            "Does not rebuild the Phase 1 pad or the cut pad. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraBlendFixture()
+    {
+        DestroyNamedRoot("Event_S6_Blend");
+        DestroyNamedRoot("Shot_S6_Wide");
+        DestroyNamedRoot("Shot_S6_Close");
+        DestroyNamedRoot("Shot_S6_Follow");
+        DestroyNamedRoot("Subject_S6_Wide");
+        DestroyNamedRoot("Subject_S6_Close");
+        DestroyNamedRoot("Subject_S6_Follow");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Blend",
+            new Vector3(0f, 1f, -148f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.25f, 0.45f, 0.95f, 0.4f));
+
+        var wideSubject = CreateShotSubject(
+            "Subject_S6_Wide", new Vector3(0f, 1.5f, -156f), new Vector3(2f, 2f, 2f),
+            new Color(0.45f, 0.7f, 0.95f, 1f));
+        var closeSubject = CreateShotSubject(
+            "Subject_S6_Close", new Vector3(4f, 1.2f, -152f), new Vector3(0.45f, 0.45f, 0.45f),
+            new Color(0.95f, 0.95f, 0.95f, 1f));
+        var followSubject = CreateShotSubject(
+            "Subject_S6_Follow", new Vector3(-3f, 1.2f, -150f), new Vector3(0.7f, 0.7f, 0.7f),
+            new Color(0.2f, 0.85f, 0.75f, 1f));
+
+        var wide = new GameObject("Shot_S6_Wide");
+        wide.transform.position = new Vector3(0f, 5.5f, -146f);
+        wide.transform.rotation = Quaternion.LookRotation(
+            wideSubject.transform.position - wide.transform.position, Vector3.up);
+        var wideMarker = wide.AddComponent<CameraShotMarker>();
+        wideMarker.mode = CameraShotMarker.CameraShotMode.Fixed;
+        wideMarker.overrideFieldOfView = true;
+        wideMarker.fieldOfView = 70f;
+
+        var close = new GameObject("Shot_S6_Close");
+        close.transform.position = new Vector3(4f, 1.5f, -150.2f);
+        close.transform.rotation = Quaternion.identity;
+        var closeMarker = close.AddComponent<CameraShotMarker>();
+        closeMarker.mode = CameraShotMarker.CameraShotMode.Fixed;
+        closeMarker.lookAt = closeSubject.transform;
+        closeMarker.overrideFieldOfView = true;
+        closeMarker.fieldOfView = 22f;
+
+        var follow = new GameObject("Shot_S6_Follow");
+        follow.transform.position = followSubject.transform.position;
+        var followMarker = follow.AddComponent<CameraShotMarker>();
+        followMarker.mode = CameraShotMarker.CameraShotMode.Follow;
+        followMarker.followTarget = followSubject.transform;
+        followMarker.overrideFieldOfView = true;
+        followMarker.fieldOfView = 40f;
+        followMarker.overrideFollowOffset = true;
+        followMarker.followOffset = new Vector3(0f, 2.2f, -4.5f);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_blend";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction
+            {
+                marker = wideMarker,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1.2f,
+            },
+            new WaitAction { seconds = 1f },
+            new CameraShotAction
+            {
+                marker = closeMarker,
+                transition = CameraShotAction.ShotTransition.Cut,
+            },
+            new WaitAction { seconds = 1f },
+            new CameraShotAction
+            {
+                marker = followMarker,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1.5f,
+            },
+            new WaitAction { seconds = 1f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 blend sequence restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    static GameObject CreateShotSubject(string name, Vector3 position, Vector3 scale, Color color)
+    {
+        var subject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        subject.name = name;
+        subject.transform.position = position;
+        subject.transform.localScale = scale;
+        var collider = subject.GetComponent<Collider>();
+        if (collider != null)
+            Object.DestroyImmediate(collider);
+
+        var renderer = subject.GetComponent<MeshRenderer>();
+        var shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+        if (shader != null && renderer != null)
+        {
+            var mat = new Material(shader);
+            if (mat.HasProperty("_BaseColor"))
+                mat.SetColor("_BaseColor", color);
+            else if (mat.HasProperty("_Color"))
+                mat.SetColor("_Color", color);
+            renderer.sharedMaterial = mat;
+        }
+
+        return subject;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Move Fixture (Sprint 06 Phase 2 Step 3)", false, 223)]
+    public static void AddCameraMoveFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraMoveFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Move at z≈-168.\n" +
+            "Does not rebuild the earlier camera pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraMoveFixture()
+    {
+        DestroyNamedRoot("Event_S6_Move");
+        DestroyNamedRoot("Shot_S6_MoveStart");
+        DestroyNamedRoot("Shot_S6_MoveEnd");
+        DestroyNamedRoot("Shot_S6_MoveSnap");
+        DestroyNamedRoot("Subject_S6_MoveStart");
+        DestroyNamedRoot("Subject_S6_MoveEnd");
+        DestroyNamedRoot("Subject_S6_MoveSnap");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Move",
+            new Vector3(0f, 1f, -168f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.55f, 0.35f, 0.85f, 0.4f));
+
+        var startSubject = CreateShotSubject(
+            "Subject_S6_MoveStart", new Vector3(-4f, 1.2f, -174f), new Vector3(0.7f, 0.7f, 0.7f),
+            new Color(0.95f, 0.75f, 0.2f, 1f));
+        var endSubject = CreateShotSubject(
+            "Subject_S6_MoveEnd", new Vector3(5f, 1.2f, -176f), new Vector3(0.7f, 0.7f, 0.7f),
+            new Color(0.3f, 0.8f, 0.35f, 1f));
+        var snapSubject = CreateShotSubject(
+            "Subject_S6_MoveSnap", new Vector3(0f, 1.2f, -180f), new Vector3(0.55f, 0.55f, 0.55f),
+            new Color(0.95f, 0.95f, 0.95f, 1f));
+
+        var start = CreateFixedMoveMarker(
+            "Shot_S6_MoveStart", new Vector3(-4f, 2.4f, -168f), startSubject.transform.position, 45f, false);
+        var end = CreateFixedMoveMarker(
+            "Shot_S6_MoveEnd", new Vector3(5f, 3.2f, -170f), endSubject.transform.position, 28f, true);
+        var snap = CreateFixedMoveMarker(
+            "Shot_S6_MoveSnap", new Vector3(0f, 4.2f, -172f), snapSubject.transform.position, 60f, true);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_move";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction { marker = start },
+            new CameraMoveAction
+            {
+                destination = end,
+                duration = 2f,
+                ease = CameraMoveAction.MoveEase.SmoothStep,
+            },
+            new CameraMoveAction
+            {
+                destination = snap,
+                duration = 0f,
+            },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 move restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    static CameraShotMarker CreateFixedMoveMarker(
+        string name, Vector3 position, Vector3 lookPoint, float fieldOfView, bool overrideFov)
+    {
+        var shotObject = new GameObject(name);
+        shotObject.transform.position = position;
+        shotObject.transform.rotation = Quaternion.LookRotation(lookPoint - position, Vector3.up);
+        var marker = shotObject.AddComponent<CameraShotMarker>();
+        marker.mode = CameraShotMarker.CameraShotMode.Fixed;
+        marker.overrideFieldOfView = overrideFov;
+        marker.fieldOfView = fieldOfView;
+        return marker;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Sequence Fixture (Sprint 06 Phase 2 Final)", false, 224)]
+    public static void AddCameraSequenceFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraSequenceFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Sequence at z≈-198.\n" +
+            "Does not rebuild the earlier camera pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraSequenceFixture()
+    {
+        DestroyNamedRoot("Event_S6_Sequence");
+        DestroyNamedRoot("Church_S6");
+        DestroyNamedRoot("ChurchSteeple_S6");
+        DestroyNamedRoot("ChurchEntrance_S6");
+        DestroyNamedRoot("Subject_S6_Artifact");
+        DestroyNamedRoot("Subject_S6_Jyn");
+        DestroyNamedRoot("Shot_S6_SeqWide");
+        DestroyNamedRoot("Shot_S6_SeqEntrance");
+        DestroyNamedRoot("Shot_S6_SeqArtifact");
+        DestroyNamedRoot("Shot_S6_SeqFollow");
+        DestroyNamedRoot("Shot_S6_SeqFollowClose");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Sequence",
+            new Vector3(0f, 1f, -198f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.72f, 0.32f, 0.22f, 0.4f));
+
+        CreateShotSubject(
+            "Church_S6", new Vector3(0f, 3f, -214f), new Vector3(9f, 6f, 6f),
+            new Color(0.72f, 0.62f, 0.48f, 1f));
+        CreateShotSubject(
+            "ChurchSteeple_S6", new Vector3(0f, 8f, -216f), new Vector3(2.2f, 5f, 2.2f),
+            new Color(0.38f, 0.28f, 0.34f, 1f));
+        CreateShotSubject(
+            "ChurchEntrance_S6", new Vector3(0f, 1.7f, -210.7f), new Vector3(2.4f, 3.4f, 0.35f),
+            new Color(0.08f, 0.06f, 0.05f, 1f));
+        var artifact = CreateShotSubject(
+            "Subject_S6_Artifact", new Vector3(1.15f, 1.15f, -209.4f), new Vector3(0.4f, 0.4f, 0.4f),
+            new Color(1f, 0.78f, 0.15f, 1f));
+        var jyn = CreateShotSubject(
+            "Subject_S6_Jyn", new Vector3(-4f, 0.85f, -204f), new Vector3(0.55f, 1.7f, 0.55f),
+            new Color(0.86f, 0.35f, 0.55f, 1f));
+
+        var wide = CreateFixedMoveMarker(
+            "Shot_S6_SeqWide", new Vector3(0f, 6.5f, -200f), new Vector3(0f, 3.5f, -214f), 64f, true);
+        var entrance = CreateFixedMoveMarker(
+            "Shot_S6_SeqEntrance", new Vector3(0f, 2.3f, -206.5f), new Vector3(0f, 1.7f, -210.7f), 36f, true);
+        var close = CreateFixedMoveMarker(
+            "Shot_S6_SeqArtifact", new Vector3(2.05f, 1.45f, -208.1f), artifact.transform.position, 18f, true);
+
+        var follow = new GameObject("Shot_S6_SeqFollow");
+        follow.transform.position = jyn.transform.position;
+        var followMarker = follow.AddComponent<CameraShotMarker>();
+        followMarker.mode = CameraShotMarker.CameraShotMode.Follow;
+        followMarker.followTarget = jyn.transform;
+        followMarker.overrideFieldOfView = true;
+        followMarker.fieldOfView = 46f;
+        followMarker.overrideFollowOffset = true;
+        followMarker.followOffset = new Vector3(0f, 3.2f, 6.5f);
+
+        var followClose = new GameObject("Shot_S6_SeqFollowClose");
+        followClose.transform.position = jyn.transform.position;
+        var followCloseMarker = followClose.AddComponent<CameraShotMarker>();
+        followCloseMarker.mode = CameraShotMarker.CameraShotMode.Follow;
+        followCloseMarker.followTarget = jyn.transform;
+        followCloseMarker.overrideFieldOfView = true;
+        followCloseMarker.fieldOfView = 30f;
+        followCloseMarker.overrideFollowOffset = true;
+        followCloseMarker.followOffset = new Vector3(0f, 1.7f, 3f);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_sequence";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction
+            {
+                marker = wide,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1.2f,
+            },
+            new WaitAction { seconds = 1f },
+            new CameraMoveAction
+            {
+                destination = entrance,
+                duration = 2f,
+                ease = CameraMoveAction.MoveEase.SmoothStep,
+            },
+            new WaitAction { seconds = 0.6f },
+            new CameraShotAction { marker = close },
+            new WaitAction { seconds = 0.6f },
+            new CameraShotAction
+            {
+                marker = followMarker,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1.2f,
+            },
+            new WaitAction { seconds = 0.6f },
+            new CameraMoveAction
+            {
+                destination = followCloseMarker,
+                duration = 1.25f,
+                ease = CameraMoveAction.MoveEase.SmoothStep,
+            },
+            new WaitAction { seconds = 0.4f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 sequence restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Shake Fixture (Sprint 06 Phase 3)", false, 225)]
+    public static void AddCameraShakeFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraShakeFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Shake at z≈-236.\n" +
+            "Does not rebuild the earlier camera pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraShakeFixture()
+    {
+        DestroyNamedRoot("Event_S6_Shake");
+        DestroyNamedRoot("Subject_S6_Shake");
+        DestroyNamedRoot("Shot_S6_Shake");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Shake",
+            new Vector3(0f, 1f, -236f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.55f, 0.9f, 0.2f, 0.4f));
+
+        var subject = CreateShotSubject(
+            "Subject_S6_Shake", new Vector3(0f, 1.4f, -244f), new Vector3(0.8f, 0.8f, 0.8f),
+            new Color(0.9f, 0.15f, 0.2f, 1f));
+        var shot = CreateFixedMoveMarker(
+            "Shot_S6_Shake", new Vector3(0f, 3.2f, -238f), subject.transform.position, 34f, true);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_shake";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShakeAction { amplitude = 2.5f, duration = 0.45f, frequency = 1.5f },
+            new WaitAction { seconds = 0.3f },
+            new CameraShotAction
+            {
+                marker = shot,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1f,
+            },
+            new CameraShakeAction { amplitude = 3.5f, duration = 0.6f, frequency = 2f },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 shake restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Camera Composition Fixture (Sprint 06 Phase 4)", false, 226)]
+    public static void AddCameraCompositionFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateCameraCompositionFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S6_Composition at z≈-260.\n" +
+            "Does not rebuild the earlier camera pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateCameraCompositionFixture()
+    {
+        DestroyNamedRoot("Event_S6_Composition");
+        DestroyNamedRoot("Subject_S6_CompWide");
+        DestroyNamedRoot("Subject_S6_CompSpeaker");
+        DestroyNamedRoot("Shot_S6_CompWide");
+        DestroyNamedRoot("Shot_S6_CompMove");
+        DestroyNamedRoot("Shot_S6_CompSpeaker");
+
+        EnsureDialogueAssetFolder();
+        var dialogue = EnsureDialogueAsset(
+            "Lab_S6_Composition",
+            "lab_s6_composition",
+            true,
+            ("s6_a", "active_player", "The hall is quiet.", "s6_b"),
+            ("s6_b", "active_player", "Something moved by the door.", "s6_end"));
+        MarkEnd(dialogue, "s6_end", "s6_b");
+
+        var pad = CreateTriggerVolume(
+            "Event_S6_Composition",
+            new Vector3(0f, 1f, -260f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.95f, 0.75f, 0.2f, 0.4f));
+
+        var wideSubject = CreateShotSubject(
+            "Subject_S6_CompWide", new Vector3(0f, 2f, -274f), new Vector3(4f, 3f, 1.2f),
+            new Color(0.62f, 0.6f, 0.54f, 1f));
+        var speakerSubject = CreateShotSubject(
+            "Subject_S6_CompSpeaker", new Vector3(4f, 1.2f, -270f), new Vector3(0.55f, 1.4f, 0.55f),
+            new Color(0.55f, 0.35f, 0.9f, 1f));
+
+        var wide = CreateFixedMoveMarker(
+            "Shot_S6_CompWide", new Vector3(0f, 5f, -262f), wideSubject.transform.position, 58f, true);
+        var move = CreateFixedMoveMarker(
+            "Shot_S6_CompMove", new Vector3(0f, 2.6f, -270f), wideSubject.transform.position, 36f, true);
+        var speaker = CreateFixedMoveMarker(
+            "Shot_S6_CompSpeaker", new Vector3(4.2f, 1.55f, -267.2f), speakerSubject.transform.position, 22f, true);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s6_composition";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new CameraShotAction
+            {
+                marker = wide,
+                transition = CameraShotAction.ShotTransition.Blend,
+                blendSeconds = 1f,
+            },
+            new ParallelActions
+            {
+                actions = new System.Collections.Generic.List<EventAction>
+                {
+                    new CameraMoveAction
+                    {
+                        destination = move,
+                        duration = 2f,
+                        ease = CameraMoveAction.MoveEase.SmoothStep,
+                    },
+                    new WaitAction { seconds = 1f },
+                    new DebugLogAction { message = "S6 overlap" },
+                },
+            },
+            new CameraShotAction { marker = speaker },
+            new StartDialogueAction
+            {
+                dialogueAsset = dialogue,
+                waitUntilFinished = true,
+                allowCancel = true,
+            },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S6 composition restored" },
+        };
+
+        var source = pad.GetComponent<EventSourceTrigger>();
+        if (source == null)
+            source = pad.AddComponent<EventSourceTrigger>();
+        source.runner = runner;
+        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+    }
+
     /// <summary>Batchmode entry: Unity -executeMethod EventSystemTestLabBuilder.SetupCameraBatch</summary>
     public static void SetupCameraBatch()
     {
