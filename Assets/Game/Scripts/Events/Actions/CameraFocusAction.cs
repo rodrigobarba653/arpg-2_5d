@@ -3,7 +3,10 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Blends to a target and keeps the camera lease for later actions.
+/// Blends to a directed focus and keeps the camera lease.
+/// Without offset: follow/look at Target (gameplay-style framing).
+/// With offset: origin = current camera world position; X/Y/Z truck the camera
+/// in world axes without tracking the target.
 /// </summary>
 [Serializable]
 public class CameraFocusAction : EventAction
@@ -13,7 +16,19 @@ public class CameraFocusAction : EventAction
     [Min(0f)]
     public float blendSeconds = 1f;
 
-    public override string DisplayName => "Camera Focus";
+    [Tooltip("If true, truck from the current camera by World Offset, then keep " +
+             "following the Target with that framing. If false, gameplay-style follow.")]
+    public bool overrideFollowOffset;
+
+    [Tooltip("World-space truck from the current camera position. " +
+             "Then the camera follows the Target keeping that offset. " +
+             "+X / +Y / +Z = world axes. (0,0,0) = follow from where the camera already is.")]
+    public Vector3 followOffset = Vector3.zero;
+
+    public override string DisplayName =>
+        overrideFollowOffset
+            ? $"Camera Focus (follow+{followOffset.x:0.#},{followOffset.y:0.#},{followOffset.z:0.#})"
+            : "Camera Focus";
 
     public override IEnumerator Execute(EventContext ctx)
     {
@@ -47,8 +62,11 @@ public class CameraFocusAction : EventAction
 
             float seconds = Mathf.Max(0f, blendSeconds);
             director.PushBlend(ctx.Runner, seconds);
-            director.ShowEventCamera(target);
-            ctx.Log($"Camera focus '{target.name}' blend={seconds:0.00}s.");
+            director.ShowEventCamera(target, overrideFollowOffset, followOffset);
+            ctx.Log(
+                overrideFollowOffset
+                    ? $"Camera focus '{target.name}' follow with camOffset={followOffset} blend={seconds:0.00}s."
+                    : $"Camera focus '{target.name}' blend={seconds:0.00}s (gameplay framing).");
 
             yield return director.WaitUntilSettled(ctx, director.EventCamera, seconds);
             if (ctx.IsCancelled)

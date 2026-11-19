@@ -59,7 +59,11 @@ public class AudioManager : MonoBehaviour
         Instance = this;
 
         if (persistAcrossScenes)
+        {
+            if (transform.parent != null)
+                transform.SetParent(null, true);
             DontDestroyOnLoad(gameObject);
+        }
 
         LoadVolumePrefs();
         EnsureSources();

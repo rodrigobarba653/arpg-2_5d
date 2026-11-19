@@ -6,21 +6,6 @@ using UnityEngine;
 [CustomPropertyDrawer(typeof(DialogueConsequenceListAttribute))]
 public class DialogueConsequenceListDrawer : PropertyDrawer
 {
-    static readonly Type[] Types =
-    {
-        typeof(WaitAction),
-        typeof(DebugLogAction),
-        typeof(UnityEventAction),
-        typeof(GrantRewardsAction),
-        typeof(SetFlagAction),
-        typeof(ClearFlagAction),
-        typeof(MarkEventCompletedAction),
-        typeof(OpenDoorAction),
-        typeof(CloseDoorAction),
-        typeof(SetDoorStateAction),
-        typeof(UnlockDoorAction),
-    };
-
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
         if (property == null || !property.isArray)
@@ -57,10 +42,12 @@ public class DialogueConsequenceListDrawer : PropertyDrawer
         var serializedObject = list.serializedObject;
         string path = list.propertyPath;
         var menu = new GenericMenu();
-        for (int i = 0; i < Types.Length; i++)
+        foreach (var entry in EventActionRegistry.ForContext(
+                     EventActionRegistry.AuthorContext.DialogueConsequence))
         {
-            Type type = Types[i];
-            menu.AddItem(new GUIContent(type.Name), false, () => Add(serializedObject, path, type));
+            Type type = entry.Type;
+            string menuPath = $"{entry.Category}/{entry.MenuName}";
+            menu.AddItem(new GUIContent(menuPath), false, () => Add(serializedObject, path, type));
         }
 
         menu.DropDown(buttonRect);
@@ -103,7 +90,7 @@ public class DialogueConsequenceListDrawer : PropertyDrawer
 
         string caption = "Null";
         if (element.managedReferenceValue is EventAction action)
-            caption = action.DisplayName;
+            caption = EventActionEditorUtility.Summary(action);
         else if (element.managedReferenceValue != null)
             caption = element.managedReferenceValue.GetType().Name;
 

@@ -1,0 +1,111 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16e688529d7c646ddbe5cc9fac36f184, type: 3}
+  m_Name: GuardEncounter
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueAsset
+  dialogueId: guard_encounter
+  entryNodeId: line_1
+  defaultTypewriterCharsPerSecond: 48
+  lockGameplay: 1
+  originKind: 1
+  originSpeakerId: soldier_melee
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  nodes:
+  - rid: 8969645841261789184
+  - rid: 8969645841261789185
+  - rid: 8969645841261789341
+  - rid: 8969645841261789347
+  references:
+    version: 2
+    RefIds:
+    - rid: 8969645841261789184
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: line_1
+        speakerId: guard1
+        speakerDisplayName: Guard
+        text: Hey! You are not suppose to be here.
+        textVariants:
+        - characterId: jyn
+          text: 
+        - characterId: ax
+          text: 
+        portraitMode: 0
+        portraitExpression: Neutral
+        portraitSprite: {fileID: 21300000, guid: 4abd0867055db08408b70080afbaff39, type: 3}
+        portraitVariants: []
+        nextNodeId: line_2
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645841261789185
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: end
+    - rid: 8969645841261789341
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: line_2
+        speakerId: active_player
+        speakerDisplayName: 
+        text: Suck my balls, dude!
+        textVariants:
+        - characterId: jyn
+          text: Suck my balls, dude!
+        - characterId: ax
+          text: Eat shit, bro!
+        portraitMode: 0
+        portraitExpression: Neutral
+        portraitSprite: {fileID: 0}
+        portraitVariants: []
+        nextNodeId: choice_1
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0
+    - rid: 8969645841261789347
+      type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: choice_1
+        promptText: 
+        options:
+        - optionId: opt_a
+          text: Option A
+          textVariants: []
+          nextNodeId: 
+          rememberChoice: 1
+          rememberAs: Option A Picked
+          rememberFlagId: option_a_picked
+          requiredCharacterId: 
+          availability: []
+          consequences:
+          - rid: 8969645841261789348
+        - optionId: opt_b
+          text: Option B
+          textVariants: []
+          nextNodeId: 
+          rememberChoice: 0
+          rememberAs: 
+          rememberFlagId: 
+          requiredCharacterId: 
+          availability: []
+          consequences: []
+        fallbackNodeId: 
+    - rid: 8969645841261789348
+      type: {class: SetFlagAction, ns: , asm: Assembly-CSharp}
+      data:
+        flagId: guard_encounter_opt_a
+        value: 1

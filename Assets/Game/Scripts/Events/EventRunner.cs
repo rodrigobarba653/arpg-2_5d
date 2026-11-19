@@ -24,7 +24,8 @@ public class EventRunner : MonoBehaviour
              "and only one such event may run at a time.")]
     public bool seizesPlayerControl = true;
 
-    [Tooltip("Once = fire at most one successful run. Repeat = may fire again after completion.")]
+    [Tooltip("Run limit — independent of Start Mode. Once = at most one successful completion. " +
+             "Repeat = may complete again after finishing.")]
     public EventExecutionMode executionMode = EventExecutionMode.Once;
 
     [Tooltip("When Once + Persist Once: completion is stored in WorldState and " +
@@ -34,11 +35,33 @@ public class EventRunner : MonoBehaviour
     [Tooltip("Log step progress to the Console.")]
     public bool debugLog = true;
 
+    [Header("Start Mode")]
+    [Tooltip("Manual / volume trigger / interact / toggle cross. Trigger modes use this object's Collider.")]
+    public EventStartMode startMode = EventStartMode.ManualOnly;
+
+    [Tooltip("Trigger modes only. Layers that can fire the volume.")]
+    public LayerMask triggerPlayerLayers = ~0;
+
+    [Tooltip("Trigger modes only. Also require Player tag on the collider or its root.")]
+    public bool triggerRequirePlayerTag = true;
+
+    [Tooltip("Tag used when Require Player Tag is on.")]
+    public string triggerPlayerTag = "Player";
+
+    [Tooltip("Toggle Cross only. Ignore another cross for this many seconds.")]
+    [Min(0f)]
+    public float toggleCrossCooldownSeconds = 0.45f;
+
     [SerializeReference]
     public List<EventCondition> conditions = new List<EventCondition>();
 
     [SerializeReference]
     public List<EventAction> actions = new List<EventAction>();
+
+    [Tooltip("Used by Start Mode Toggle Cross when turning OFF (second cross). " +
+             "Typical: Gameplay Follow Offset → Restore.")]
+    [SerializeReference]
+    public List<EventAction> toggleOffActions = new List<EventAction>();
 
     CancellationTokenSource cts;
     Coroutine running;
@@ -48,16 +71,105 @@ public class EventRunner : MonoBehaviour
     bool holdsSchedulerSlot;
     bool holdsGameplayLock;
     bool cleaningUp;
+    bool runningToggleOff;
+
+    readonly Dictionary<Transform, int> triggerInsideCounts = new Dictionary<Transform, int>();
+    bool toggleCrossOn;
+    float lastToggleCrossUnscaled = -999f;
 
     public bool IsRunning => running != null;
     public bool HasCompletedOnce => completedOnce;
     public int CurrentActionIndex { get; private set; } = -1;
+    public bool ToggleCrossIsOn => toggleCrossOn;
 
     void OnEnable()
     {
         WorldState.OnRestored += SyncCompletedFromWorldState;
         SyncCompletedFromWorldState();
         WarnIfDuplicateEventId();
+    }
+
+    void OnDisable()
+    {
+        WorldState.OnRestored -= SyncCompletedFromWorldState;
+        triggerInsideCounts.Clear();
+        Cancel("OnDisable");
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (!UsesVolumeTrigger)
+            return;
+        if (!IsValidTriggerPlayer(other))
+            return;
+
+        Transform root = other.transform.root;
+        triggerInsideCounts.TryGetValue(root, out int count);
+        triggerInsideCounts[root] = count + 1;
+        if (count != 0)
+            return;
+
+        if (startMode == EventStartMode.TriggerOnEnter)
+            TryStart();
+        else if (startMode == EventStartMode.ToggleCross)
+            HandleToggleCross();
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (!UsesVolumeTrigger)
+            return;
+        if (!IsValidTriggerPlayer(other))
+            return;
+
+        Transform root = other.transform.root;
+        if (!triggerInsideCounts.TryGetValue(root, out int count))
+            return;
+
+        count--;
+        if (count <= 0)
+        {
+            triggerInsideCounts.Remove(root);
+            if (startMode == EventStartMode.TriggerOnExit)
+                TryStart();
+        }
+        else
+        {
+            triggerInsideCounts[root] = count;
+        }
+    }
+
+    bool UsesVolumeTrigger =>
+        startMode == EventStartMode.TriggerOnEnter ||
+        startMode == EventStartMode.TriggerOnExit ||
+        startMode == EventStartMode.ToggleCross;
+
+    void HandleToggleCross()
+    {
+        float now = Time.unscaledTime;
+        if (now - lastToggleCrossUnscaled < toggleCrossCooldownSeconds)
+            return;
+
+        lastToggleCrossUnscaled = now;
+        toggleCrossOn = !toggleCrossOn;
+        if (toggleCrossOn)
+            TryStart();
+        else
+            TryStartToggleOff();
+    }
+
+    bool IsValidTriggerPlayer(Collider other)
+    {
+        if (other == null)
+            return false;
+        if (((1 << other.gameObject.layer) & triggerPlayerLayers) == 0)
+            return false;
+        if (!triggerRequirePlayerTag)
+            return true;
+        if (other.CompareTag(triggerPlayerTag))
+            return true;
+        Transform root = other.transform.root;
+        return root != null && root.CompareTag(triggerPlayerTag);
     }
 
     /// <summary>
@@ -132,7 +244,51 @@ public class EventRunner : MonoBehaviour
         }
 
         cts = new CancellationTokenSource();
-        running = StartCoroutine(RunSequence(cts.Token));
+        runningToggleOff = false;
+        running = StartCoroutine(RunSequence(actions, markComplete: true, cts.Token));
+        return true;
+    }
+
+    /// <summary>
+    /// Toggle Cross OFF path. Runs <see cref="toggleOffActions"/> and never marks Once / completed.
+    /// </summary>
+    public bool TryStartToggleOff()
+    {
+        if (!isActiveAndEnabled)
+            return false;
+
+        if (IsRunning)
+        {
+            Cancel("toggle-off-replace");
+        }
+
+        if (!EvaluateConditions(out string failedCondition))
+        {
+            if (debugLog)
+                Debug.Log(
+                    $"[Event:{name}] TryStartToggleOff rejected — condition failed: {failedCondition}",
+                    this);
+            return false;
+        }
+
+        if (!EventScheduler.TryBegin(this, out string reason))
+        {
+            if (debugLog)
+                Debug.Log($"[Event:{name}] TryStartToggleOff rejected — {reason}.", this);
+            return false;
+        }
+
+        holdsSchedulerSlot = true;
+
+        if (seizesPlayerControl)
+        {
+            GameplayLock.Acquire(this, GameplayLockChannels.PlayerControl);
+            holdsGameplayLock = true;
+        }
+
+        cts = new CancellationTokenSource();
+        runningToggleOff = true;
+        running = StartCoroutine(RunSequence(toggleOffActions, markComplete: false, cts.Token));
         return true;
     }
 
@@ -165,13 +321,8 @@ public class EventRunner : MonoBehaviour
             running = null;
         }
 
+        runningToggleOff = false;
         CleanupAfterRun();
-    }
-
-    void OnDisable()
-    {
-        WorldState.OnRestored -= SyncCompletedFromWorldState;
-        Cancel("OnDisable");
     }
 
     void OnDestroy()
@@ -213,25 +364,26 @@ public class EventRunner : MonoBehaviour
         completedOnce = WorldState.IsEventCompleted(eventId);
     }
 
-    IEnumerator RunSequence(CancellationToken token)
+    IEnumerator RunSequence(List<EventAction> sequence, bool markComplete, CancellationToken token)
     {
         var ctx = new EventContext(this, token);
         currentContext = ctx;
         CurrentActionIndex = -1;
         bool finishedSuccessfully = false;
+        string label = runningToggleOff ? "ToggleOff" : "Start";
 
         if (debugLog)
-            Debug.Log($"[Event:{name}] Start ({actions?.Count ?? 0} actions, " +
+            Debug.Log($"[Event:{name}] {label} ({sequence?.Count ?? 0} actions, " +
                       $"playerControl={seizesPlayerControl}, eventId='{eventId}').", this);
 
-        if (actions != null)
+        if (sequence != null)
         {
-            for (int i = 0; i < actions.Count; i++)
+            for (int i = 0; i < sequence.Count; i++)
             {
                 if (token.IsCancellationRequested)
                     break;
 
-                var action = actions[i];
+                var action = sequence[i];
                 if (action == null)
                 {
                     if (debugLog)
@@ -268,11 +420,12 @@ public class EventRunner : MonoBehaviour
         }
 
         finishedSuccessfully = !token.IsCancellationRequested && !ctx.StopRequested;
-        if (finishedSuccessfully)
+        if (finishedSuccessfully && markComplete)
             MarkCompletedSuccessfully();
 
         // Normal completion path (StopCoroutine skips this; Cancel cleans up).
         running = null;
+        runningToggleOff = false;
         CleanupAfterRun();
     }
 
@@ -301,6 +454,7 @@ public class EventRunner : MonoBehaviour
             running = null;
 
             CameraDirector.NotifyRunnerFinished(this);
+            PlayCharacterAnimationAction.ReleaseHeldForRunner(this);
 
             if (holdsGameplayLock)
             {

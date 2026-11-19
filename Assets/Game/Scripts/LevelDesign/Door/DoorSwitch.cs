@@ -4,44 +4,44 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// Switch / lever / button with a trigger Collider.
-///
-/// Modes:
-/// - Legacy: presses interact → OpenDoor() on linked doors.
-/// - Event System: presses interact → EventRunner.TryStart() (doors opened via OpenDoorAction).
-/// - Toggle: second press runs deactivateRunner / CloseDoor on linked doors.
+/// Prefer EventRunner as the motor: Interact → EventRunner.TryStart()
+/// (Open Door, Wait, Camera, Dialogue, …). Legacy <see cref="doors"/> is fallback only.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class DoorSwitch : MonoBehaviour
 {
-    [Header("Doors (legacy direct link)")]
-    [Tooltip("Doors this switch opens directly. Ignored when Event Runner is assigned " +
-             "(use OpenDoorAction in that runner instead).")]
-    public SimpleDoor[] doors;
-
-    [Header("Event System")]
-    [Tooltip("If set, Activate starts this runner instead of calling doors[].OpenDoor().")]
+    [Header("Event Runner (motor)")]
+    [Tooltip("Started on Interact. Put Open Door / Wait / Camera / Dialogue here. " +
+             "Start Mode on the runner should stay Manual Only — this switch starts it.")]
     public EventRunner eventRunner;
 
-    [Tooltip("Optional runner when toggling OFF (toggleMode).")]
+    [Tooltip("Optional. Used when Toggle Mode is on and the player turns the switch OFF.")]
     public EventRunner deactivateEventRunner;
 
-    [Tooltip("If true, a second interact turns the switch off.")]
+    [Tooltip("If true, a second Interact turns the switch off (runs Deactivate Event Runner or closes legacy doors).")]
     public bool toggleMode = false;
 
+    [Header("Legacy doors (fallback only)")]
+    [Tooltip("Used only when Event Runner is empty. Prefer Open Door inside the EventRunner.")]
+    public SimpleDoor[] doors;
+
     [Header("Interaction")]
-    [Tooltip("Optional: assign an InputAction (e.g. 'Interact' from PlayerControls). " +
-             "If empty, defaults to Enter/E on keyboard + X/A button on gamepad.")]
+    [Tooltip("Optional InputAction. Empty = game default Interact.")]
     public InputActionReference interactAction;
 
-    [Tooltip("If true the switch only works once (ignored when toggleMode is on).")]
+    [Tooltip("Legacy. Prefer EventRunner Execution Mode = Once. " +
+             "If true the switch only accepts Interact once (ignored when Toggle Mode is on).")]
     public bool oneShot = false;
 
-    [Header("Persistence")]
+    [Header("Persistence (legacy)")]
+    [Tooltip("Legacy switch ON flag. Prefer SimpleDoor Persist + EventRunner Once.")]
     public string persistentId = "";
+
+    [Tooltip("Legacy. Prefer persisting the door / EventRunner Once.")]
     public bool persistState = false;
 
-    [Header("Prompt")]
-    [Tooltip("Icon (child GameObject) shown while the player is in range. Hidden by default.")]
+    [Header("Prompt (legacy)")]
+    [Tooltip("Legacy local icon. Prefer InteractivePromptTrigger on this object.")]
     public GameObject interactPrompt;
 
     [Header("Player Behavior")]
@@ -49,11 +49,14 @@ public class DoorSwitch : MonoBehaviour
     public bool lockJumpInside = true;
 
     [Header("Visuals (optional)")]
+    [Tooltip("Shown when the switch is OFF. Hidden when ON.")]
     public GameObject visualOff;
+
+    [Tooltip("Shown when the switch is ON. Hidden when OFF.")]
     public GameObject visualOn;
 
     [Header("Audio")]
-    [Tooltip("Optional fallback AudioSource used only if there's no AudioManager in the scene.")]
+    [Tooltip("Fallback AudioSource if there is no AudioManager.")]
     public AudioSource sfx;
 
     public AudioClip activateSound;
@@ -61,7 +64,7 @@ public class DoorSwitch : MonoBehaviour
 
     [Range(0f, 1f)] public float audioVolume = 1f;
 
-    [Header("Events")]
+    [Header("Unity Events (optional / advanced)")]
     public UnityEvent onActivated;
     public UnityEvent onDeactivated;
 
@@ -95,6 +98,9 @@ public class DoorSwitch : MonoBehaviour
     {
         if (interactPrompt != null)
             interactPrompt.SetActive(false);
+
+        if (eventRunner == null)
+            eventRunner = GetComponent<EventRunner>();
     }
 
     void Start()
@@ -108,7 +114,6 @@ public class DoorSwitch : MonoBehaviour
         if (spent && !toggleMode) return;
         if (playerInRange == null) return;
 
-        // Block re-entry while a linked event sequence is running.
         if (eventRunner != null && eventRunner.IsRunning)
             return;
         if (deactivateEventRunner != null && deactivateEventRunner.IsRunning)
@@ -133,13 +138,21 @@ public class DoorSwitch : MonoBehaviour
             if (!eventRunner.TryStart())
                 return;
         }
-        else if (doors != null)
+        else if (doors != null && doors.Length > 0)
         {
             for (int i = 0; i < doors.Length; i++)
             {
                 if (doors[i] != null)
                     doors[i].OpenDoor();
             }
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"[DoorSwitch:{name}] Nothing to run — assign Event Runner " +
+                "(preferred) or legacy Doors.",
+                this);
+            return;
         }
 
         isOn = true;
@@ -166,7 +179,7 @@ public class DoorSwitch : MonoBehaviour
             if (!deactivateEventRunner.TryStart())
                 return;
         }
-        else if (doors != null)
+        else if (doors != null && doors.Length > 0)
         {
             for (int i = 0; i < doors.Length; i++)
             {
@@ -249,7 +262,6 @@ public class DoorSwitch : MonoBehaviour
         if (!persistState || string.IsNullOrEmpty(persistentId))
             return;
 
-        // Missing flag → New Game / cleared WorldState → Inspector default (off).
         if (!WorldState.HasFlag(OnFlagId()))
         {
             SetStateImmediate(false, markSpent: false);

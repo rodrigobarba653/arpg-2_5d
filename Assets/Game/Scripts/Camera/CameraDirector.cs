@@ -55,6 +55,19 @@ public sealed class CameraDirector : MonoBehaviour
     Transform moveFollowTarget;
     Transform moveLookAt;
 
+    Vector3 gameplayFollowBaseline;
+    bool hasGameplayFollowBaseline;
+    int gameplayFollowTuneSerial;
+    Coroutine gameplayFollowTuneRoutine;
+
+    // Camera Focus + world offset: truck from camera origin, then keep that
+    // vector relative to the target so the shot follows when the target moves.
+    bool focusFollowActive;
+    Transform focusFollowTarget;
+    Vector3 focusHoldOffset;
+    Quaternion focusHoldRotation;
+    CinemachineCamera focusFollowCamera;
+
     /// <summary>The directed camera currently promoted, or slot A before the first shot.</summary>
     public CinemachineCamera EventCamera => liveCamera != null ? liveCamera : slotA;
 
@@ -64,16 +77,23 @@ public sealed class CameraDirector : MonoBehaviour
 
     public static CameraDirector Ensure()
     {
-        if (instance != null)
-            return instance;
-
         var auto = Object.FindFirstObjectByType<CameraAutoTarget>();
         if (auto == null)
-            return null;
+            return instance != null && instance.gameplay != null ? instance : null;
 
         var gameplayCamera = auto.GetComponent<CinemachineCamera>();
         if (gameplayCamera == null)
-            return null;
+            return instance != null && instance.gameplay != null ? instance : null;
+
+        // Scene-placed CameraDirector may Awake before Bind. Always bind when
+        // gameplay/slots are missing so CameraShot does not fail with
+        // "Gameplay camera is missing."
+        if (instance != null)
+        {
+            if (instance.gameplay == null || instance.slotA == null || instance.slotB == null)
+                instance.Bind(gameplayCamera);
+            return instance;
+        }
 
         var host = gameplayCamera.transform.Find("CameraDirector");
         var hostObject = host != null ? host.gameObject : new GameObject("CameraDirector");
@@ -193,6 +213,16 @@ public sealed class CameraDirector : MonoBehaviour
 
     public void ShowEventCamera(Transform target)
     {
+        ShowEventCamera(target, overrideFollowOffset: false, followOffset: default);
+    }
+
+    /// <summary>
+    /// Focus on <paramref name="target"/>. Without offset: gameplay-style follow.
+    /// With offset: start from current camera + world truck, then keep
+    /// (camera - target) so the view follows the target with that framing.
+    /// </summary>
+    public void ShowEventCamera(Transform target, bool overrideFollowOffset, Vector3 followOffset)
+    {
         if (target == null)
             return;
 
@@ -200,7 +230,14 @@ public sealed class CameraDirector : MonoBehaviour
         if (incoming == null)
             return;
 
-        ApplyFollow(incoming, target);
+        if (overrideFollowOffset)
+            ApplyFocusFollowWithCameraOffset(incoming, target, followOffset);
+        else
+        {
+            ClearFocusFollow();
+            ApplyFollow(incoming, target);
+        }
+
         Promote(incoming);
     }
 
@@ -220,6 +257,7 @@ public sealed class CameraDirector : MonoBehaviour
         if (incoming == null)
             return false;
 
+        ClearFocusFollow();
         if (marker.mode == CameraShotMarker.CameraShotMode.Follow)
             ApplyMarkerFollow(incoming, marker);
         else
@@ -250,10 +288,21 @@ public sealed class CameraDirector : MonoBehaviour
     public void HideEventCamera()
     {
         InvalidateMove();
+        ClearFocusFollow();
         Park(slotA);
         Park(slotB);
         liveCamera = null;
         stagedCamera = null;
+    }
+
+    void LateUpdate()
+    {
+        if (!focusFollowActive || focusFollowTarget == null || focusFollowCamera == null)
+            return;
+
+        focusFollowCamera.transform.SetPositionAndRotation(
+            focusFollowTarget.position + focusHoldOffset,
+            focusHoldRotation);
     }
 
     /// <summary>
@@ -453,6 +502,31 @@ public sealed class CameraDirector : MonoBehaviour
     {
         if (blendOwner == runner)
             ForceRestoreDefaultBlend();
+
+        // Event ended while still on an event shot (e.g. lone CameraShot with no
+        // CameraRestore). Cut home — do not ease back with the brain default blend.
+        if (runner != null && owner == runner)
+        {
+            var brain = FindBrain();
+            CinemachineBlendDefinition previous = default;
+            bool pushedCut = false;
+            if (brain != null)
+            {
+                previous = brain.DefaultBlend;
+                var cut = previous;
+                cut.Style = CinemachineBlendDefinition.Styles.Cut;
+                cut.Time = 0f;
+                brain.DefaultBlend = cut;
+                pushedCut = true;
+            }
+
+            Release(runner);
+
+            if (pushedCut && brain != null)
+                brain.DefaultBlend = previous;
+            return;
+        }
+
         Release(runner);
     }
 
@@ -612,6 +686,8 @@ public sealed class CameraDirector : MonoBehaviour
             follow.FollowOffset = sourceFollow != null
                 ? sourceFollow.FollowOffset
                 : FallbackFollowOffset;
+            if (sourceFollow != null)
+                follow.TrackerSettings = sourceFollow.TrackerSettings;
         }
 
         if (gameplay != null)
@@ -622,6 +698,48 @@ public sealed class CameraDirector : MonoBehaviour
 
         cam.Follow = target;
         cam.LookAt = target;
+    }
+
+    /// <summary>
+    /// Truck from the current camera by <paramref name="worldOffset"/>, then lock
+    /// that world offset relative to <paramref name="target"/> so the camera
+    /// follows the target without recentering (no LookAt / Follow body).
+    /// </summary>
+    void ApplyFocusFollowWithCameraOffset(
+        CinemachineCamera cam,
+        Transform target,
+        Vector3 worldOffset)
+    {
+        CopyChannelAndLens(cam, false, 45f);
+        SetBody(cam, followEnabled: false, aimEnabled: false);
+
+        cam.Follow = null;
+        cam.LookAt = null;
+
+        Transform origin = null;
+        if (gameplay != null)
+            origin = gameplay.transform;
+        else if (liveCamera != null)
+            origin = liveCamera.transform;
+
+        Vector3 basePos = origin != null ? origin.position : cam.transform.position;
+        Quaternion baseRot = origin != null ? origin.rotation : cam.transform.rotation;
+        Vector3 desiredPos = basePos + worldOffset;
+
+        focusHoldOffset = desiredPos - target.position;
+        focusHoldRotation = baseRot;
+        focusFollowTarget = target;
+        focusFollowCamera = cam;
+        focusFollowActive = true;
+
+        cam.transform.SetPositionAndRotation(desiredPos, baseRot);
+    }
+
+    void ClearFocusFollow()
+    {
+        focusFollowActive = false;
+        focusFollowTarget = null;
+        focusFollowCamera = null;
     }
 
     /// <summary>
@@ -894,5 +1012,104 @@ public sealed class CameraDirector : MonoBehaviour
     static string NameOf(ICinemachineCamera camera)
     {
         return camera != null ? camera.Name : "(none)";
+    }
+
+    /// <summary>
+    /// Tweaks the gameplay <see cref="CinemachineFollow"/> offset without taking the
+    /// directed-camera lease. Follow target stays the player.
+    /// </summary>
+    public bool TryBlendGameplayFollowOffset(Vector3 followOffset, float blendSeconds, out string reason)
+    {
+        reason = null;
+        var follow = GetGameplayFollow();
+        if (follow == null)
+        {
+            reason = "Gameplay camera has no CinemachineFollow.";
+            return false;
+        }
+
+        if (!hasGameplayFollowBaseline)
+        {
+            gameplayFollowBaseline = follow.FollowOffset;
+            hasGameplayFollowBaseline = true;
+        }
+
+        StartGameplayFollowBlend(follow, follow.FollowOffset, followOffset, blendSeconds);
+        return true;
+    }
+
+    /// <summary>
+    /// Restores the gameplay follow offset captured before the first tune this session.
+    /// </summary>
+    public bool TryRestoreGameplayFollowOffset(float blendSeconds, out string reason)
+    {
+        reason = null;
+        var follow = GetGameplayFollow();
+        if (follow == null)
+        {
+            reason = "Gameplay camera has no CinemachineFollow.";
+            return false;
+        }
+
+        if (!hasGameplayFollowBaseline)
+        {
+            reason = "No gameplay follow baseline to restore.";
+            return false;
+        }
+
+        StartGameplayFollowBlend(follow, follow.FollowOffset, gameplayFollowBaseline, blendSeconds);
+        return true;
+    }
+
+    CinemachineFollow GetGameplayFollow()
+    {
+        if (gameplay == null)
+            Ensure();
+        return gameplay != null ? gameplay.GetComponent<CinemachineFollow>() : null;
+    }
+
+    void StartGameplayFollowBlend(
+        CinemachineFollow follow,
+        Vector3 from,
+        Vector3 to,
+        float blendSeconds)
+    {
+        gameplayFollowTuneSerial++;
+        int serial = gameplayFollowTuneSerial;
+        if (gameplayFollowTuneRoutine != null)
+            StopCoroutine(gameplayFollowTuneRoutine);
+        gameplayFollowTuneRoutine = StartCoroutine(
+            BlendGameplayFollowOffsetRoutine(follow, from, to, Mathf.Max(0f, blendSeconds), serial));
+    }
+
+    IEnumerator BlendGameplayFollowOffsetRoutine(
+        CinemachineFollow follow,
+        Vector3 from,
+        Vector3 to,
+        float seconds,
+        int serial)
+    {
+        if (follow == null)
+            yield break;
+
+        if (seconds <= 0.0001f)
+        {
+            if (serial == gameplayFollowTuneSerial)
+                follow.FollowOffset = to;
+            yield break;
+        }
+
+        float t = 0f;
+        while (t < seconds && serial == gameplayFollowTuneSerial)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.Clamp01(t / seconds);
+            u = u * u * (3f - 2f * u);
+            follow.FollowOffset = Vector3.LerpUnclamped(from, to, u);
+            yield return null;
+        }
+
+        if (serial == gameplayFollowTuneSerial && follow != null)
+            follow.FollowOffset = to;
     }
 }

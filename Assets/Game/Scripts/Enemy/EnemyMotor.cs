@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.AI;
 
+[DefaultExecutionOrder(-100)]
 [RequireComponent(typeof(CharacterController))]
 public class EnemyMotor : MonoBehaviour
 {
@@ -101,6 +102,10 @@ public class EnemyMotor : MonoBehaviour
         {
             agent.updatePosition = false;
             agent.updateRotation = false;
+
+            // Always start disabled: Unity logs "Failed to create agent..." if an
+            // enabled agent wakes with no baked NavMesh. Re-enable in Start when safe.
+            agent.enabled = false;
         }
 
         // A planted enemy stays put. A non-kinematic body would still slide when the player hits it.
@@ -114,6 +119,12 @@ public class EnemyMotor : MonoBehaviour
                 body.isKinematic = true;
             }
         }
+    }
+
+    void Start()
+    {
+        if (agent != null && SceneHasNavMesh())
+            agent.enabled = true;
     }
 
     void Update()
@@ -404,5 +415,11 @@ public class EnemyMotor : MonoBehaviour
     public bool IsMovementLocked()
     {
         return movementLockTimer > 0f || knockbackTimer > 0f || hitStunTimer > 0f;
+    }
+
+    static bool SceneHasNavMesh()
+    {
+        var triangulation = NavMesh.CalculateTriangulation();
+        return triangulation.vertices != null && triangulation.vertices.Length > 0;
     }
 }

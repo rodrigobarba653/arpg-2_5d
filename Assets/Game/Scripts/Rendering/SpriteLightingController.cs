@@ -271,6 +271,14 @@ public class SpriteLightingController : MonoBehaviour
         additionalRenderers = found.ToArray();
     }
 
+    bool CanReadFacingFromAnimator()
+    {
+        return facingAnimator != null
+            && facingAnimator.isActiveAndEnabled
+            && facingAnimator.runtimeAnimatorController != null
+            && facingAnimator.isInitialized;
+    }
+
     private void RefreshAnimatorParameters()
     {
         hasFacingParameters = false;
@@ -307,7 +315,7 @@ public class SpriteLightingController : MonoBehaviour
     {
         Vector2 facing = manualFacing;
 
-        if (automaticFacing && facingAnimator != null)
+        if (automaticFacing && CanReadFacingFromAnimator())
         {
             if (!hasFacingParameters)
                 RefreshAnimatorParameters();

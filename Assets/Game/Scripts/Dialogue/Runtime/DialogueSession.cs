@@ -352,6 +352,12 @@ public class DialogueSession
         }
 
         string speaker = line.speakerDisplayName;
+        if (string.IsNullOrEmpty(speaker))
+        {
+            var binding = DialogueSpeakerBindingLookup.Find(line.speakerId);
+            if (binding != null)
+                speaker = binding.ResolvedDisplayName;
+        }
         if (string.IsNullOrEmpty(speaker) && roster != null && roster.FindCharacter(resolvedId) != null)
             speaker = roster.FindDisplayName(resolvedId);
         if (string.IsNullOrEmpty(speaker))
@@ -359,9 +365,7 @@ public class DialogueSession
 
         view.SetSpeaker(speaker);
 
-        Sprite portrait = null;
-        if (roster != null)
-            portrait = roster.FindPortrait(resolvedId, line.portraitExpression);
+        Sprite portrait = DialoguePortraitResolver.Resolve(line, line.speakerId, resolvedId, roster);
         view.SetPortrait(portrait);
 
         string fullText = DialogueTextResolver.Resolve(
@@ -547,6 +551,9 @@ public class DialogueSession
                 continue;
             AppendUnplannedSpeaker(speakerOrder[i]);
         }
+
+        // Guard + player (or any 2 speakers) must never both sit as Above in the center.
+        layout.EnsureTwoSpeakerPairSides(plan);
 
         for (int i = 0; i < plan.speakers.Count; i++)
         {
@@ -757,6 +764,15 @@ public class DialogueSession
         if (byId != null)
             return byId.transform;
 
+        // Per-line scene binding (multi-NPC conversations).
+        Transform bound = DialogueSpeakerBindingLookup.FindAnchor(authoredSpeakerId);
+        if (IsAlive(bound))
+            return bound;
+        bound = DialogueSpeakerBindingLookup.FindAnchor(resolvedId);
+        if (IsAlive(bound))
+            return bound;
+
+        // Legacy Start Dialogue / NpcDialogueHost single-anchor fallback.
         if (IsAlive(npcAnchor))
         {
             var marker = npcAnchor.Find(resolvedId);
@@ -817,16 +833,7 @@ public class DialogueSession
 
     static bool IsAlive(Transform t) => t != null;
 
-    static Vector2 WorldToScreen(Vector3 world)
-    {
-        var cam = Camera.main;
-        if (cam == null)
-            return new Vector2(Screen.width * 0.5f, Screen.height * 0.55f);
-        var sp = cam.WorldToScreenPoint(world);
-        if (sp.z < 0f)
-            sp.z = 0f;
-        return sp;
-    }
+    static Vector2 WorldToScreen(Vector3 world) => DialogueScreenUtility.WorldToScreen(world);
 
     IEnumerator PlayChoice(DialogueChoiceNode choice)
     {
@@ -948,6 +955,22 @@ public class DialogueSession
     /// </summary>
     IEnumerator RunConsequences(DialogueChoiceNode choice, DialogueChoiceOption option)
     {
+        if (option != null && option.rememberChoice)
+        {
+            string flagId = DialogueRememberFlag.ResolveId(Asset, option);
+            if (!string.IsNullOrEmpty(flagId))
+            {
+                WorldState.SetFlag(flagId, true);
+                if (service != null && service.debugLog)
+                {
+                    Debug.Log(
+                        $"[Dialogue] Remembered choice flag='{flagId}' as '{option.rememberAs}' " +
+                        $"(runtime WorldState; SaveManager snapshots on save — not auto-disk).",
+                        runnerHost);
+                }
+            }
+        }
+
         var list = option != null ? option.consequences : null;
         if (list == null || list.Count == 0)
             yield break;

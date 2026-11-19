@@ -1,37 +1,32 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Starts the sibling/assigned <see cref="EventRunner"/> when a player-tagged
-/// collider enters (or exits) this trigger.
-///
-/// Tracks presence per player root so CharacterController edge jitter and
-/// multiple child colliders do not spam TryStart every physics frame.
+/// Obsolete. Trigger start modes now live on <see cref="EventRunner"/>.
+/// On Awake, migrates settings into the sibling EventRunner and disables itself
+/// so TestLab / old scenes keep working without a second component.
 /// </summary>
 [RequireComponent(typeof(Collider))]
+[DisallowMultipleComponent]
 public class EventSourceTrigger : MonoBehaviour
 {
     public enum TriggerMode
     {
         OnEnter = 0,
         OnExit = 1,
+        CrossToggle = 2,
     }
 
-    [Tooltip("Runner to start. Defaults to EventRunner on this GameObject.")]
+    [Tooltip("Runner to configure. Defaults to EventRunner on this GameObject.")]
     public EventRunner runner;
 
     public TriggerMode mode = TriggerMode.OnEnter;
 
-    [Tooltip("Only react to colliders on these layers.")]
     public LayerMask playerLayers = ~0;
-
-    [Tooltip("Also require the other collider's GameObject (or parent) to be tagged Player.")]
     public bool requirePlayerTag = true;
-
-    [Tooltip("Tag used when requirePlayerTag is on.")]
     public string playerTag = "Player";
 
-    readonly Dictionary<Transform, int> insideColliderCounts = new Dictionary<Transform, int>();
+    [Min(0f)]
+    public float crossCooldownSeconds = 0.45f;
 
     void Reset()
     {
@@ -43,74 +38,37 @@ public class EventSourceTrigger : MonoBehaviour
 
     void Awake()
     {
-        if (!runner)
+        if (runner == null)
             runner = GetComponent<EventRunner>();
-    }
-
-    void OnDisable()
-    {
-        insideColliderCounts.Clear();
-    }
-
-    void OnTriggerEnter(Collider other)
-    {
-        if (!IsValidPlayer(other))
-            return;
-
-        Transform root = other.transform.root;
-        insideColliderCounts.TryGetValue(root, out int count);
-        insideColliderCounts[root] = count + 1;
-
-        // First collider of this player root entering the volume.
-        if (count == 0 && mode == TriggerMode.OnEnter)
-            TryStartRunner();
-    }
-
-    void OnTriggerExit(Collider other)
-    {
-        if (!IsValidPlayer(other))
-            return;
-
-        Transform root = other.transform.root;
-        if (!insideColliderCounts.TryGetValue(root, out int count))
-            return;
-
-        count--;
-        if (count <= 0)
-        {
-            insideColliderCounts.Remove(root);
-            if (mode == TriggerMode.OnExit)
-                TryStartRunner();
-        }
-        else
-        {
-            insideColliderCounts[root] = count;
-        }
-    }
-
-    void TryStartRunner()
-    {
         if (runner == null)
             return;
 
-        runner.TryStart();
+        MigrateIntoRunner(runner);
+        enabled = false;
     }
 
-    bool IsValidPlayer(Collider other)
+    /// <summary>Editor / runtime: copy fields onto EventRunner.startMode.</summary>
+    public void MigrateIntoRunner(EventRunner target)
     {
-        if (other == null)
-            return false;
+        if (target == null)
+            return;
 
-        if (((1 << other.gameObject.layer) & playerLayers) == 0)
-            return false;
+        switch (mode)
+        {
+            case TriggerMode.OnExit:
+                target.startMode = EventStartMode.TriggerOnExit;
+                break;
+            case TriggerMode.CrossToggle:
+                target.startMode = EventStartMode.ToggleCross;
+                break;
+            default:
+                target.startMode = EventStartMode.TriggerOnEnter;
+                break;
+        }
 
-        if (!requirePlayerTag)
-            return true;
-
-        if (other.CompareTag(playerTag))
-            return true;
-
-        var root = other.transform.root;
-        return root != null && root.CompareTag(playerTag);
+        target.triggerPlayerLayers = playerLayers;
+        target.triggerRequirePlayerTag = requirePlayerTag;
+        target.triggerPlayerTag = playerTag;
+        target.toggleCrossCooldownSeconds = crossCooldownSeconds;
     }
 }

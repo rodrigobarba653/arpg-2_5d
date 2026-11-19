@@ -118,26 +118,74 @@ public class ParallelActions : EventAction
     bool TryValidate(EventContext ctx)
     {
         int poseCount = 0;
+        var moveBodies = new System.Collections.Generic.HashSet<Transform>();
         for (int i = 0; i < actions.Count; i++)
         {
             var action = actions[i];
             if (action == null)
                 continue;
 
-            if (action is ParallelActions)
+            if (!TryValidateWrapper(action, ctx))
+                return false;
+
+            // Delays do not license conflicting ownership — inspect the leaf.
+            var leaf = DelayedStartAction.Unwrap(action);
+            if (leaf == null)
+                continue;
+
+            if (leaf is ParallelActions)
             {
                 ctx.RequestStop("Parallel groups cannot be nested.");
                 return false;
             }
 
-            if (IsPoseAction(action))
+            if (IsPoseAction(leaf))
                 poseCount++;
+
+            if (leaf is MoveCharacterAction move)
+            {
+                if (move.character != null &&
+                    move.character.TryResolve(out Transform body, out _, out _, out _))
+                {
+                    if (!moveBodies.Add(body))
+                    {
+                        ctx.RequestStop("Parallel group has two moves on the same character.");
+                        return false;
+                    }
+                }
+            }
         }
 
         if (poseCount > 1)
         {
             ctx.RequestStop("Parallel group has more than one camera pose action.");
             return false;
+        }
+
+        return true;
+    }
+
+    static bool TryValidateWrapper(EventAction action, EventContext ctx)
+    {
+        if (action is DelayedStartAction delay)
+        {
+            if (delay.action == null)
+            {
+                ctx.RequestStop("DelayedStart has no child action.");
+                return false;
+            }
+
+            if (delay.action is DelayedStartAction)
+            {
+                ctx.RequestStop("DelayedStart cannot wrap another DelayedStart.");
+                return false;
+            }
+
+            if (delay.action is ParallelActions)
+            {
+                ctx.RequestStop("DelayedStart cannot wrap ParallelActions.");
+                return false;
+            }
         }
 
         return true;

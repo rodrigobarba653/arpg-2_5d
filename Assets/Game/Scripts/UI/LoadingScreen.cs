@@ -66,8 +66,9 @@ public class LoadingScreen : MonoBehaviour
 
         Instance = this;
 
-        if (transform.parent == null)
-            DontDestroyOnLoad(gameObject);
+        if (transform.parent != null)
+            transform.SetParent(null, true);
+        DontDestroyOnLoad(gameObject);
 
         BuildUI();
         HideImmediate();

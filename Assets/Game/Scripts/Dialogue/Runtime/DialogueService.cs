@@ -116,6 +116,9 @@ public class DialogueService : MonoBehaviour
         }
 
         Instance = this;
+        // DontDestroyOnLoad only accepts root objects — detach if placed under a scene parent.
+        if (transform.parent != null)
+            transform.SetParent(null, true);
         DontDestroyOnLoad(gameObject);
         Layout = new DialogueLayoutSolver
         {

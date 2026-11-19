@@ -14,6 +14,13 @@ public class StartDialogueAction : EventAction
     public List<DialogueCharacterAssetOverride> dialogueByCharacter =
         new List<DialogueCharacterAssetOverride>();
 
+    [Tooltip("Scene object this dialogue is tied to (NPC root). Required when the Dialogue Asset origin is Npc. " +
+             "Ignored when origin is Active Player and every line is the player.")]
+    public Transform npcAnchor;
+
+    [Tooltip("Speaker id that maps to Npc Anchor. Leave empty to use the Dialogue Asset origin speaker id.")]
+    public string npcSpeakerId = "";
+
     [Tooltip("Yield until the session started by this action finishes.")]
     public bool waitUntilFinished = true;
 
@@ -53,10 +60,14 @@ public class StartDialogueAction : EventAction
         DialogueActiveCharacter.TryGetActiveCharacterId(out string characterId);
         DialogueActiveCharacter.TryGetActiveTransform(out Transform actor);
 
+        // Prefer per-line DialogueSpeakerBinding in the scene. Legacy npcAnchor/npcSpeakerId
+        // remain for NpcDialogueHost and Sprint fixtures.
+        string resolvedNpcSpeakerId = ResolveNpcSpeakerId(asset);
+
         bool started = service.TryStartInteractive(
             asset,
-            npcAnchor: null,
-            npcSpeakerId: "",
+            npcAnchor: npcAnchor,
+            npcSpeakerId: resolvedNpcSpeakerId,
             manualOffsetRef: Vector2.zero,
             preferred: DialogueChatboxPlacement.Auto,
             scale: 1f,
@@ -109,5 +120,20 @@ public class StartDialogueAction : EventAction
         session = null;
         if (running != null && !running.IsFinished)
             running.Cancel("event-cancel");
+    }
+
+    /// <summary>
+    /// Prefer the authored override, else the Dialogue Asset origin speaker id.
+    /// </summary>
+    public string ResolveNpcSpeakerId(DialogueAsset asset)
+    {
+        if (!string.IsNullOrEmpty(npcSpeakerId))
+            return npcSpeakerId.Trim();
+        if (asset == null)
+            return "";
+        string fromOrigin = asset.GetOriginNpcSpeakerId();
+        if (!string.IsNullOrEmpty(fromOrigin))
+            return fromOrigin;
+        return asset.FindFirstNonPlayerSpeakerId();
     }
 }

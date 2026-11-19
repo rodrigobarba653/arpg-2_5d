@@ -32,6 +32,16 @@ public class DialogueChoiceOption
     [Tooltip("Next node id. Empty = end the conversation (Completed).")]
     public string nextNodeId = "";
 
+    [Tooltip("When true, confirming this option writes a WorldState flag (see rememberFlagId).")]
+    public bool rememberChoice;
+
+    [Tooltip("Human label for the remembered fact, e.g. \"Player claimed to work for Valcyr\".")]
+    public string rememberAs = "";
+
+    [Tooltip("Stable WorldState flag id. Prefer the slug of Remember As " +
+             "(e.g. \"Option A Picked\" → option_a_picked). Override only if you need a custom id.")]
+    public string rememberFlagId = "";
+
     [Tooltip("Empty = any character. Otherwise the frozen session id must match, ignoring case.")]
     public string requiredCharacterId = "";
 

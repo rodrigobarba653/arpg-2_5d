@@ -28,7 +28,12 @@ public class GameState : MonoBehaviour
         Instance = this;
 
         if (persistAcrossScenes)
+        {
+            // DontDestroyOnLoad only accepts root objects.
+            if (transform.parent != null)
+                transform.SetParent(null, true);
             DontDestroyOnLoad(gameObject);
+        }
     }
 
     void OnDestroy()

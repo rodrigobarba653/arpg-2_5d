@@ -27,6 +27,7 @@ MonoBehaviour:
   nodes:
   - rid: 8969645638822134781
   - rid: 8969645638822134782
+  - rid: 8969645800090238984
   references:
     version: 2
     RefIds:
@@ -54,3 +55,7 @@ MonoBehaviour:
         nextNodeId: s6_end
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+    - rid: 8969645800090238984
+      type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: s6_end

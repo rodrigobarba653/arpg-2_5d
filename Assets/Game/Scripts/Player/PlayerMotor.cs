@@ -85,6 +85,20 @@ public class PlayerMotor : MonoBehaviour
     private bool facingLocked = false;
     private Vector2 lockedFacing = Vector2.down;
 
+    // SCRIPTED LOCOMOTION (EventRunner narrative moves)
+    bool scriptedMoveActive;
+    object scriptedMoveOwner;
+    Vector3 scriptedDestination;
+    float scriptedSpeed;
+    float scriptedStopDistance;
+    bool scriptedFaceMovement;
+    bool scriptedArrived;
+    Vector2 scriptedMoveInput2D;
+
+    public bool IsScriptedMoving => scriptedMoveActive;
+    public bool ScriptedMoveArrived => scriptedArrived;
+    public object ScriptedMoveOwner => scriptedMoveOwner;
+
     void OnEnable()
     {
         // Reset transient state so a party-swap doesn't inherit stale locks.
@@ -92,6 +106,12 @@ public class PlayerMotor : MonoBehaviour
         movementLocked = false;
         facingLocked = false;
         verticalVelocity = Vector3.zero;
+        ForceEndScriptedMove();
+    }
+
+    void OnDisable()
+    {
+        ForceEndScriptedMove();
     }
 
     void Awake()
@@ -194,6 +214,39 @@ public class PlayerMotor : MonoBehaviour
             if (attackLungeTimer <= 0f)
             {
                 attackLungeActive = false;
+            }
+        }
+
+        // ---------- SCRIPTED ----------
+        // Narrative moves own horizontal motion. Combat roll / lunge / knockback
+        // still win above. Stick input is ignored while the channel is active.
+        else if (scriptedMoveActive)
+        {
+            Vector3 toDest = scriptedDestination - transform.position;
+            toDest.y = 0f;
+            float dist = toDest.magnitude;
+            if (dist <= Mathf.Max(0.01f, scriptedStopDistance))
+            {
+                scriptedArrived = true;
+                ForceEndScriptedMove();
+                moveWorld = Vector3.zero;
+                speed = 0f;
+            }
+            else
+            {
+                moveWorld = toDest / dist;
+                speed = scriptedSpeed > 0f ? scriptedSpeed : moveSpeed;
+                airMoveDirection = moveWorld;
+
+                if (scriptedFaceMovement)
+                {
+                    Vector2 face = WorldToFacing(moveWorld);
+                    if (snapTo8Directions)
+                        face = SnapTo8(face);
+                    scriptedMoveInput2D = face;
+                    if (!facingLocked)
+                        lastNonZeroFacing = face;
+                }
             }
         }
 
@@ -411,7 +464,7 @@ public class PlayerMotor : MonoBehaviour
 
     public Vector2 GetMoveInput2D()
     {
-        return moveInput;
+        return scriptedMoveActive ? scriptedMoveInput2D : moveInput;
     }
 
     public Vector2 GetFacing2D()
@@ -461,6 +514,14 @@ public class PlayerMotor : MonoBehaviour
 
     void UpdateInput()
     {
+        if (scriptedMoveActive)
+        {
+            // Clear residual stick so unlock after an event cannot leak motion.
+            rawInput = Vector2.zero;
+            moveInput = scriptedMoveInput2D;
+            return;
+        }
+
         if (movementLocked)
         {
             moveInput = Vector2.zero;
@@ -545,6 +606,73 @@ public class PlayerMotor : MonoBehaviour
     public void UnlockFacing()
     {
         facingLocked = false;
+    }
+
+    /// <summary>
+    /// Begin a narrative walk to a world-space point. Destination stays fixed
+    /// (sampled once). Returns false if another owner already holds the channel
+    /// or combat locomotion currently owns the body.
+    /// </summary>
+    public bool TryBeginScriptedMove(
+        Vector3 worldDestination,
+        float speed,
+        float stopDistance,
+        bool faceMovement,
+        object owner)
+    {
+        if (owner == null)
+            return false;
+
+        if (scriptedMoveActive && !ReferenceEquals(scriptedMoveOwner, owner))
+            return false;
+
+        if (rollActive || attackLungeActive || attackLungePending || knockbackActive)
+            return false;
+
+        scriptedMoveActive = true;
+        scriptedMoveOwner = owner;
+        scriptedDestination = worldDestination;
+        scriptedSpeed = speed > 0f ? speed : moveSpeed;
+        scriptedStopDistance = Mathf.Max(0.01f, stopDistance);
+        scriptedFaceMovement = faceMovement;
+        scriptedArrived = false;
+        rawInput = Vector2.zero;
+
+        Vector3 toDest = scriptedDestination - transform.position;
+        toDest.y = 0f;
+        if (toDest.sqrMagnitude > 0.0001f && faceMovement)
+        {
+            Vector2 face = WorldToFacing(toDest.normalized);
+            if (snapTo8Directions)
+                face = SnapTo8(face);
+            scriptedMoveInput2D = face;
+            if (!facingLocked)
+                lastNonZeroFacing = face;
+        }
+        else
+        {
+            scriptedMoveInput2D = GetFacing2D();
+        }
+
+        return true;
+    }
+
+    public void EndScriptedMove(object owner)
+    {
+        if (!scriptedMoveActive)
+            return;
+        if (owner != null && !ReferenceEquals(scriptedMoveOwner, owner))
+            return;
+        ForceEndScriptedMove();
+    }
+
+    void ForceEndScriptedMove()
+    {
+        scriptedMoveActive = false;
+        scriptedMoveOwner = null;
+        scriptedMoveInput2D = Vector2.zero;
+        rawInput = Vector2.zero;
+        moveInput = Vector2.zero;
     }
 
     public void BeginRoll(Vector2 rollDir2D, float speed, float duration)

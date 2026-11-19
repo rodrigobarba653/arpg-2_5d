@@ -18,8 +18,17 @@ public class DialogueLineNode : DialogueNode
              "First non-empty match wins. Empty text is skipped.")]
     public List<DialogueTextVariant> textVariants = new List<DialogueTextVariant>();
 
-    [Tooltip("Interactive only. Ambient never shows portraits.")]
+    [Tooltip("Use Default / Custom / Hidden. Ambient never shows portraits.")]
+    public DialoguePortraitMode portraitMode = DialoguePortraitMode.UseDefault;
+
+    [Tooltip("Roster expression when Use Default falls back to CharacterPortraitRoster.")]
     public string portraitExpression = "Neutral";
+
+    [Tooltip("Custom portrait for NPC / fixed speaker lines when Portrait Mode is Custom.")]
+    public Sprite portraitSprite;
+
+    [Tooltip("Custom portraits for Active Player (jyn / ax) when Portrait Mode is Custom.")]
+    public List<DialoguePortraitVariant> portraitVariants = new List<DialoguePortraitVariant>();
 
     [Tooltip("Next node id. Empty = end conversation.")]
     public string nextNodeId = "";

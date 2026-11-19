@@ -162,11 +162,5 @@ public class AmbientDialogueHandle
         Dismiss(suppressCooldown: false);
     }
 
-    static Vector2 WorldToScreen(Vector3 world)
-    {
-        var cam = Camera.main;
-        if (cam == null)
-            return new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        return cam.WorldToScreenPoint(world);
-    }
+    static Vector2 WorldToScreen(Vector3 world) => DialogueScreenUtility.WorldToScreen(world);
 }

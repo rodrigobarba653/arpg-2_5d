@@ -16,6 +16,13 @@ public class DialogueAsset : ScriptableObject
     [Tooltip("When true (interactive), acquire GameplayLock.PlayerControl.")]
     public bool lockGameplay = true;
 
+    [Tooltip("Who this conversation is tied to. Player = active party member. " +
+             "Npc = originSpeakerId (e.g. guard1). Scene Transform is assigned on Start Dialogue / NpcDialogueHost.")]
+    public DialogueOriginKind originKind = DialogueOriginKind.ActivePlayer;
+
+    [Tooltip("Speaker id for the NPC origin when Origin is Npc. Must match line speaker ids and Start Dialogue Npc Speaker Id.")]
+    public string originSpeakerId = "";
+
     [Tooltip("When set, this asset's choice panel placement replaces DialogueLayoutSettings.")]
     public bool overrideChoicePresentation;
 
@@ -46,5 +53,39 @@ public class DialogueAsset : ScriptableObject
             return FindNode(entryNodeId);
 
         return nodes != null && nodes.Count > 0 ? nodes[0] : null;
+    }
+
+    /// <summary>
+    /// Speaker id Start Dialogue / hosts should use for the NPC bubble anchor.
+    /// Empty when origin is the active player.
+    /// </summary>
+    public string GetOriginNpcSpeakerId()
+    {
+        if (originKind != DialogueOriginKind.Npc)
+            return "";
+
+        if (!string.IsNullOrEmpty(originSpeakerId))
+            return originSpeakerId.Trim();
+
+        return FindFirstNonPlayerSpeakerId();
+    }
+
+    public string FindFirstNonPlayerSpeakerId()
+    {
+        if (nodes == null)
+            return "";
+
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i] is not DialogueLineNode line)
+                continue;
+            if (string.IsNullOrEmpty(line.speakerId))
+                continue;
+            if (DialogueActiveCharacter.IsActivePlayerAlias(line.speakerId))
+                continue;
+            return line.speakerId.Trim();
+        }
+
+        return "";
     }
 }

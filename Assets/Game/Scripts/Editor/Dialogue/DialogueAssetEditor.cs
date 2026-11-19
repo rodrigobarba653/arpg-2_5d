@@ -52,6 +52,21 @@ public class DialogueAssetEditor : Editor
         serializedObject.Update();
         bool pulled = serializedObject.hasModifiedProperties;
 
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            if (GUILayout.Button("Open Dialogue Editor", GUILayout.Height(24f)))
+            {
+                if (!serializedObject.isEditingMultipleObjects)
+                    DialogueEditorWindow.OpenAsset(target as DialogueAsset);
+                else
+                    DialogueEditorWindow.Open();
+            }
+        }
+        EditorGUILayout.HelpBox(
+            "Prefer the Dialogue Editor for writing conversations (lines, speakers, choices, consequences). " +
+            "This Inspector remains the low-level node view.",
+            MessageType.Info);
+
         if (serializedObject.isEditingMultipleObjects)
         {
             EditorGUILayout.LabelField("Dialogue", EditorStyles.boldLabel);

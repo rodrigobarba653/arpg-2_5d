@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Minimal pressure plate: opens a door while occupied, closes when empty.
 /// Counts colliders per player root so CharacterController + children don't flicker.
-/// Does not fire EventRunner sequences — for that, use EventSourceTrigger OnEnter/OnExit.
+/// Does not fire EventRunner sequences — for that, use EventRunner Start Mode Trigger On Enter/Exit.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class PressurePlateDoor : MonoBehaviour

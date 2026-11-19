@@ -3,8 +3,10 @@ using Unity.Cinemachine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Playables;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+using UnityEngine.Timeline;
 
 /// <summary>
 /// Builds an isolated EventSystem_TestLab scene for Sprint 01 QA.
@@ -16,6 +18,13 @@ public static class EventSystemTestLabBuilder
     const string ScenePath = "Assets/Game/Scenes/EventSystem_TestLab.unity";
     const string BootstrapPrefabPath = "Assets/Game/Prefabs/PlayTestBootstrap.prefab";
     const string VcamPrefabPath = "Assets/Game/Prefabs/Camera/VCam_Main.prefab";
+    const string JynPlayerPrefabPath = "Assets/Game/Prefabs/Player/Jyn (PlayerPrefab).prefab";
+    const string S9TimelineAssetPath = "Assets/Game/Events/Timelines/Lab_S9_Timeline.playable";
+    const string S9DialoguePauseTimelinePath =
+        "Assets/Game/Events/Timelines/Lab_S9_DialoguePause.playable";
+    const string S9DialogueContinueTimelinePath =
+        "Assets/Game/Events/Timelines/Lab_S9_DialogueContinue.playable";
+    const string LabEventDialoguePath = "Assets/Game/Dialogue/TestLab/Lab_Event_Dialogue.asset";
 
     // Prompt layer bit (layer 9) — matches BattleRing Main/UI camera split.
     const int PromptLayerBit = 1 << 9;
@@ -585,12 +594,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 camera restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     [MenuItem("Tools/ARPG/Events/Add Camera Cut Fixture (Sprint 06 Phase 2 Step 1)", false, 221)]
@@ -669,12 +673,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 shot cut restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     [MenuItem("Tools/ARPG/Events/Add Camera Blend Fixture (Sprint 06 Phase 2 Step 2)", false, 222)]
@@ -782,12 +781,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 blend sequence restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     static GameObject CreateShotSubject(string name, Vector3 position, Vector3 scale, Color color)
@@ -893,12 +887,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 move restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     static CameraShotMarker CreateFixedMoveMarker(
@@ -1038,12 +1027,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 sequence restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     [MenuItem("Tools/ARPG/Events/Add Camera Shake Fixture (Sprint 06 Phase 3)", false, 225)]
@@ -1104,12 +1088,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 shake restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     [MenuItem("Tools/ARPG/Events/Add Camera Composition Fixture (Sprint 06 Phase 4)", false, 226)]
@@ -1208,12 +1187,7 @@ public static class EventSystemTestLabBuilder
             new CameraRestoreAction { blendSeconds = 1f },
             new DebugLogAction { message = "S6 composition restored" },
         };
-
-        var source = pad.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = pad.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     [MenuItem("Tools/ARPG/Events/Add Chest Fixture (Sprint 07 Phase 1)", false, 227)]
@@ -1334,6 +1308,824 @@ public static class EventSystemTestLabBuilder
 
         if (notifier.popupPrefab == null)
             Debug.LogWarning("[EventSystemTestLab] ItemPickupPopup prefab is missing. Reward notices will warn at runtime.");
+    }
+
+    [MenuItem("Tools/ARPG/Events/Add Scripted Movement Fixture (Sprint 08 Phase 1)", false, 228)]
+    public static void AddScriptedMovementFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateScriptedMovementFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S8_Move at (0,1,-280).\n" +
+            "NPC_S8_Walker uses Jyn SpriteBody + JynPlayer controller.\n" +
+            "Does not rebuild earlier pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateScriptedMovementFixture()
+    {
+        DestroyNamedRoot("Event_S8_Move");
+        DestroyNamedRoot("NPC_S8_Walker");
+        DestroyNamedRoot("Marker_S8_PlayerWalk");
+        DestroyNamedRoot("Marker_S8_NpcWalk");
+        DestroyNamedRoot("Marker_S8_NpcWalkB");
+        DestroyNamedRoot("Marker_S8_NpcWalkC");
+        DestroyNamedRoot("Marker_S8_Face");
+        DestroyNamedRoot("Marker_S8_NpcFace");
+        DestroyNamedRoot("Shot_S8_Wide");
+
+        var pad = CreateTriggerVolume(
+            "Event_S8_Move",
+            new Vector3(0f, 1f, -280f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.35f, 0.75f, 0.95f, 0.4f));
+
+        var playerMarker = new GameObject("Marker_S8_PlayerWalk");
+        playerMarker.transform.position = new Vector3(-2.5f, 0f, -292f);
+
+        // NPC path covers several camera-relative facings (SW → E → N).
+        var npcMarker = new GameObject("Marker_S8_NpcWalk");
+        npcMarker.transform.position = new Vector3(2.5f, 0f, -290f);
+
+        var npcMarkerB = new GameObject("Marker_S8_NpcWalkB");
+        npcMarkerB.transform.position = new Vector3(6.5f, 0f, -290f);
+
+        var npcMarkerC = new GameObject("Marker_S8_NpcWalkC");
+        npcMarkerC.transform.position = new Vector3(6.5f, 0f, -286f);
+
+        var faceMarker = new GameObject("Marker_S8_Face");
+        faceMarker.transform.position = new Vector3(2.5f, 1.2f, -290f);
+
+        var npcFaceMarker = new GameObject("Marker_S8_NpcFace");
+        npcFaceMarker.transform.position = new Vector3(2.5f, 1.2f, -290f);
+
+        var npc = CreateScriptedVisualNpc(
+            "NPC_S8_Walker",
+            new Vector3(4.5f, 0f, -284f));
+
+        var shot = CreateFixedMoveMarker(
+            "Shot_S8_Wide",
+            new Vector3(0f, 5.5f, -276f),
+            new Vector3(0f, 1f, -290f),
+            55f,
+            true);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s8_move";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new ParallelActions
+            {
+                actions = new System.Collections.Generic.List<EventAction>
+                {
+                    new CameraShotAction
+                    {
+                        marker = shot,
+                        transition = CameraShotAction.ShotTransition.Blend,
+                        blendSeconds = 1f,
+                    },
+                    new MoveCharacterAction
+                    {
+                        character = new ScriptedCharacterTarget
+                        {
+                            source = ScriptedCharacterSource.ActivePlayer,
+                        },
+                        destination = playerMarker.transform,
+                        speed = 4.5f,
+                        stopDistance = 0.25f,
+                        timeoutSeconds = 10f,
+                        faceMovementDirection = true,
+                    },
+                    new MoveCharacterAction
+                    {
+                        character = new ScriptedCharacterTarget
+                        {
+                            source = ScriptedCharacterSource.Explicit,
+                            explicitTransform = npc.transform,
+                        },
+                        destination = npcMarker.transform,
+                        speed = 3.2f,
+                        stopDistance = 0.25f,
+                        timeoutSeconds = 10f,
+                        faceMovementDirection = true,
+                    },
+                },
+            },
+            // Extra NPC legs: Idle→Walk→Idle and facing changes without a new pad.
+            new MoveCharacterAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.Explicit,
+                    explicitTransform = npc.transform,
+                },
+                destination = npcMarkerB.transform,
+                speed = 3.2f,
+                stopDistance = 0.25f,
+                timeoutSeconds = 10f,
+                faceMovementDirection = true,
+            },
+            new MoveCharacterAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.Explicit,
+                    explicitTransform = npc.transform,
+                },
+                destination = npcMarkerC.transform,
+                speed = 3.2f,
+                stopDistance = 0.25f,
+                timeoutSeconds = 10f,
+                faceMovementDirection = true,
+            },
+            // Face without translating — sprite should turn toward Marker_S8_NpcFace.
+            new FaceCharacterAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.Explicit,
+                    explicitTransform = npc.transform,
+                },
+                lookAt = npcFaceMarker.transform,
+                holdSeconds = 0.45f,
+            },
+            new PlayCharacterAnimationAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.Explicit,
+                    explicitTransform = npc.transform,
+                },
+                stateName = "Idle",
+                waitUntilFinished = true,
+                timeoutSeconds = 0.6f,
+                crossFade = 0.05f,
+            },
+            new FaceCharacterAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.ActivePlayer,
+                },
+                lookAt = faceMarker.transform,
+                holdSeconds = 0.25f,
+            },
+            new PlayCharacterAnimationAction
+            {
+                character = new ScriptedCharacterTarget
+                {
+                    source = ScriptedCharacterSource.ActivePlayer,
+                },
+                stateName = "Idle",
+                waitUntilFinished = true,
+                timeoutSeconds = 0.6f,
+                crossFade = 0.05f,
+            },
+            new CameraRestoreAction { blendSeconds = 1f },
+            new DebugLogAction { message = "S8 movement restored" },
+        };
+
+        // Interact pad — walk up and press Interact (not OnEnter trigger start).
+        var interactable = pad.AddComponent<WorldInteractable>();
+        interactable.promptMode = InteractPromptMode.DiscoveryAndInteraction;
+        interactable.discoveryRadius = 3.5f;
+        interactable.interactionRadius = 1.6f;
+        interactable.useCentralDetector = true;
+        interactable.eventRunner = runner;
+        runner.startMode = EventStartMode.Interact;
+}
+
+    [MenuItem("Tools/ARPG/Events/Add Staggered Delay Fixture (Sprint 09 Phase 1)", false, 229)]
+    public static void AddStaggeredDelayFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateStaggeredDelayFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S9_Delay at (0,1,-320).\n" +
+            "Parallel: Camera@0, NPC move@0.5, Player move@1.5, Idle NPC anim@2.0.\n" +
+            "Does not rebuild earlier pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateStaggeredDelayFixture()
+    {
+        DestroyNamedRoot("Event_S9_Delay");
+        DestroyNamedRoot("NPC_S9_Walker");
+        DestroyNamedRoot("NPC_S9_IdleActor");
+        DestroyNamedRoot("Marker_S9_PlayerWalk");
+        DestroyNamedRoot("Marker_S9_NpcWalk");
+        DestroyNamedRoot("Shot_S9_Wide");
+
+        var pad = CreateTriggerVolume(
+            "Event_S9_Delay",
+            new Vector3(0f, 1f, -320f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.95f, 0.55f, 0.25f, 0.4f));
+
+        var playerMarker = new GameObject("Marker_S9_PlayerWalk");
+        playerMarker.transform.position = new Vector3(-2.5f, 0f, -332f);
+
+        var npcMarker = new GameObject("Marker_S9_NpcWalk");
+        npcMarker.transform.position = new Vector3(2.5f, 0f, -330f);
+
+        var npcWalker = CreateScriptedVisualNpc(
+            "NPC_S9_Walker",
+            new Vector3(4.5f, 0f, -324f));
+
+        // Standing actor for Play Animation — not moved, so no move/anim conflict.
+        var npcIdle = CreateScriptedVisualNpc(
+            "NPC_S9_IdleActor",
+            new Vector3(-4.5f, 0f, -324f));
+
+        var shot = CreateFixedMoveMarker(
+            "Shot_S9_Wide",
+            new Vector3(0f, 5.5f, -316f),
+            new Vector3(0f, 1f, -328f),
+            55f,
+            true);
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s9_delay";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new ParallelActions
+            {
+                actions = new System.Collections.Generic.List<EventAction>
+                {
+                    new DelayedStartAction
+                    {
+                        startDelay = 0f,
+                        action = new CameraShotAction
+                        {
+                            marker = shot,
+                            transition = CameraShotAction.ShotTransition.Blend,
+                            blendSeconds = 0.8f,
+                        },
+                    },
+                    new DelayedStartAction
+                    {
+                        startDelay = 0.5f,
+                        action = new MoveCharacterAction
+                        {
+                            character = new ScriptedCharacterTarget
+                            {
+                                source = ScriptedCharacterSource.Explicit,
+                                explicitTransform = npcWalker.transform,
+                            },
+                            destination = npcMarker.transform,
+                            speed = 3.2f,
+                            stopDistance = 0.25f,
+                            timeoutSeconds = 10f,
+                            faceMovementDirection = true,
+                        },
+                    },
+                    new DelayedStartAction
+                    {
+                        startDelay = 1.5f,
+                        action = new MoveCharacterAction
+                        {
+                            character = new ScriptedCharacterTarget
+                            {
+                                source = ScriptedCharacterSource.ActivePlayer,
+                            },
+                            destination = playerMarker.transform,
+                            speed = 4.5f,
+                            stopDistance = 0.25f,
+                            timeoutSeconds = 10f,
+                            faceMovementDirection = true,
+                        },
+                    },
+                    new DelayedStartAction
+                    {
+                        startDelay = 2f,
+                        action = new PlayCharacterAnimationAction
+                        {
+                            character = new ScriptedCharacterTarget
+                            {
+                                source = ScriptedCharacterSource.Explicit,
+                                explicitTransform = npcIdle.transform,
+                            },
+                            stateName = "Idle",
+                            waitUntilFinished = true,
+                            timeoutSeconds = 0.8f,
+                            crossFade = 0.05f,
+                        },
+                    },
+                },
+            },
+            new CameraRestoreAction { blendSeconds = 0.8f },
+            new DebugLogAction { message = "S9 staggered delay restored" },
+        };
+
+        var interactable = pad.AddComponent<WorldInteractable>();
+        interactable.promptMode = InteractPromptMode.DiscoveryAndInteraction;
+        interactable.discoveryRadius = 3.5f;
+        interactable.interactionRadius = 1.6f;
+        interactable.useCentralDetector = true;
+        interactable.eventRunner = runner;
+        runner.startMode = EventStartMode.Interact;
+}
+
+    [MenuItem("Tools/ARPG/Events/Add Timeline Fixture (Sprint 09 Phase 2)", false, 230)]
+    public static void AddTimelineFixtureMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        CreateTimelineFixture();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S9_Timeline at (0,1,-360).\n" +
+            "PlayTimeline → DebugLog after. Dedicated VCam (not CameraDirector slots).\n" +
+            "Does not rebuild earlier pads. Save the scene.",
+            "OK");
+    }
+
+    static void CreateTimelineFixture()
+    {
+        DestroyNamedRoot("Event_S9_Timeline");
+        DestroyNamedRoot("Timeline_S9_Root");
+        DestroyNamedRoot("Subject_S9_Timeline");
+        DestroyNamedRoot("VCam_S9_Timeline");
+
+        var pad = CreateTriggerVolume(
+            "Event_S9_Timeline",
+            new Vector3(0f, 1f, -360f),
+            new Vector3(3.2f, 2f, 3.2f),
+            new Color(0.55f, 0.35f, 0.9f, 0.4f));
+
+        var subject = CreateShotSubject(
+            "Subject_S9_Timeline",
+            new Vector3(0f, 1.2f, -372f),
+            new Vector3(1.2f, 1.2f, 1.2f),
+            new Color(0.95f, 0.75f, 0.2f, 1f));
+        subject.SetActive(false);
+
+        var vcamGo = new GameObject("VCam_S9_Timeline");
+        vcamGo.transform.position = new Vector3(0f, 5f, -364f);
+        vcamGo.transform.rotation = Quaternion.LookRotation(
+            new Vector3(0f, 1.2f, -372f) - vcamGo.transform.position,
+            Vector3.up);
+        var vcam = vcamGo.AddComponent<CinemachineCamera>();
+        vcam.Priority = 20;
+        vcam.Lens.FieldOfView = 50f;
+        vcamGo.SetActive(false);
+
+        var timelineRoot = new GameObject("Timeline_S9_Root");
+        timelineRoot.transform.position = new Vector3(0f, 0f, -360f);
+        var director = timelineRoot.AddComponent<PlayableDirector>();
+        director.playOnAwake = false;
+        director.extrapolationMode = DirectorWrapMode.None;
+
+        var timeline = EnsureLabTimelineAsset();
+        director.playableAsset = timeline;
+
+        // Bind ActivationTracks: subject + dedicated Timeline vcam (not CameraDirector).
+        foreach (var track in timeline.GetOutputTracks())
+        {
+            if (track == null)
+                continue;
+            if (track.name == "Subject Activate")
+                director.SetGenericBinding(track, subject);
+            else if (track.name == "Timeline VCam")
+                director.SetGenericBinding(track, vcamGo);
+        }
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = "lab_s9_timeline";
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new DebugLogAction { message = "S9 timeline begin" },
+            new PlayTimelineAction
+            {
+                director = director,
+                waitUntilFinished = true,
+                stopOnCancel = true,
+                rejectLooping = true,
+            },
+            new DebugLogAction { message = "S9 timeline finished — next action ran" },
+        };
+
+        var interactable = pad.AddComponent<WorldInteractable>();
+        interactable.promptMode = InteractPromptMode.DiscoveryAndInteraction;
+        interactable.discoveryRadius = 3.5f;
+        interactable.interactionRadius = 1.6f;
+        interactable.useCentralDetector = true;
+        interactable.eventRunner = runner;
+        runner.startMode = EventStartMode.Interact;
+}
+
+    [MenuItem("Tools/ARPG/Events/Add DialogueCheckpoint Fixtures (Sprint 09 Phase 3)", false, 231)]
+    public static void AddDialogueCheckpointFixturesMenu()
+    {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                "Exit Play Mode first.", "OK");
+            return;
+        }
+
+        var dialogue = AssetDatabase.LoadAssetAtPath<DialogueAsset>(LabEventDialoguePath);
+        if (dialogue == null)
+        {
+            EditorUtility.DisplayDialog("EventSystem TestLab",
+                $"Missing {LabEventDialoguePath}.\n" +
+                "Create Sprint 05 event dialogue fixtures first, or restore Lab_Event_Dialogue.asset.",
+                "OK");
+            return;
+        }
+
+        CreateDialogueCheckpointFixtures(dialogue);
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("EventSystem TestLab",
+            "Added Event_S9_DlgPause @ z≈-400 and Event_S9_DlgContinue @ z≈-408.\n" +
+            "Pause&Wait + Continue DialogueCheckpoint. Save the scene.",
+            "OK");
+    }
+
+    static void CreateDialogueCheckpointFixtures(DialogueAsset dialogue)
+    {
+        DestroyNamedRoot("Event_S9_DlgPause");
+        DestroyNamedRoot("Event_S9_DlgContinue");
+        DestroyNamedRoot("Timeline_S9_DlgPause");
+        DestroyNamedRoot("Timeline_S9_DlgContinue");
+        DestroyNamedRoot("Subject_S9_DlgPause");
+        DestroyNamedRoot("Subject_S9_DlgContinue");
+        DestroyNamedRoot("VCam_S9_DlgPause");
+        DestroyNamedRoot("VCam_S9_DlgContinue");
+
+        CreateDialogueCheckpointPad(
+            padName: "Event_S9_DlgPause",
+            eventId: "lab_s9_dlg_pause",
+            padPos: new Vector3(0f, 1f, -400f),
+            timelineRootName: "Timeline_S9_DlgPause",
+            subjectName: "Subject_S9_DlgPause",
+            vcamName: "VCam_S9_DlgPause",
+            subjectPos: new Vector3(0f, 1.2f, -412f),
+            vcamPos: new Vector3(0f, 5f, -404f),
+            timelinePath: S9DialoguePauseTimelinePath,
+            mode: DialogueCheckpointMarker.Mode.PauseAndWait,
+            dialogue: dialogue,
+            padColor: new Color(0.35f, 0.75f, 0.55f, 0.4f),
+            beginLog: "S9 dlg pause begin",
+            doneLog: "S9 dlg pause finished — next action ran");
+
+        CreateDialogueCheckpointPad(
+            padName: "Event_S9_DlgContinue",
+            eventId: "lab_s9_dlg_continue",
+            padPos: new Vector3(8f, 1f, -408f),
+            timelineRootName: "Timeline_S9_DlgContinue",
+            subjectName: "Subject_S9_DlgContinue",
+            vcamName: "VCam_S9_DlgContinue",
+            subjectPos: new Vector3(8f, 1.2f, -420f),
+            vcamPos: new Vector3(8f, 5f, -412f),
+            timelinePath: S9DialogueContinueTimelinePath,
+            mode: DialogueCheckpointMarker.Mode.Continue,
+            dialogue: dialogue,
+            padColor: new Color(0.45f, 0.55f, 0.95f, 0.4f),
+            beginLog: "S9 dlg continue begin",
+            doneLog: "S9 dlg continue finished — next action ran");
+    }
+
+    static void CreateDialogueCheckpointPad(
+        string padName,
+        string eventId,
+        Vector3 padPos,
+        string timelineRootName,
+        string subjectName,
+        string vcamName,
+        Vector3 subjectPos,
+        Vector3 vcamPos,
+        string timelinePath,
+        DialogueCheckpointMarker.Mode mode,
+        DialogueAsset dialogue,
+        Color padColor,
+        string beginLog,
+        string doneLog)
+    {
+        var pad = CreateTriggerVolume(padName, padPos, new Vector3(3.2f, 2f, 3.2f), padColor);
+
+        var subject = CreateShotSubject(
+            subjectName,
+            subjectPos,
+            new Vector3(1.1f, 1.1f, 1.1f),
+            new Color(0.95f, 0.75f, 0.2f, 1f));
+        subject.SetActive(false);
+
+        var vcamGo = new GameObject(vcamName);
+        vcamGo.transform.position = vcamPos;
+        vcamGo.transform.rotation = Quaternion.LookRotation(subjectPos - vcamPos, Vector3.up);
+        var vcam = vcamGo.AddComponent<CinemachineCamera>();
+        vcam.Priority = 20;
+        vcam.Lens.FieldOfView = 50f;
+        vcamGo.SetActive(false);
+
+        var timelineRoot = new GameObject(timelineRootName);
+        timelineRoot.transform.position = padPos;
+        var director = timelineRoot.AddComponent<PlayableDirector>();
+        director.playOnAwake = false;
+        director.extrapolationMode = DirectorWrapMode.None;
+        timelineRoot.AddComponent<TimelineDialogueBridge>();
+
+        var timeline = EnsureDialogueCheckpointTimeline(timelinePath, mode, dialogue);
+        director.playableAsset = timeline;
+
+        foreach (var track in timeline.GetOutputTracks())
+        {
+            if (track == null)
+                continue;
+            if (track.name == "Subject Activate")
+                director.SetGenericBinding(track, subject);
+            else if (track.name == "Timeline VCam")
+                director.SetGenericBinding(track, vcamGo);
+        }
+
+        var runner = pad.GetComponent<EventRunner>();
+        if (runner == null)
+            runner = pad.AddComponent<EventRunner>();
+        runner.eventId = eventId;
+        runner.seizesPlayerControl = true;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = true;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new DebugLogAction { message = beginLog },
+            new PlayTimelineAction
+            {
+                director = director,
+                waitUntilFinished = true,
+                stopOnCancel = true,
+                rejectLooping = true,
+            },
+            new DebugLogAction { message = doneLog },
+        };
+
+        var interactable = pad.AddComponent<WorldInteractable>();
+        interactable.promptMode = InteractPromptMode.DiscoveryAndInteraction;
+        interactable.discoveryRadius = 3.5f;
+        interactable.interactionRadius = 1.6f;
+        interactable.useCentralDetector = true;
+        interactable.eventRunner = runner;
+        runner.startMode = EventStartMode.Interact;
+}
+
+    static TimelineAsset EnsureDialogueCheckpointTimeline(
+        string assetPath,
+        DialogueCheckpointMarker.Mode mode,
+        DialogueAsset dialogue)
+    {
+        Directory.CreateDirectory("Assets/Game/Events/Timelines");
+
+        var existing = AssetDatabase.LoadAssetAtPath<TimelineAsset>(assetPath);
+        if (existing != null)
+        {
+            foreach (var t in existing.GetOutputTracks())
+            {
+                if (t != null)
+                    existing.DeleteTrack(t);
+            }
+
+            if (existing.markerTrack != null)
+            {
+                var markers = new System.Collections.Generic.List<IMarker>(
+                    existing.markerTrack.GetMarkers());
+                for (int i = 0; i < markers.Count; i++)
+                {
+                    if (markers[i] != null)
+                        existing.markerTrack.DeleteMarker(markers[i]);
+                }
+            }
+        }
+        else
+        {
+            existing = ScriptableObject.CreateInstance<TimelineAsset>();
+            AssetDatabase.CreateAsset(existing, assetPath);
+        }
+
+        // Pre-dialogue beat, checkpoint, post-dialogue beat.
+        const double pre = 1.0;
+        const double post = 2.0;
+        double duration = pre + post;
+
+        var subjectTrack = existing.CreateTrack<ActivationTrack>(null, "Subject Activate");
+        var subjectClip = subjectTrack.CreateDefaultClip();
+        subjectClip.start = 0;
+        subjectClip.duration = duration;
+        subjectClip.displayName = "Show Subject";
+
+        var vcamTrack = existing.CreateTrack<ActivationTrack>(null, "Timeline VCam");
+        var vcamClip = vcamTrack.CreateDefaultClip();
+        vcamClip.start = 0;
+        vcamClip.duration = duration;
+        vcamClip.displayName = "Show Timeline VCam";
+
+        if (existing.markerTrack == null)
+            existing.CreateMarkerTrack();
+
+        var checkpoint = existing.markerTrack.CreateMarker<DialogueCheckpointMarker>(pre);
+        checkpoint.dialogueAsset = dialogue;
+        checkpoint.mode = mode;
+        checkpoint.allowCancel = true;
+        checkpoint.progressionMode = DialogueProgressionMode.Manual;
+
+        EditorUtility.SetDirty(existing);
+        AssetDatabase.SaveAssets();
+        return existing;
+    }
+
+    static TimelineAsset EnsureLabTimelineAsset()
+    {
+        Directory.CreateDirectory("Assets/Game/Events/Timelines");
+
+        var existing = AssetDatabase.LoadAssetAtPath<TimelineAsset>(S9TimelineAssetPath);
+        if (existing != null)
+        {
+            // Rebuild tracks so re-running the menu stays deterministic.
+            var tracks = existing.GetOutputTracks();
+            foreach (var t in tracks)
+            {
+                if (t != null)
+                    existing.DeleteTrack(t);
+            }
+        }
+        else
+        {
+            existing = ScriptableObject.CreateInstance<TimelineAsset>();
+            AssetDatabase.CreateAsset(existing, S9TimelineAssetPath);
+        }
+
+        const double duration = 2.5;
+        var subjectTrack = existing.CreateTrack<ActivationTrack>(null, "Subject Activate");
+        var subjectClip = subjectTrack.CreateDefaultClip();
+        subjectClip.start = 0;
+        subjectClip.duration = duration;
+        subjectClip.displayName = "Show Subject";
+
+        var vcamTrack = existing.CreateTrack<ActivationTrack>(null, "Timeline VCam");
+        var vcamClip = vcamTrack.CreateDefaultClip();
+        vcamClip.start = 0;
+        vcamClip.duration = duration;
+        vcamClip.displayName = "Show Timeline VCam";
+
+        EditorUtility.SetDirty(existing);
+        AssetDatabase.SaveAssets();
+        return existing;
+    }
+
+    /// <summary>
+    /// Scene-only visual NPC: unpack Jyn prefab, strip player systems, keep
+    /// SpriteBody + JynPlayer controller, drive with ScriptedNpcMotor.
+    /// Does not modify the prefab asset.
+    /// </summary>
+    static GameObject CreateScriptedVisualNpc(string name, Vector3 position)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(JynPlayerPrefabPath);
+        if (prefab == null)
+        {
+            Debug.LogError(
+                $"[EventSystemTestLab] Missing {JynPlayerPrefabPath}. Falling back to cube NPC.");
+            var fallback = CreateShotSubject(
+                name,
+                position + Vector3.up,
+                new Vector3(0.55f, 1.4f, 0.55f),
+                new Color(0.2f, 0.55f, 0.85f, 1f));
+            Object.DestroyImmediate(fallback.GetComponent<Collider>());
+            var fallbackCc = fallback.AddComponent<CharacterController>();
+            fallbackCc.height = 1.6f;
+            fallbackCc.radius = 0.28f;
+            fallbackCc.center = new Vector3(0f, 0.8f, 0f);
+            var fallbackMotor = fallback.AddComponent<ScriptedNpcMotor>();
+            fallbackMotor.controller = fallbackCc;
+            fallbackMotor.moveSpeed = 3.2f;
+            return fallback;
+        }
+
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        PrefabUtility.UnpackPrefabInstance(
+            go,
+            PrefabUnpackMode.Completely,
+            InteractionMode.AutomatedAction);
+        go.name = name;
+        go.tag = "Untagged";
+        go.layer = 0;
+        go.transform.position = position;
+        go.transform.rotation = Quaternion.identity;
+
+        // Drop combat / prompt / water — keep SpriteBody (+ FeetBody if present).
+        DestroyNamedChild(go.transform, "Prompt");
+        DestroyNamedChild(go.transform, "WeaponBody");
+        DestroyNamedChild(go.transform, "MeleeHitbox");
+        DestroyNamedChild(go.transform, "WaterDetector");
+
+        // Root must not remain a playable character (Party / input / motor).
+        StripAllBehavioursExceptCharacterController(go);
+
+        var spriteBody = go.transform.Find("SpriteBody");
+        if (spriteBody != null)
+        {
+            foreach (var mb in spriteBody.GetComponents<MonoBehaviour>())
+            {
+                if (mb == null)
+                    continue;
+                // ScriptedNpcMotor owns IsMoving/MoveX/MoveY — remove player drivers.
+                if (mb is TopDownAnimDriver || mb.GetType().Name == "CombatAnimEventsRelay")
+                    Object.DestroyImmediate(mb);
+            }
+        }
+
+        var cc = go.GetComponent<CharacterController>();
+        if (cc == null)
+        {
+            cc = go.AddComponent<CharacterController>();
+            cc.height = 1.6f;
+            cc.radius = 0.28f;
+            cc.center = new Vector3(0f, 0.8f, 0f);
+        }
+
+        Animator spriteAnimator = null;
+        if (spriteBody != null)
+            spriteAnimator = spriteBody.GetComponent<Animator>();
+        if (spriteAnimator == null)
+            spriteAnimator = go.GetComponentInChildren<Animator>(true);
+
+        var motor = go.AddComponent<ScriptedNpcMotor>();
+        motor.controller = cc;
+        motor.animator = spriteAnimator;
+        motor.moveSpeed = 3.2f;
+
+        Undo.RegisterCreatedObjectUndo(go, "Create " + name);
+        return go;
+    }
+
+    static void DestroyNamedChild(Transform root, string childName)
+    {
+        if (root == null)
+            return;
+        var child = root.Find(childName);
+        if (child != null)
+            Object.DestroyImmediate(child.gameObject);
+        else
+        {
+            // Prompt / WeaponBody can live under SpriteBody.
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var nested = root.GetChild(i).Find(childName);
+                if (nested != null)
+                {
+                    Object.DestroyImmediate(nested.gameObject);
+                    return;
+                }
+            }
+        }
+    }
+
+    static void StripAllBehavioursExceptCharacterController(GameObject go)
+    {
+        var components = go.GetComponents<Component>();
+        for (int i = 0; i < components.Length; i++)
+        {
+            var c = components[i];
+            if (c == null || c is Transform || c is CharacterController)
+                continue;
+            Object.DestroyImmediate(c);
+        }
     }
 
     /// <summary>Batchmode entry: Unity -executeMethod EventSystemTestLabBuilder.SetupCameraBatch</summary>
@@ -1468,10 +2260,7 @@ public static class EventSystemTestLabBuilder
             new WaitAction { seconds = 1.5f },
             new DebugLogAction { message = "PlayerControl A: end" },
         };
-
-        var source = go.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     static void CreateEnvironmentalEvent()
@@ -1489,9 +2278,7 @@ public static class EventSystemTestLabBuilder
             new WaitAction { seconds = 2f },
             new DebugLogAction { message = "Env C: end" },
         };
-
-        var source = go.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     static void CreateInteractEvent()
@@ -1530,9 +2317,7 @@ public static class EventSystemTestLabBuilder
             new DebugLogAction { message = "PlayerControl B: only if no other player-control event" },
             new WaitAction { seconds = 1f },
         };
-
-        var source = go.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     /// <summary>
@@ -1567,7 +2352,7 @@ public static class EventSystemTestLabBuilder
                 new SetFlagAction { flagId = "test_gate", value = true },
                 new WaitAction { seconds = 0.5f },
             };
-            go.AddComponent<EventSourceTrigger>().runner = runner;
+            runner.startMode = EventStartMode.TriggerOnEnter;
         }
 
         // 2) Requires flag (player control) — unavailable until magenta run
@@ -1590,7 +2375,7 @@ public static class EventSystemTestLabBuilder
                 new ClearFlagAction { flagId = "test_gate" },
                 new DebugLogAction { message = "WS: test_gate cleared" },
             };
-            go.AddComponent<EventSourceTrigger>().runner = runner;
+            runner.startMode = EventStartMode.TriggerOnEnter;
         }
 
         // 3) Persistent Once
@@ -1608,7 +2393,7 @@ public static class EventSystemTestLabBuilder
                 new DebugLogAction { message = "WS: Persistent Once fired — save with F5, reload F9" },
                 new WaitAction { seconds = 0.5f },
             };
-            go.AddComponent<EventSourceTrigger>().runner = runner;
+            runner.startMode = EventStartMode.TriggerOnEnter;
         }
 
         // 4) Session Once (not persist) — re-fires after F6 clear + domain, or new Play
@@ -1625,7 +2410,7 @@ public static class EventSystemTestLabBuilder
             {
                 new DebugLogAction { message = "WS: Session Once fired (persistOnce=false)" },
             };
-            go.AddComponent<EventSourceTrigger>().runner = runner;
+            runner.startMode = EventStartMode.TriggerOnEnter;
         }
 
         // 5) AND conditions (gate true AND persist once not completed)
@@ -1646,7 +2431,7 @@ public static class EventSystemTestLabBuilder
             {
                 new DebugLogAction { message = "WS: AND conditions passed" },
             };
-            go.AddComponent<EventSourceTrigger>().runner = runner;
+            runner.startMode = EventStartMode.TriggerOnEnter;
         }
 
         // 6) Duplicate id warning pair (disabled by default — enable both in Hierarchy for QA)
@@ -3275,7 +4060,7 @@ public static class EventSystemTestLabBuilder
             });
         }
         runner.actions = actions;
-        go.AddComponent<EventSourceTrigger>().runner = runner;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     static DialogueTextVariant Variant(string characterId, string text)
@@ -3623,12 +4408,7 @@ public static class EventSystemTestLabBuilder
             },
             new DebugLogAction { message = afterMessage },
         };
-
-        var source = go.GetComponent<EventSourceTrigger>();
-        if (source == null)
-            source = go.AddComponent<EventSourceTrigger>();
-        source.runner = runner;
-        source.mode = EventSourceTrigger.TriggerMode.OnEnter;
+        runner.startMode = EventStartMode.TriggerOnEnter;
     }
 
     const string C2Flag = "lab_c2_branch";

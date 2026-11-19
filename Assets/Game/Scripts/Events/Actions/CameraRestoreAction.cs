@@ -9,10 +9,14 @@ using UnityEngine;
 [Serializable]
 public class CameraRestoreAction : EventAction
 {
+    [Tooltip("0 = cut back to gameplay. >0 = blend over that many seconds.")]
     [Min(0f)]
     public float blendSeconds = 1f;
 
-    public override string DisplayName => "Camera Restore";
+    public override string DisplayName =>
+        blendSeconds <= 0.0001f
+            ? "Camera Restore (Cut)"
+            : $"Camera Restore (Blend {blendSeconds:0.##}s)";
 
     public override IEnumerator Execute(EventContext ctx)
     {

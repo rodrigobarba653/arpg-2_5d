@@ -17,6 +17,9 @@ public static class WorldState
     /// <summary>Fired after <see cref="Clear"/> or <see cref="RestoreFrom"/>.</summary>
     public static event Action OnRestored;
 
+    /// <summary>Fired after a single flag write via <see cref="SetFlag"/> / <see cref="ClearFlag"/>.</summary>
+    public static event Action<string, bool> OnFlagChanged;
+
     public static bool GetFlag(string id)
     {
         if (string.IsNullOrEmpty(id))
@@ -38,14 +41,18 @@ public static class WorldState
             return;
         }
 
+        if (flags.TryGetValue(id, out bool previous) && previous == value)
+            return;
+
         flags[id] = value;
+        OnFlagChanged?.Invoke(id, value);
     }
 
     public static void ClearFlag(string id)
     {
         if (string.IsNullOrEmpty(id))
             return;
-        flags[id] = false;
+        SetFlag(id, false);
     }
 
     public static bool IsEventCompleted(string eventId)
@@ -126,6 +133,7 @@ public static class WorldState
         flags.Clear();
         completedEvents.Clear();
         OnRestored = null;
+        OnFlagChanged = null;
     }
 #endif
 }

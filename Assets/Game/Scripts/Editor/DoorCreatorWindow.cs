@@ -8,8 +8,8 @@ using UnityEngine;
 ///   - Door mesh prefab (drag & drop)
 ///   - Key id (for Key mode)
 ///
-/// Builds the full hierarchy in one click. Prefab is instantiated as a child of
-/// the Door GameObject so the designer can still tweak the mesh independently.
+/// Switch mode wires <see cref="DoorSwitch"/> → <see cref="EventRunner"/> →
+/// Open Door action (same motor as cutscenes). Add Wait / Camera / Dialogue on that runner.
 /// </summary>
 public class DoorCreatorWindow : EditorWindow
 {
@@ -118,6 +118,11 @@ public class DoorCreatorWindow : EditorWindow
             case DoorOpenMode.Switch:
                 switchOffset = EditorGUILayout.Vector3Field("Switch Offset", switchOffset);
                 triggerRadius = EditorGUILayout.FloatField("Switch Trigger Radius", triggerRadius);
+                EditorGUILayout.HelpBox(
+                    "Creates a Switch → EventRunner → Open Door. " +
+                    "Add Wait / Camera / Dialogue on that runner. " +
+                    "One-time use = EventRunner Once. Persist open door = SimpleDoor Persist.",
+                    MessageType.Info);
                 break;
 
             case DoorOpenMode.Key:
@@ -206,8 +211,20 @@ public class DoorCreatorWindow : EditorWindow
         Selection.activeObject = root;
         EditorGUIUtility.PingObject(root);
 
-        Debug.Log($"[DoorCreator] Created {rootName}. Tweak position in scene, " +
-                  $"reparent your mesh prefab if needed, and you're done.");
+        if (openMode == DoorOpenMode.Switch)
+        {
+            Debug.Log(
+                $"[DoorCreator] Created {rootName} with Switch → EventRunner → Open Door. " +
+                "Select the Switch's EventRunner to add Wait / Camera / Dialogue.",
+                root);
+        }
+        else
+        {
+            Debug.Log(
+                $"[DoorCreator] Created {rootName}. Tweak position in scene, " +
+                "reparent your mesh prefab if needed, and you're done.",
+                root);
+        }
     }
 
     SimpleDoor BuildSingleDoor(GameObject root)
@@ -348,7 +365,7 @@ public class DoorCreatorWindow : EditorWindow
         switchGO.transform.SetParent(root.transform, worldPositionStays: false);
         switchGO.transform.localPosition = switchOffset;
 
-        // Visual placeholder
+        // Visual placeholder (also used as Visual Off by default)
         var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
         visual.name = "Visual (placeholder)";
         Object.DestroyImmediate(visual.GetComponent<Collider>());
@@ -356,16 +373,34 @@ public class DoorCreatorWindow : EditorWindow
         visual.transform.SetParent(switchGO.transform, worldPositionStays: false);
         visual.transform.localScale = new Vector3(0.4f, 0.6f, 0.4f);
 
-        // Trigger
+        // Trigger for proximity + interact
         var trig = Undo.AddComponent<SphereCollider>(switchGO);
         trig.isTrigger = true;
         trig.radius = triggerRadius;
 
-        // DoorSwitch linked to the door
-        var ds = Undo.AddComponent<DoorSwitch>(switchGO);
-        ds.doors = new[] { door };
+        // EventRunner is the motor: Interact on DoorSwitch → TryStart → Open Door (+ more actions).
+        var runner = Undo.AddComponent<EventRunner>(switchGO);
+        runner.eventId = "";
+        runner.seizesPlayerControl = false;
+        runner.executionMode = EventExecutionMode.Repeat;
+        runner.persistOnce = false;
+        runner.debugLog = false;
+        runner.startMode = EventStartMode.ManualOnly;
+        runner.actions = new System.Collections.Generic.List<EventAction>
+        {
+            new OpenDoorAction { door = door, waitForCompletion = true },
+        };
 
-        // Player prompt
+        var ds = Undo.AddComponent<DoorSwitch>(switchGO);
+        ds.eventRunner = runner;
+        ds.doors = null; // EventRunner path — no legacy direct link
+        ds.oneShot = false; // use EventRunner Once if needed
+        ds.persistState = false; // persist on SimpleDoor if needed
+        ds.interactPrompt = null; // InteractivePromptTrigger below
+        ds.visualOff = visual;
+        ds.lockJumpInside = true;
+
+        // Standard player Interact prompt (not DoorSwitch.local icon)
         if (switchGO.GetComponent<InteractivePromptTrigger>() == null)
             Undo.AddComponent<InteractivePromptTrigger>(switchGO);
     }

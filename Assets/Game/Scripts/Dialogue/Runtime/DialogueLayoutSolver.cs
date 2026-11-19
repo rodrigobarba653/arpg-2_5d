@@ -103,10 +103,22 @@ public class DialogueLayoutSolver
             }
             else if (n == 2)
             {
-                // Always horizontal composition for legibility (even if speakers are N/S).
-                bool left = i == 0;
-                side = left ? ConversationSlotSide.Left : ConversationSlotSide.Right;
-                float xOff = left ? -(sideGap + width * 0.35f) : (sideGap + width * 0.35f);
+                // Leftmost on screen → Left side, rightmost → Right.
+                bool screenLeft = i == 0;
+                side = screenLeft ? ConversationSlotSide.Left : ConversationSlotSide.Right;
+                float pairDx = Mathf.Abs(ordered[0].screenAnchor0.x - ordered[1].screenAnchor0.x);
+                float minSep = width * 0.55f + sideGap;
+                float xOff;
+                if (pairDx < minSep)
+                {
+                    float mid = (ordered[0].screenAnchor0.x + ordered[1].screenAnchor0.x) * 0.5f;
+                    float targetX = screenLeft ? mid - minSep : mid + minSep;
+                    xOff = targetX - src.screenAnchor0.x;
+                }
+                else
+                {
+                    xOff = screenLeft ? -(sideGap + width * 0.35f) : (sideGap + width * 0.35f);
+                }
                 offset = new Vector2(xOff, lift);
             }
             else
@@ -145,6 +157,45 @@ public class DialogueLayoutSolver
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// When exactly two speakers share a conversation, force Left/Right composition
+    /// even if one arrived as a branch/Above slot. Prevents center stacking after shots.
+    /// </summary>
+    public void EnsureTwoSpeakerPairSides(ConversationLayoutPlan plan)
+    {
+        if (plan == null || plan.speakers.Count != 2)
+            return;
+        if (plan.speakers[0] == null || plan.speakers[1] == null)
+            return;
+
+        var ordered = new List<ConversationSpeakerSlot>(2) { plan.speakers[0], plan.speakers[1] };
+        ordered.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
+
+        float sideGap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
+        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
+        float width = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f);
+        float pairDx = Mathf.Abs(ordered[0].screenAnchor0.x - ordered[1].screenAnchor0.x);
+        float minSep = width * 0.55f + sideGap;
+        float mid = (ordered[0].screenAnchor0.x + ordered[1].screenAnchor0.x) * 0.5f;
+
+        for (int i = 0; i < 2; i++)
+        {
+            bool screenLeft = i == 0;
+            var slot = ordered[i];
+            slot.side = screenLeft ? ConversationSlotSide.Left : ConversationSlotSide.Right;
+            if (pairDx < minSep)
+            {
+                float targetX = screenLeft ? mid - minSep : mid + minSep;
+                slot.localOffsetScreen = new Vector2(targetX - slot.screenAnchor0.x, lift);
+            }
+            else
+            {
+                float xOff = screenLeft ? -(sideGap + width * 0.35f) : (sideGap + width * 0.35f);
+                slot.localOffsetScreen = new Vector2(xOff, lift);
+            }
+        }
     }
 
     /// <summary>
@@ -305,6 +356,8 @@ public class DialogueLayoutSolver
     /// <summary>
     /// Places a bubble using its reserved conversation slot. Follows the live anchor;
     /// does not reassign sides. Returns false if view/slot invalid.
+    /// Left/Right pairs use screen columns so Camera Shots that stack characters
+    /// cannot clamp two wide bubbles onto the same center point.
     /// </summary>
     public bool FollowConversationSlot(
         DialogueChatboxView view,
@@ -318,19 +371,57 @@ public class DialogueLayoutSolver
 
         Rect safe = GetEffectiveSafeScreenRect();
         Vector2 size = ResolveSize(view, sizeHint, ambient: false);
+        Vector2 pivot = PivotForConversationSide(slot.side);
+        Vector2 manual = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
+        float pad = RefToScreen(settings != null ? settings.screenMarginRef : 24f) * 0.35f;
+        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
+
+        bool pairedSide = slot.side == ConversationSlotSide.Left ||
+                          slot.side == ConversationSlotSide.Right;
+        if (pairedSide)
+        {
+            // Two chatboxes must fit in the safe width with a gap.
+            float gap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
+            float maxPairWidth = Mathf.Max(120f, (safe.width - gap) * 0.5f - pad);
+            if (size.x > maxPairWidth)
+                size.x = maxPairWidth;
+        }
+
         ApplyInteractiveWidth(view, size.x);
         UseFittedHeight(view, ref size);
 
-        Vector2 manual = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
-        Vector2 pivot = PivotForConversationSide(slot.side);
-        Vector2 raw = anchorScreen + slot.localOffsetScreen + manual;
-        Vector2 pos = ClampPivotPosition(raw, size, pivot, safe);
+        Vector2 pos;
+        if (pairedSide)
+        {
+            // Playtest: side-from-screen-X was mirrored vs the stage after Camera Shot.
+            // Place Left-side speakers in the right column and Right-side in the left.
+            float y = anchorScreen.y + lift + manual.y;
+            bool placeOnLeft = slot.side == ConversationSlotSide.Right;
+            if (placeOnLeft)
+            {
+                float leftEdge = safe.xMin + pad;
+                // Use left-column pivot (1,0.5) regardless of authored side.
+                pivot = new Vector2(1f, 0.5f);
+                pos = new Vector2(leftEdge + size.x * pivot.x, y);
+            }
+            else
+            {
+                float rightEdge = safe.xMax - pad;
+                pivot = new Vector2(0f, 0.5f);
+                pos = new Vector2(rightEdge - size.x * (1f - pivot.x), y);
+            }
 
-        // Keep clear of the speaker body without changing the assigned side.
-        Rect avoid = BuildSpeakerAvoidRect(
-            anchorScreen,
-            slot.isPlayer && settings != null ? settings.playerAvoidScale : 1f);
-        pos = NudgeClearOfRect(pos, size, pivot, avoid, slot.side, safe);
+            pos = ClampPivotPosition(pos, size, pivot, safe);
+        }
+        else
+        {
+            Vector2 raw = anchorScreen + slot.localOffsetScreen + manual;
+            pos = ClampPivotPosition(raw, size, pivot, safe);
+            Rect avoid = BuildSpeakerAvoidRect(
+                anchorScreen,
+                slot.isPlayer && settings != null ? settings.playerAvoidScale : 1f);
+            pos = NudgeClearOfRect(pos, size, pivot, avoid, slot.side, safe);
+        }
 
         view.rectTransform.pivot = pivot;
         view.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -411,6 +502,33 @@ public class DialogueLayoutSolver
                         return true;
                 }
             }
+
+            // Camera Shot / blend: anchors moved a lot on screen even if L/R order stayed.
+            for (int i = 0; i < core.Count; i++)
+            {
+                var planned = core[i];
+                ConversationSpeakerSlot live = null;
+                for (int j = 0; j < liveCore.Count; j++)
+                {
+                    if (string.Equals(liveCore[j].speakerId, planned.speakerId,
+                            System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        live = liveCore[j];
+                        break;
+                    }
+                }
+                if (live == null)
+                    continue;
+                if (Vector2.Distance(planned.screenAnchor0, live.screenAnchor0) > rebuildDelta * 1.25f)
+                    return true;
+            }
+
+            // Anchors collapsed together under the new framing → need a wider pair recipe.
+            float livePairDx = Mathf.Abs(liveOrder[0].screenAnchor0.x - liveOrder[liveOrder.Count - 1].screenAnchor0.x);
+            float planPairDx = Mathf.Abs(planOrder[0].screenAnchor0.x - planOrder[planOrder.Count - 1].screenAnchor0.x);
+            float collapse = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f) * 0.45f;
+            if (livePairDx < collapse && planPairDx > livePairDx + rebuildDelta * 0.5f)
+                return true;
         }
 
         return false;
