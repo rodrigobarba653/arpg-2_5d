@@ -18,12 +18,8 @@ public class RewardItemEntry
 /// <summary>
 /// Gives items and Varium through the existing inventory and wallet.
 /// Does not set WorldState, does not touch the camera, and does not take a lock.
-///
-/// Technical debt, left as-is: <see cref="PlayerInventory.Add"/> matches the
-/// asset reference, while saves store <c>item.id</c>. A full stack drops the
-/// overflow and returns nothing. A second row of a non-stackable item is
-/// invisible to <see cref="PlayerInventory.GetCount"/>. Notices use that count
-/// delta, so a dropped overflow produces no notice.
+/// Event / chest grants open <see cref="RewardNoticePanel"/> (modal). World
+/// pickups still use <see cref="ItemPickupNotifier"/> floating popups.
 /// </summary>
 public static class RewardDelivery
 {
@@ -46,8 +42,9 @@ public static class RewardDelivery
     }
 
     /// <summary>
-    /// Grants every payable line. Fails before changing anything when a
-    /// required inventory or wallet is missing, or when nothing is payable.
+    /// Grants every payable line and queues a single modal reward notice.
+    /// Fails before changing anything when a required inventory or wallet is
+    /// missing, or when nothing is payable.
     /// </summary>
     public static bool TryGrant(List<RewardItemEntry> items, int varium, out string failure)
     {
@@ -95,16 +92,26 @@ public static class RewardDelivery
             }
         }
 
+        var lines = new List<string>(4);
+        Sprite firstIcon = null;
+
         if (wantsItems)
-            GrantItems(inventory, items);
+            GrantItems(inventory, items, lines, ref firstIcon);
 
         if (wantsVarium)
-            GrantVarium(wallet, varium);
+            GrantVarium(wallet, varium, lines);
+
+        if (lines.Count > 0)
+            RewardNoticePanel.EnqueueMany(lines, firstIcon);
 
         return true;
     }
 
-    static void GrantItems(PlayerInventory inventory, List<RewardItemEntry> items)
+    static void GrantItems(
+        PlayerInventory inventory,
+        List<RewardItemEntry> items,
+        List<string> lines,
+        ref Sprite firstIcon)
     {
         for (int i = 0; i < items.Count; i++)
         {
@@ -118,11 +125,13 @@ public static class RewardDelivery
             if (gained <= 0)
                 continue;
 
-            ItemPickupNotifier.ShowEventReward(ItemLabel(entry.item, gained), entry.item.icon);
+            lines.Add("Obtained \"" + ItemLabel(entry.item, gained) + "\"");
+            if (firstIcon == null && entry.item.icon != null)
+                firstIcon = entry.item.icon;
         }
     }
 
-    static void GrantVarium(PlayerWallet wallet, int amount)
+    static void GrantVarium(PlayerWallet wallet, int amount, List<string> lines)
     {
         int before = PlayerWallet.Total;
         wallet.AddVarium(amount);
@@ -130,7 +139,7 @@ public static class RewardDelivery
         if (gained <= 0)
             return;
 
-        ItemPickupNotifier.ShowEventReward("Varium x" + gained, null);
+        lines.Add("Obtained \"Varium x" + gained + "\"");
     }
 
     static string ItemLabel(ItemDefinition item, int gained)

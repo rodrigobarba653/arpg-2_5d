@@ -57,20 +57,14 @@ public class ItemPickupNotifier : MonoBehaviour
     }
 
     /// <summary>
-    /// Screen-space notice for event rewards. Stays on screen during a directed
-    /// shot. Falls back to the world-space popup when the screen path cannot start.
+    /// Event / chest rewards. Routes to <see cref="RewardNoticePanel"/> (modal).
+    /// Kept for callers that still use this entry point.
     /// </summary>
     public static void ShowEventReward(string label, Sprite icon)
     {
-        var inst = Instance;
-        if (inst == null)
-        {
-            Debug.LogWarning("[ItemPickupNotifier] No instance; event reward notice skipped.");
-            return;
-        }
-
-        if (!inst.TryShowScreen(label, icon))
-            inst.SpawnPopup(label, icon);
+        RewardNoticePanel.Enqueue(
+            string.IsNullOrEmpty(label) ? "" : $"Obtained \"{label}\"",
+            icon);
     }
 
     bool TryShowScreen(string label, Sprite icon)

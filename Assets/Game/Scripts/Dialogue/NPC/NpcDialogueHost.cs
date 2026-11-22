@@ -360,12 +360,17 @@ public class NpcDialogueHost : MonoBehaviour, IInteractable
         if (interactionPoint == null)
             interactionPoint = vol;
 
-        // Body collider must not block approach from any side.
+        // Body colliders must not block approach. CharacterController is a Collider
+        // but cannot be a trigger — leave it alone (Soldier / patrol NPCs).
         var bodyCols = GetComponents<Collider>();
         for (int i = 0; i < bodyCols.Length; i++)
         {
-            if (bodyCols[i] != null && bodyCols[i].transform == transform)
-                bodyCols[i].isTrigger = true;
+            Collider c = bodyCols[i];
+            if (c == null || c.transform != transform)
+                continue;
+            if (c is CharacterController)
+                continue;
+            c.isTrigger = true;
         }
     }
 

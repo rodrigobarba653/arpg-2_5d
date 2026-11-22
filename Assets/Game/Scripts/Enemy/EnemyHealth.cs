@@ -8,6 +8,12 @@ public class EnemyHealth : MonoBehaviour
     static readonly List<EnemyHealth> all = new List<EnemyHealth>(64);
     public static IReadOnlyList<EnemyHealth> All => all;
 
+    /// <summary>
+    /// Fired once when this enemy dies (after <see cref="IsDead"/> is true).
+    /// Used by <c>EncounterKillGate</c> and other encounter logic.
+    /// </summary>
+    public static event System.Action<EnemyHealth> Died;
+
     EnemyAI ai;
     EnemyCombatController combat;
     EnemyMotor motor;
@@ -285,6 +291,16 @@ public class EnemyHealth : MonoBehaviour
         AwardItemDrops();
 
         PlayDeathSfx();
+
+        try
+        {
+            Died?.Invoke(this);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogException(ex, this);
+        }
+
         StartCoroutine(DieRoutine());
     }
 

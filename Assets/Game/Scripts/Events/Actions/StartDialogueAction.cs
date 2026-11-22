@@ -4,11 +4,21 @@ using UnityEngine;
 
 /// <summary>
 /// Starts one interactive dialogue from an event and, by default, waits for that session.
-/// Does not acquire GameplayLock. The session locks only when its asset says so.
+/// Lock World can force GameplayLock on/off, or keep the Dialogue Asset setting.
 /// </summary>
 [System.Serializable]
 public class StartDialogueAction : EventAction
 {
+    public enum LockWorldMode
+    {
+        /// <summary>Use DialogueAsset.lockGameplay.</summary>
+        UseAsset = 0,
+        /// <summary>Stop player / world input for this session.</summary>
+        StopWorld = 1,
+        /// <summary>Leave the world moving (no GameplayLock from dialogue).</summary>
+        KeepMoving = 2,
+    }
+
     public DialogueAsset dialogueAsset;
 
     public List<DialogueCharacterAssetOverride> dialogueByCharacter =
@@ -26,6 +36,9 @@ public class StartDialogueAction : EventAction
 
     public bool allowCancel = true;
 
+    [Tooltip("Stop World = freeze player control. Keep Moving = world keeps going. Use Asset = DialogueAsset.lockGameplay.")]
+    public LockWorldMode lockWorld = LockWorldMode.UseAsset;
+
     public DialogueProgressionMode progressionMode = DialogueProgressionMode.Manual;
 
     [Tooltip("Automatic mode only. Negative uses the session default (1.75s). 0 advances immediately.")]
@@ -33,10 +46,20 @@ public class StartDialogueAction : EventAction
 
     DialogueSession session;
 
-    public override string DisplayName =>
-        dialogueAsset == null
-            ? "Start Dialogue"
-            : $"Start Dialogue '{dialogueAsset.dialogueId}'";
+    public override string DisplayName
+    {
+        get
+        {
+            string id = dialogueAsset == null ? "?" : dialogueAsset.dialogueId;
+            string lockLabel = lockWorld switch
+            {
+                LockWorldMode.StopWorld => "stop",
+                LockWorldMode.KeepMoving => "moving",
+                _ => "asset",
+            };
+            return $"Start Dialogue '{id}' ({lockLabel})";
+        }
+    }
 
     public override IEnumerator Execute(EventContext ctx)
     {
@@ -64,6 +87,13 @@ public class StartDialogueAction : EventAction
         // remain for NpcDialogueHost and Sprint fixtures.
         string resolvedNpcSpeakerId = ResolveNpcSpeakerId(asset);
 
+        bool? lockOverride = lockWorld switch
+        {
+            LockWorldMode.StopWorld => true,
+            LockWorldMode.KeepMoving => false,
+            _ => null,
+        };
+
         bool started = service.TryStartInteractive(
             asset,
             npcAnchor: npcAnchor,
@@ -71,7 +101,7 @@ public class StartDialogueAction : EventAction
             manualOffsetRef: Vector2.zero,
             preferred: DialogueChatboxPlacement.Auto,
             scale: 1f,
-            lockGameplayOverride: null,
+            lockGameplayOverride: lockOverride,
             allowCancel: allowCancel,
             initiatorCharacterId: characterId,
             initiatorTransform: actor,

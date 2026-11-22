@@ -21,6 +21,11 @@ public class EnemyAI : MonoBehaviour
     EnemyPatrol patrol;
     EnemyReactionChart reactions;
 
+    [Header("Behavior")]
+    [Tooltip("If true, this enemy only walks its EnemyPatrol route. Never notices, " +
+             "chases, or attacks the player. Use for ambient NPCs (e.g. a Soldier that just paces).")]
+    public bool patrolOnly;
+
     [Header("Distances")]
     [Tooltip("Notice range in the front half. The back half uses Detect Back Distance.")]
     public float detectDistance = 6f;
@@ -264,6 +269,29 @@ public class EnemyAI : MonoBehaviour
 
     public bool IsChasing => chasing;
 
+    void TickPatrolOnly()
+    {
+        chasing = false;
+        strafing = false;
+        isInCombat = false;
+
+        if (lastRegisteredPlayer != null)
+        {
+            EnemySurroundGroup.Unregister(lastRegisteredPlayer, this);
+            lastRegisteredPlayer = null;
+        }
+
+        if (motor == null)
+            return;
+
+        motor.activeSpeedOverride = patrolSpeed;
+
+        if (patrol != null && patrol.HasRoute)
+            patrol.Tick(transform, motor);
+        else
+            motor.Stop();
+    }
+
     void Awake()
     {
         if (!motor)
@@ -330,6 +358,13 @@ public class EnemyAI : MonoBehaviour
             motor.strafeSpeedMultiplier = strafeSpeedScale;
         }
 
+        // Ambient walker: ignore the player completely.
+        if (patrolOnly)
+        {
+            TickPatrolOnly();
+            return;
+        }
+
         // No player found yet → patrol if we have a route, otherwise stay idle.
         // (Doesn't return — keeps trying to re-find the player next frame.)
         if (!player)
@@ -342,15 +377,7 @@ public class EnemyAI : MonoBehaviour
 
         if (!player)
         {
-            if (patrol != null && patrol.HasRoute)
-            {
-                motor.activeSpeedOverride = patrolSpeed;
-                patrol.Tick(transform, motor);
-            }
-            else
-            {
-                motor.Stop();
-            }
+            TickPatrolOnly();
             return;
         }
 

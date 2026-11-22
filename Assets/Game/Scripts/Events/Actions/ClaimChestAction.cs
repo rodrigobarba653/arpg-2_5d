@@ -51,6 +51,13 @@ public class ClaimChestAction : EventAction
 
         if (ctx != null && ctx.Runner != null && ctx.Runner.debugLog)
             ctx.Log($"Chest '{chest.persistentId}' claimed.");
-        yield break;
+
+        // Modal reward notice freezes the world until Confirm (South / ×).
+        yield return RewardNoticePanel.WaitUntilIdle();
+    }
+
+    public override void Cancel(EventContext ctx)
+    {
+        RewardNoticePanel.CancelAll();
     }
 }

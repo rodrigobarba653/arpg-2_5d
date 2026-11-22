@@ -21,9 +21,24 @@ public static class EventActionEditorUtility
         if (leaf is MoveCharacterAction move)
         {
             string who = DescribeCharacter(move.character);
-            string dest = move.destination != null
-                ? move.destination.name
-                : $"({move.worldPosition.x:0.#},{move.worldPosition.z:0.#})";
+            string dest;
+            var mode = move.destinationMode;
+            if (mode == MoveCharacterAction.DestinationMode.WorldPosition && move.destination != null)
+                mode = MoveCharacterAction.DestinationMode.Marker;
+
+            switch (mode)
+            {
+                case MoveCharacterAction.DestinationMode.Marker:
+                    dest = move.destination != null ? move.destination.name : "(no marker)";
+                    break;
+                case MoveCharacterAction.DestinationMode.RelativeOffset:
+                    dest = $"rel ({move.relativeOffset.x:0.#},{move.relativeOffset.y:0.#},{move.relativeOffset.z:0.#})";
+                    break;
+                default:
+                    dest = $"({move.worldPosition.x:0.#},{move.worldPosition.z:0.#})";
+                    break;
+            }
+
             return $"Move {who} → {dest}";
         }
 
@@ -175,15 +190,13 @@ public static class EventActionEditorUtility
                 move.character.source == ScriptedCharacterSource.Explicit &&
                 move.character.explicitTransform == null)
                 into.Add($"[{index}] Move Character missing explicit Transform.");
-            if (move.destination == null && move.worldPosition == Vector3.zero)
-            {
-                // worldPosition zero can be intentional — only warn when Explicit dest empty and zero looks unset.
-                // Skip hard warn; destination null with non-zero world is fine.
-            }
-            if (move.destination == null)
-            {
-                // Allowed via worldPosition — no warning.
-            }
+
+            var mode = move.destinationMode;
+            if (mode == MoveCharacterAction.DestinationMode.WorldPosition && move.destination != null)
+                mode = MoveCharacterAction.DestinationMode.Marker;
+
+            if (mode == MoveCharacterAction.DestinationMode.Marker && move.destination == null)
+                into.Add($"[{index}] Move Character Marker mode missing Destination.");
         }
 
         if (leaf is FaceCharacterAction face)

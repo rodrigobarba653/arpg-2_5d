@@ -455,6 +455,7 @@ public class EventRunner : MonoBehaviour
 
             CameraDirector.NotifyRunnerFinished(this);
             PlayCharacterAnimationAction.ReleaseHeldForRunner(this);
+            MoveCharacterAction.ReleaseHeldForRunner(this);
 
             if (holdsGameplayLock)
             {

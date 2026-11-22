@@ -71,25 +71,46 @@ public class FaceCharacterAction : EventAction
             yield break;
         }
 
-        npcMotor.FaceWorldDirection(dir.normalized);
-        ctx?.Log("Face NPC.");
-
-        float wait = 0f;
-        while (wait < holdSeconds)
+        // If a Move Character already holds this NPC for the event, just face —
+        // do not steal/release that hold (or patrol would resume early).
+        bool alreadySeized = npcMotor.IsSeized;
+        if (!alreadySeized && !npcMotor.TrySeize(this))
         {
-            if (ctx != null && (ctx.IsCancelled || ctx.StopRequested))
-                yield break;
-            wait += Time.deltaTime;
-            yield return null;
+            ctx?.RequestStop("NPC is busy (another event holds it)");
+            yield break;
+        }
+
+        try
+        {
+            npcMotor.FaceWorldDirection(dir.normalized);
+            ctx?.Log("Face NPC.");
+
+            float wait = 0f;
+            while (wait < holdSeconds)
+            {
+                if (ctx != null && (ctx.IsCancelled || ctx.StopRequested))
+                    yield break;
+                wait += Time.deltaTime;
+                yield return null;
+            }
+        }
+        finally
+        {
+            if (!alreadySeized)
+                npcMotor.ReleaseSeize(this);
         }
     }
 
     public override void Cancel(EventContext ctx)
     {
-        if (character != null &&
-            character.TryResolve(out _, out PlayerMotor playerMotor, out _, out _))
+        if (character == null)
+            return;
+
+        if (character.TryResolve(out _, out PlayerMotor playerMotor, out ScriptedNpcMotor npcMotor, out _))
         {
             playerMotor?.UnlockFacing();
+            // No-op if a Move Character hold owns the seize.
+            npcMotor?.ReleaseSeize(this);
         }
     }
 }

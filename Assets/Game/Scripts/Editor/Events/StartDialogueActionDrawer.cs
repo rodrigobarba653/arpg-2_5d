@@ -20,6 +20,7 @@ public sealed class StartDialogueActionDrawer : PropertyDrawer
         height += line; // asset
         height += line; // wait
         height += line; // cancel
+        height += line; // lock world
         height += line; // progression
         height += line; // auto
         height += line; // help
@@ -58,6 +59,7 @@ public sealed class StartDialogueActionDrawer : PropertyDrawer
         SerializedProperty assetProp = property.FindPropertyRelative("dialogueAsset");
         SerializedProperty waitUntilFinished = property.FindPropertyRelative("waitUntilFinished");
         SerializedProperty allowCancel = property.FindPropertyRelative("allowCancel");
+        SerializedProperty lockWorld = property.FindPropertyRelative("lockWorld");
         SerializedProperty progressionMode = property.FindPropertyRelative("progressionMode");
         SerializedProperty autoAdvanceHoldSeconds = property.FindPropertyRelative("autoAdvanceHoldSeconds");
         SerializedProperty npcAnchor = property.FindPropertyRelative("npcAnchor");
@@ -74,6 +76,15 @@ public sealed class StartDialogueActionDrawer : PropertyDrawer
 
         r = new Rect(position.x, y, full, line);
         EditorGUI.PropertyField(r, allowCancel);
+        y += line + 2f;
+
+        r = new Rect(position.x, y, full, line);
+        EditorGUI.PropertyField(
+            r,
+            lockWorld,
+            new GUIContent(
+                "Lock World",
+                "Stop World = freeze player control. Keep Moving = world keeps going. Use Asset = DialogueAsset.lockGameplay."));
         y += line + 2f;
 
         r = new Rect(position.x, y, full, line);

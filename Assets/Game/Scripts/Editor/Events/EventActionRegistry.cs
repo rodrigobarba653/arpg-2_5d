@@ -69,6 +69,7 @@ public static class EventActionRegistry
         new Entry(typeof(CloseDoorAction), "World", "Close Door", false, false),
         new Entry(typeof(SetDoorStateAction), "World", "Set Door State", false, false),
         new Entry(typeof(UnlockDoorAction), "World", "Unlock Door", false, false),
+        new Entry(typeof(MoveObjectAction), "World", "Move Object", false, false),
 
         // Rewards
         new Entry(typeof(GrantRewardsAction), "Rewards", "Grant Rewards", false, false),

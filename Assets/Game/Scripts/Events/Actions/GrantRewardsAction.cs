@@ -32,6 +32,12 @@ public class GrantRewardsAction : EventAction
 
         if (ctx != null && ctx.Runner != null && ctx.Runner.debugLog)
             ctx.Log("Rewards granted.");
-        yield break;
+
+        yield return RewardNoticePanel.WaitUntilIdle();
+    }
+
+    public override void Cancel(EventContext ctx)
+    {
+        RewardNoticePanel.CancelAll();
     }
 }

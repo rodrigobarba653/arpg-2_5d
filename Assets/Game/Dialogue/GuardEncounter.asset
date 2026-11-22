@@ -30,6 +30,7 @@ MonoBehaviour:
   - rid: 8969645841261789184
   - rid: 8969645841261789185
   - rid: 8969645841261789341
+  - rid: 8969645841261789522
   - rid: 8969645841261789347
   references:
     version: 2
@@ -73,7 +74,7 @@ MonoBehaviour:
         portraitExpression: Neutral
         portraitSprite: {fileID: 0}
         portraitVariants: []
-        nextNodeId: choice_1
+        nextNodeId: line_3
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
     - rid: 8969645841261789347
@@ -109,3 +110,18 @@ MonoBehaviour:
       data:
         flagId: guard_encounter_opt_a
         value: 1
+    - rid: 8969645841261789522
+      type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
+      data:
+        nodeId: line_3
+        speakerId: npc_ambient_2e5916d9
+        speakerDisplayName: NPC_Ambient
+        text: BItch! I'm a crazy fuck
+        textVariants: []
+        portraitMode: 2
+        portraitExpression: Neutral
+        portraitSprite: {fileID: 0}
+        portraitVariants: []
+        nextNodeId: choice_1
+        typewriterCharsPerSecond: 0
+        ambientHoldSeconds: 0

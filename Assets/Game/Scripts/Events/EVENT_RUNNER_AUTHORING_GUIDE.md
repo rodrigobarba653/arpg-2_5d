@@ -62,18 +62,37 @@ Arriba de Actions. Todas deben pasar (AND) para que el event arranque (flags, �
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
 | **Camera Shot**               | Corte o blend a un `CameraShotMarker` (Transition Cut / Blend)                                            |
 | **Camera Focus**              | Sin offset: follow gameplay al Target. Con offset: truck desde la **cámara** (X/Y/Z mundo), luego **sigue al Target** manteniendo ese encuadre. |
-| **Gameplay Follow Offset**    | Cambia el FollowOffset de la cámara de gameplay (sigue al player). Apply / Restore. No usa lease de shot. |
+| **Gameplay Follow Offset**    | Cambia el FollowOffset de gameplay (Apply / Restore). No usa lease. En Toggle OFF también sirve Camera Restore (ahora restaura follow). |
 | **Start Mode → Toggle Cross** | Plano fino + cooldown: 1er cruce = Actions (ON), 2º = Toggle OFF Actions. Preferí espesor ≤ 1.            |
-| **Camera Restore**            | Vuelve a gameplay: **Blend Seconds = 0 → cut**, **>0 → blend**                                            |
-| **Move Character**            | Jugador activo o NPC con `ScriptedNpcMotor`                                                               |
-| **Face Character**            | Mira un punto sin caminar                                                                                 |
+| **Camera Restore**            | Vuelve a gameplay: suelta lease (Shot/Focus) **y** restaura Gameplay Follow Offset si se aplicó. Blend 0 = cut. |
+| **Move Character**            | Jugador o NPC. Destino: **World Position**, **Marker**, o **Relative Offset** (ej. X=2 desde donde está). Hold Until Event Ends (NPC) deja el patrol pausado hasta fin del event. |
+| **Face Character**            | Mira un punto sin caminar (mismo seize en NPCs ambient)                                                   |
 | **Play Animation**            | Pose 2D. **Hold Until Event Ends** = se queda en la pose. **Play Once** = una vez y sigue. Sin crossfade. |
-| **Start Dialogue**            | Diálogo interactivo; por defecto espera a que termine                                                     |
+| **Start Dialogue**            | Diálogo interactivo. **Lock World**: Use Asset / Stop World / Keep Moving. Espera a que termine por defecto. |
 | **Wait**                      | Pausa en segundos                                                                                         |
 | **Parallel**                  | Varios pasos a la vez (ver abajo)                                                                         |
 | **Play Timeline**             | Cinemática Timeline (opcional)                                                                            |
 | **Set / Clear Flag**          | WorldState                                                                                                |
 | **Open / Close Door**         | Puertas                                                                                                   |
+| **Move Object**               | Mueve un `MovableObject` (escalera, roca, puente…) Rest↔Active. Wait opcional. Persistencia en el componente. |
+
+---
+
+## 4b. Ambient NPC (patrol + EventRunner)
+
+Prefab: `Assets/Game/Prefabs/NPC/NPC_Ambient.prefab` (skin Soldier, **sin** EnemyAI).
+
+| Pieza | Rol |
+| --- | --- |
+| `ScriptedNpcMotor` | Move / Face / Play Animation del EventRunner |
+| `AmbientNpc` | Patrulla waypoints mientras está libre; se pausa al seize |
+| `NpcDialogueHost` | Ambient + interactive |
+
+Move / Face / Play Animation hacen **Seize** → se corta la ruta y (opcional) `dialogue.available = false`. Al soltar → vuelve a patrullar y al diálogo.
+
+Menú: **Tools → ARPG → Level Design → Create Ambient NPC Prefab** (y **Replace TestLab Ambient NPC**).
+
+No uses Soldier/`EnemyAI` para NPCs de historia. Enemigos son otro stack; el EventRunner aún no overridea su patrol.
 
 ---
 
@@ -176,6 +195,54 @@ Para cutscene (cámara, wait, diálogo): seleccioná el **EventRunner del Switch
 | Sonido / mesh palanca ON-OFF / no saltar cerca | **DoorSwitch** (Look & sound / Lock Jump) |
 
 No uses Legacy Doors / One Shot / Persist del switch (están en Advanced solo por compat).
+
+---
+
+## 10b. Move Object (escalera, roca, puente…)
+
+Para props que **se desplazan** (no puertas):
+
+1. En el mesh (escalera, piedra…): Add Component → **Movable Object**.
+2. Pose en escena = **Rest (A)**. Active (B) = **Offset** (ej. `Y = -4`) o un **Marker** vacío.
+3. Persistencia: **Persist State** + **Flag Id** (`lab_ladder_down`). Al terminar el tween escribe el flag; al load hace snap.
+4. En el EventRunner del switch (u otro):
+   - Add → **World → Move Object** → asigná el `MovableObject`, State = **To Active**, Wait = ON.
+   - Toggle OFF: otro Move Object → **To Rest**.
+
+El `Ladder` de trepar no cambia: solo hace falta que el collider/trigger quede al alcance tras el move.
+
+No hace falta un Set Flag aparte si Persist State está ON (el componente escribe el flag al llegar).
+
+---
+
+## 10c. Encounter Kill Gate (matar N enemigos → event)
+
+**No** es “matar → abrir puerta”. Es: **matar N enemigos elegidos → arrancar un EventRunner**.  
+Ese runner hace lo que quieras (Open Door, Move Object, Wait, Camera, Set Active del boss, diálogo…).
+
+### Setup
+
+1. GO vacío (ej. `Encounter_RoomA`) + **Encounter Kill Gate** + **Event Runner**.
+2. EventRunner → **Start Mode = Manual Only** (el gate lo dispara).
+3. En el Kill Gate:
+   - **Enemies**: arrastrá los malos que cuentan, **o** parenéalos bajo el GO y pulsá **Collect Children**.
+   - **Required Kills**: `0` = todos los listados; `15` = bastan 15 aunque haya más en la lista.
+   - **Persist Completion** + **Completed Flag Id** (`room_a_cleared`) para no re-disparar tras save.
+4. En el EventRunner → Actions: Open Door / Move Object / Set Active (boss) / Wait / Camera…
+
+### Spawns en runtime
+
+En el prefab del enemigo: **Encounter Member** → asigná el Kill Gate. Al spawnear se registra solo.
+
+### Ejemplos
+
+| Querés… | Kill Gate | EventRunner Actions |
+|---------|-----------|---------------------|
+| Matar 3 → abrir puerta | 3 enemigos, Required = 0 o 3 | Open Door (+ Persist en la puerta) |
+| Matar 15 de un área → boss | lista grande, Required = 15 | Set Active del boss / Play Timeline / Dialogue |
+| Matar un jefe concreto | 1 enemigo | cutscene, Move Object, flags… |
+
+El gate **solo cuenta kills y llama `TryStart()`**. La consecuencia vive en el EventRunner.
 
 ---
 

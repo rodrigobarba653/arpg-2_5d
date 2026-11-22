@@ -1,9 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// Lightweight narrative mover for non-player NPCs. Straight-line XZ walk to a
-/// point, eight-direction facing, Walk/Idle via Animator MoveX/MoveY/IsMoving.
+/// Lightweight narrative mover for non-player NPCs. Straight-line XZ walk,
+/// eight-direction facing, Walk/Idle via Animator MoveX/MoveY/IsMoving.
 /// No combat AI and no NavMesh.
+///
+/// Priority each frame: event scripted move → ambient drive → idle.
+/// AmbientNpc / Face / Move use Seize so patrol and dialogue can pause.
 /// </summary>
 [DisallowMultipleComponent]
 public class ScriptedNpcMotor : MonoBehaviour
@@ -25,9 +28,17 @@ public class ScriptedNpcMotor : MonoBehaviour
     float scriptedStopDistance;
     bool scriptedFaceMovement;
     bool scriptedArrived;
+
+    bool ambientDriveActive;
+    Vector3 ambientPlanar;
+    float ambientSpeed;
+    bool ambientFaceMovement;
+
+    object eventSeizeOwner;
     Vector2 facing2D = Vector2.down;
     Vector3 verticalVelocity;
     bool animOwnedByEvent;
+    object animOwner;
 
     static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     static readonly int MoveXHash = Animator.StringToHash("MoveX");
@@ -37,6 +48,13 @@ public class ScriptedNpcMotor : MonoBehaviour
     public bool ScriptedMoveArrived => scriptedArrived;
     public object ScriptedMoveOwner => scriptedMoveOwner;
     public bool AnimationOwnedByEvent => animOwnedByEvent;
+
+    /// <summary>True while an EventAction (or AmbientNpc helper) holds the NPC.</summary>
+    public bool IsSeized => eventSeizeOwner != null;
+
+    /// <summary>True when patrol must not drive (event seize, scripted move, or held anim).</summary>
+    public bool IsEventBusy =>
+        eventSeizeOwner != null || scriptedMoveActive || animOwnedByEvent;
 
     void Awake()
     {
@@ -75,6 +93,8 @@ public class ScriptedNpcMotor : MonoBehaviour
     void OnDisable()
     {
         ForceEndScriptedMove();
+        ClearAmbientDrive();
+        ForceReleaseSeize();
         ReleaseAnimationOwner(null);
     }
 
@@ -82,6 +102,7 @@ public class ScriptedNpcMotor : MonoBehaviour
     {
         Vector3 planar = Vector3.zero;
         float speed = 0f;
+        bool movingAnim = false;
 
         if (scriptedMoveActive)
         {
@@ -99,7 +120,16 @@ public class ScriptedNpcMotor : MonoBehaviour
                 speed = scriptedSpeed > 0f ? scriptedSpeed : moveSpeed;
                 if (scriptedFaceMovement)
                     SetFacingFromWorld(planar);
+                movingAnim = true;
             }
+        }
+        else if (ambientDriveActive && !IsEventBusy)
+        {
+            planar = ambientPlanar;
+            speed = ambientSpeed > 0f ? ambientSpeed : moveSpeed;
+            if (ambientFaceMovement && planar.sqrMagnitude > 0.0001f)
+                SetFacingFromWorld(planar);
+            movingAnim = planar.sqrMagnitude > deadZone * deadZone;
         }
 
         if (controller != null && controller.enabled)
@@ -112,13 +142,73 @@ public class ScriptedNpcMotor : MonoBehaviour
             step.y = verticalVelocity.y;
             controller.Move(step * Time.deltaTime);
         }
-        else if (scriptedMoveActive && planar.sqrMagnitude > 0.0001f)
+        else if (planar.sqrMagnitude > 0.0001f && speed > 0f)
         {
             transform.position += planar * (speed * Time.deltaTime);
         }
 
         if (!animOwnedByEvent)
-            WriteLocomotionAnim(scriptedMoveActive && planar.sqrMagnitude > deadZone * deadZone);
+            WriteLocomotionAnim(movingAnim && planar.sqrMagnitude > deadZone * deadZone);
+    }
+
+    /// <summary>
+    /// Event / cutscene hold. Pauses ambient patrol (and AmbientNpc can suspend dialogue).
+    /// </summary>
+    public bool TrySeize(object owner)
+    {
+        if (owner == null)
+            return false;
+        if (eventSeizeOwner != null && !ReferenceEquals(eventSeizeOwner, owner))
+            return false;
+
+        eventSeizeOwner = owner;
+        ClearAmbientDrive();
+        return true;
+    }
+
+    public void ReleaseSeize(object owner)
+    {
+        if (eventSeizeOwner == null)
+            return;
+        if (owner != null && !ReferenceEquals(eventSeizeOwner, owner))
+            return;
+        eventSeizeOwner = null;
+    }
+
+    void ForceReleaseSeize()
+    {
+        eventSeizeOwner = null;
+    }
+
+    /// <summary>
+    /// Soft ambient walk used by AmbientNpc patrol. Ignored while event-busy.
+    /// </summary>
+    public void SetAmbientDrive(Vector3 planarDir, float speed, bool faceMovement)
+    {
+        if (IsEventBusy)
+        {
+            ClearAmbientDrive();
+            return;
+        }
+
+        planarDir.y = 0f;
+        if (planarDir.sqrMagnitude < 0.0001f)
+        {
+            ClearAmbientDrive();
+            return;
+        }
+
+        ambientDriveActive = true;
+        ambientPlanar = planarDir.normalized;
+        ambientSpeed = speed > 0f ? speed : moveSpeed;
+        ambientFaceMovement = faceMovement;
+    }
+
+    public void ClearAmbientDrive()
+    {
+        ambientDriveActive = false;
+        ambientPlanar = Vector3.zero;
+        ambientSpeed = 0f;
     }
 
     public bool TryBeginScriptedMove(
@@ -132,6 +222,14 @@ public class ScriptedNpcMotor : MonoBehaviour
             return false;
         if (scriptedMoveActive && !ReferenceEquals(scriptedMoveOwner, owner))
             return false;
+        if (eventSeizeOwner != null && !ReferenceEquals(eventSeizeOwner, owner))
+            return false;
+
+        // Event move implies seize so patrol stays paused for the whole action.
+        if (eventSeizeOwner == null)
+            eventSeizeOwner = owner;
+
+        ClearAmbientDrive();
 
         scriptedMoveActive = true;
         scriptedMoveOwner = owner;
@@ -162,7 +260,6 @@ public class ScriptedNpcMotor : MonoBehaviour
     {
         scriptedMoveActive = false;
         scriptedMoveOwner = null;
-        // Snap Idle immediately on cancel/arrive — don't wait for the next Update.
         if (!animOwnedByEvent)
             WriteLocomotionAnim(false);
     }
@@ -183,8 +280,6 @@ public class ScriptedNpcMotor : MonoBehaviour
 
     public Vector2 GetFacing2D() => facing2D;
 
-    object animOwner;
-
     public bool TryBeginAnimationOwner(object owner)
     {
         if (owner == null)
@@ -193,6 +288,9 @@ public class ScriptedNpcMotor : MonoBehaviour
             return false;
         animOwnedByEvent = true;
         animOwner = owner;
+        ClearAmbientDrive();
+        if (eventSeizeOwner == null)
+            eventSeizeOwner = owner;
         return true;
     }
 
@@ -202,12 +300,13 @@ public class ScriptedNpcMotor : MonoBehaviour
             return;
         animOwnedByEvent = false;
         animOwner = null;
+        if (owner != null && ReferenceEquals(eventSeizeOwner, owner))
+            eventSeizeOwner = null;
         WriteLocomotionAnim(false);
     }
 
     void SetFacingFromWorld(Vector3 worldDir)
     {
-        // Camera-relative facing so MoveX/MoveY match playable characters.
         Camera cam = Camera.main;
         Vector2 face;
         if (cam == null)

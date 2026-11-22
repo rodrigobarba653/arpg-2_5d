@@ -141,6 +141,9 @@ public class EnemyRangedCombatController : MonoBehaviour
         if (HitStopperManager.Frozen)
             return;
 
+        if (ai != null && ai.patrolOnly)
+            return;
+
         if (!player)
             return;
 
