@@ -29,6 +29,20 @@ public class DialogueAsset : ScriptableObject
     [Tooltip("Used when Override Choice Presentation is on. Otherwise the service uses DialogueLayoutSettings.")]
     public DialogueChoicePresentation choicePresentation = DialogueChoicePresentation.LowerCenterDefault;
 
+    [Header("Chatboxes")]
+    [Tooltip("When true, each bubble freezes its screen position when it first appears " +
+             "and does not follow the character if they move/walk.")]
+    public bool pinBubblesOnShow = true;
+
+    [Tooltip("Per Speaker Sticky = bubbles stay while others talk. " +
+             "One At A Time = only the current line (previous closes). " +
+             "Keep Recent = keep the last N speakers visible.")]
+    public DialogueBubbleLifetime bubbleLifetime = DialogueBubbleLifetime.PerSpeakerSticky;
+
+    [Tooltip("Used when Bubble Lifetime = Keep Recent. Minimum 1.")]
+    [Min(1)]
+    public int keepRecentCount = 2;
+
     [SerializeReference]
     public List<DialogueNode> nodes = new List<DialogueNode>();
 

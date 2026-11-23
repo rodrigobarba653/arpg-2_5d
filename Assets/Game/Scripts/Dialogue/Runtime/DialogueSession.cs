@@ -7,7 +7,8 @@ using UnityEngine;
 /// <summary>
 /// Interactive conversation. Phase A: Line + End.
 /// Conversation-level layout: speakers/slots are planned before the first line.
-/// Active-player identity is frozen at Start; world anchors are followed live.
+/// Active-player identity is frozen at Start. Bubbles place from the live anchor
+/// once, then pin on screen when <see cref="DialogueAsset.pinBubblesOnShow"/> is on.
 /// </summary>
 public class DialogueSession
 {
@@ -44,6 +45,8 @@ public class DialogueSession
         new Dictionary<string, Transform>();
     readonly List<string> speakerOrder = new List<string>(4);
     readonly List<ConversationSpeakerSlot> draftScratch = new List<ConversationSpeakerSlot>(4);
+    /// <summary>Speakers ordered by last line spoken (oldest → newest). Used by Keep Recent / One At A Time.</summary>
+    readonly List<string> recentSpeakOrder = new List<string>(4);
 
     ConversationLayoutPlan plan;
 
@@ -341,8 +344,13 @@ public class DialogueSession
         else if (!plan.TryGet(speakerKey, out _))
             AppendUnplannedSpeaker(speakerKey);
 
+        ApplyBubbleLifetimeBeforeLine(speakerKey);
+
         var view = GetOrCreateBubble(speakerKey);
         View = view;
+        // New (or re-shown) line: place from the character once, then pin.
+        view.ClearPinnedScreenPosition();
+
         Transform anchor = ResolveAnchorForResolvedId(line.speakerId, resolvedId);
         anchorBySpeaker[speakerKey] = anchor;
         if (plan != null && plan.TryGet(speakerKey, out var slot))
@@ -686,17 +694,29 @@ public class DialogueSession
             BuildOrRebuildConversationPlan(force: true);
 
         Vector2 sizeHint = GetInteractiveSizeHint(layout);
+        bool pin = PinBubblesOnShow;
 
-        // Follow reserved slots only — no reactive sticky search.
+        // Pass 1 — pinned bubbles keep their screen spot (do not follow walk/move).
         for (int i = 0; i < speakerOrder.Count; i++)
         {
             string key = speakerOrder[i];
-            if (!bubbles.TryGetValue(key, out var view) || view == null)
+            if (!TryGetVisibleBubble(key, out var view))
                 continue;
-            if (!view.gameObject.activeInHierarchy)
+            if (!pin || !view.HasPinnedScreenPosition)
                 continue;
-            // Skip fully hidden bubbles (alpha 0) but keep slot reserved.
-            if (view.canvasGroup != null && view.canvasGroup.alpha < 0.01f)
+
+            layout.RefreshPinnedBubbleSize(view, sizeHint);
+            view.ApplyPinnedScreenPosition();
+            layout.RegisterOccupied(view.GetScreenRect());
+        }
+
+        // Pass 2 — unpinned bubbles place from the live anchor, then pin if enabled.
+        for (int i = 0; i < speakerOrder.Count; i++)
+        {
+            string key = speakerOrder[i];
+            if (!TryGetVisibleBubble(key, out var view))
+                continue;
+            if (pin && view.HasPinnedScreenPosition)
                 continue;
 
             if (plan == null || !plan.TryGet(key, out var slot))
@@ -711,7 +731,92 @@ public class DialogueSession
                 : (IsAlive(anchor) ? WorldToScreen(anchor.position) : slot.screenAnchor0);
 
             layout.FollowConversationSlot(view, slot, screen, sizeHint, manualOffsetRef);
+            if (pin)
+                view.PinCurrentScreenPosition();
         }
+    }
+
+    bool TryGetVisibleBubble(string key, out DialogueChatboxView view)
+    {
+        view = null;
+        if (!bubbles.TryGetValue(key, out view) || view == null)
+            return false;
+        if (!view.gameObject.activeInHierarchy)
+            return false;
+        if (view.canvasGroup != null && view.canvasGroup.alpha < 0.01f)
+            return false;
+        return true;
+    }
+
+    bool PinBubblesOnShow => Asset == null || Asset.pinBubblesOnShow;
+
+    DialogueBubbleLifetime ResolveBubbleLifetime()
+    {
+        return Asset != null ? Asset.bubbleLifetime : DialogueBubbleLifetime.PerSpeakerSticky;
+    }
+
+    int ResolveKeepRecentCount()
+    {
+        int n = Asset != null ? Asset.keepRecentCount : 2;
+        return Mathf.Max(1, n);
+    }
+
+    /// <summary>
+    /// Updates recency and hides bubbles that exceed One At A Time / Keep Recent rules.
+    /// Does not hide the speaker about to talk.
+    /// </summary>
+    void ApplyBubbleLifetimeBeforeLine(string speakerKey)
+    {
+        TouchRecentSpeak(speakerKey);
+
+        var mode = ResolveBubbleLifetime();
+        if (mode == DialogueBubbleLifetime.PerSpeakerSticky)
+            return;
+
+        int keep = mode == DialogueBubbleLifetime.OneAtATime ? 1 : ResolveKeepRecentCount();
+        HideBubblesOutsideRecent(speakerKey, keep);
+    }
+
+    void TouchRecentSpeak(string speakerKey)
+    {
+        for (int i = recentSpeakOrder.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(recentSpeakOrder[i], speakerKey, StringComparison.OrdinalIgnoreCase))
+                recentSpeakOrder.RemoveAt(i);
+        }
+
+        recentSpeakOrder.Add(speakerKey);
+    }
+
+    void HideBubblesOutsideRecent(string currentSpeakerKey, int keepCount)
+    {
+        keepCount = Mathf.Max(1, keepCount);
+
+        // Newest `keepCount` speakers stay (always includes current after TouchRecentSpeak).
+        var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = recentSpeakOrder.Count - 1; i >= 0 && keep.Count < keepCount; i--)
+            keep.Add(recentSpeakOrder[i]);
+
+        keep.Add(currentSpeakerKey);
+
+        var keys = new List<string>(bubbles.Keys);
+        for (int i = 0; i < keys.Count; i++)
+        {
+            string key = keys[i];
+            if (keep.Contains(key))
+                continue;
+            HideBubble(key);
+        }
+    }
+
+    void HideBubble(string speakerKey)
+    {
+        if (!bubbles.TryGetValue(speakerKey, out var view) || view == null)
+            return;
+
+        view.SetVisible(false);
+        if (plan != null && plan.TryGet(speakerKey, out var slot))
+            slot.visible = false;
     }
 
     Vector2 GetInteractiveSizeHint(DialogueLayoutSolver layout)
@@ -1366,6 +1471,7 @@ public class DialogueSession
         bubbles.Clear();
         anchorBySpeaker.Clear();
         speakerOrder.Clear();
+        recentSpeakOrder.Clear();
         plan = null;
         View = null;
         sessionActiveTransform = null;

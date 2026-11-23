@@ -87,6 +87,11 @@ public class DialogueAssetEditor : Editor
         EditorGUILayout.PropertyField(lockGameplay);
 
         EditorGUILayout.Space(4f);
+        EditorGUILayout.HelpBox(
+            "Chatboxes (Pin On Show / Bubble Lifetime) → edit in Tools → ARPG → Dialogue → Dialogue Editor.",
+            MessageType.Info);
+
+        EditorGUILayout.Space(4f);
         EditorGUILayout.LabelField("Choice presentation", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(overrideChoicePresentation);
         if (overrideChoicePresentation.boolValue)

@@ -111,6 +111,7 @@ public sealed class DialogueEditorWindow : EditorWindow
             EditorGUILayout.HelpBox(
                 "Each card = one line. Pick who speaks (Player or a scene NPC). " +
                 "Portraits: Use Default / Custom / Hidden. " +
+                "Chatboxes (top): Pin On Show + Bubble Lifetime (One At A Time = one bubble; previous closes). " +
                 "EventRunner → Start Dialogue only needs the Dialogue Asset.",
                 MessageType.Info);
         }
@@ -167,6 +168,54 @@ public sealed class DialogueEditorWindow : EditorWindow
             showAdvancedIds = GUILayout.Toggle(showAdvancedIds, "IDs", EditorStyles.toolbarButton, GUILayout.Width(36f));
             showHelp = GUILayout.Toggle(showHelp, "Help", EditorStyles.toolbarButton, GUILayout.Width(44f));
         }
+
+        // Always-visible conversation presentation (not buried in line cards).
+        if (asset != null)
+            DrawChatboxSettingsBar();
+    }
+
+    void DrawChatboxSettingsBar()
+    {
+        using (new EditorGUILayout.VerticalScope("box"))
+        {
+            EditorGUILayout.LabelField("Chatboxes", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            bool pin = EditorGUILayout.Toggle(
+                new GUIContent("Pin On Show", "Freeze bubble screen position when it appears."),
+                asset.pinBubblesOnShow);
+            var lifetime = (DialogueBubbleLifetime)EditorGUILayout.EnumPopup(
+                new GUIContent(
+                    "Bubble Lifetime",
+                    "Per Speaker Sticky / One At A Time / Keep Recent"),
+                asset.bubbleLifetime);
+            int keep = asset.keepRecentCount;
+            if (lifetime == DialogueBubbleLifetime.KeepRecent)
+            {
+                keep = EditorGUILayout.IntField(
+                    new GUIContent("Keep Recent Count", "How many speakers stay visible."),
+                    keep);
+                keep = Mathf.Max(1, keep);
+            }
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(asset, "Dialogue Chatbox Settings");
+                asset.pinBubblesOnShow = pin;
+                asset.bubbleLifetime = lifetime;
+                asset.keepRecentCount = keep;
+                EditorUtility.SetDirty(asset);
+                if (so != null)
+                    so.Update();
+            }
+
+            if (lifetime == DialogueBubbleLifetime.OneAtATime)
+            {
+                EditorGUILayout.HelpBox(
+                    "One At A Time: cada línea cierra el bubble anterior antes de abrir el siguiente.",
+                    MessageType.Info);
+            }
+        }
     }
 
     void DrawEmpty()
@@ -186,8 +235,12 @@ public sealed class DialogueEditorWindow : EditorWindow
         using (new EditorGUILayout.VerticalScope("box"))
         {
             EditorGUILayout.LabelField(asset.name, cardTitle);
-            EditorGUILayout.PropertyField(so.FindProperty("dialogueId"), new GUIContent("Dialogue Id"));
-            EditorGUILayout.PropertyField(so.FindProperty("lockGameplay"), new GUIContent("Lock Gameplay"));
+            SerializedProperty id = so.FindProperty("dialogueId");
+            if (id != null)
+                EditorGUILayout.PropertyField(id, new GUIContent("Dialogue Id"));
+            SerializedProperty lockGp = so.FindProperty("lockGameplay");
+            if (lockGp != null)
+                EditorGUILayout.PropertyField(lockGp, new GUIContent("Lock Gameplay"));
         }
     }
 

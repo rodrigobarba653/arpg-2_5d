@@ -153,7 +153,9 @@ public class DialogueUIController : MonoBehaviour
         }
 
         // Header band for speaker name; body starts strictly below it (no overlap).
-        float textLeft = small ? 20f : 320f;
+        // Interactive starts without portrait space; SetPortrait expands the left inset when needed.
+        float textLeftNoPortrait = small ? 20f : 28f;
+        float textLeftWithPortrait = small ? 20f : 320f;
         float headerHeight = small ? 48f : 56f;
         float headerPad = 8f;
         float bodyTop = headerHeight + headerPad;
@@ -165,14 +167,14 @@ public class DialogueUIController : MonoBehaviour
         speakerRt.anchorMin = new Vector2(0f, 1f);
         speakerRt.anchorMax = new Vector2(1f, 1f);
         speakerRt.pivot = new Vector2(0f, 1f);
-        speakerRt.offsetMin = new Vector2(textLeft, -headerHeight);
+        speakerRt.offsetMin = new Vector2(textLeftNoPortrait, -headerHeight);
         speakerRt.offsetMax = new Vector2(-28f, -4f);
 
         var bodyGo = CreateTmp("Body", go.transform, small ? 44f : 50f, FontStyles.Normal);
         var bodyRt = bodyGo.rectTransform;
         bodyRt.anchorMin = Vector2.zero;
         bodyRt.anchorMax = Vector2.one;
-        bodyRt.offsetMin = new Vector2(textLeft, small ? 22f : 28f);
+        bodyRt.offsetMin = new Vector2(textLeftNoPortrait, small ? 22f : 28f);
         bodyRt.offsetMax = new Vector2(-28f, -bodyTop);
 
         var view = go.AddComponent<DialogueChatboxView>();
@@ -183,6 +185,8 @@ public class DialogueUIController : MonoBehaviour
         view.portraitImage = portraitImage;
         view.portraitRoot = portraitRoot;
         view.bubbleBackground = bg;
+        view.textLeftWithPortrait = textLeftWithPortrait;
+        view.textLeftWithoutPortrait = textLeftNoPortrait;
         return view;
     }
 

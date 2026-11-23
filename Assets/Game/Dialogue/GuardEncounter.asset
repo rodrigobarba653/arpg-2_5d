@@ -26,6 +26,9 @@ MonoBehaviour:
     maxWidthRef: 720
     maxHeightRef: 420
     gapFromBubbleRef: 24
+  pinBubblesOnShow: 1
+  bubbleLifetime: 1
+  keepRecentCount: 2
   nodes:
   - rid: 8969645841261789184
   - rid: 8969645841261789185
@@ -81,7 +84,7 @@ MonoBehaviour:
       type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: choice_1
-        promptText: 
+        promptText: WHat up
         options:
         - optionId: opt_a
           text: Option A

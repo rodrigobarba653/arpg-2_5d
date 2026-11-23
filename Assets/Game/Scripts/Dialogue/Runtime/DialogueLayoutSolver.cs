@@ -354,8 +354,27 @@ public class DialogueLayoutSolver
     }
 
     /// <summary>
-    /// Places a bubble using its reserved conversation slot. Follows the live anchor;
-    /// does not reassign sides. Returns false if view/slot invalid.
+    /// Updates fitted width/height for a pinned bubble without moving it.
+    /// </summary>
+    public void RefreshPinnedBubbleSize(DialogueChatboxView view, Vector2 sizeHint)
+    {
+        if (view == null || view.rectTransform == null)
+            return;
+
+        Rect safe = GetEffectiveSafeScreenRect();
+        Vector2 size = ResolveSize(view, sizeHint, ambient: false);
+        float pad = RefToScreen(settings != null ? settings.screenMarginRef : 24f) * 0.35f;
+        float gap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
+        float maxPairWidth = Mathf.Max(120f, (safe.width - gap) * 0.5f - pad);
+        if (size.x > maxPairWidth)
+            size.x = maxPairWidth;
+
+        ApplyInteractiveWidth(view, size.x);
+    }
+
+    /// <summary>
+    /// Places a bubble using its reserved conversation slot. Follows the live anchor
+    /// unless the session pins the bubble after first show.
     /// Left/Right pairs use screen columns so Camera Shots that stack characters
     /// cannot clamp two wide bubbles onto the same center point.
     /// </summary>

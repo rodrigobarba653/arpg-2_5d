@@ -4,6 +4,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Base screen-space chatbox. Style is placeholder; swap prefab later without logic changes.
+/// When no portrait is shown, text insets collapse so the body uses the full bubble width
+/// (same idea as <c>display:none</c> on the portrait column).
 /// </summary>
 public class DialogueChatboxView : MonoBehaviour
 {
@@ -15,10 +17,23 @@ public class DialogueChatboxView : MonoBehaviour
     public GameObject portraitRoot;
     public Image bubbleBackground;
 
+    [Tooltip("Left inset for speaker/body when a portrait is visible.")]
+    public float textLeftWithPortrait = 320f;
+
+    [Tooltip("Left inset for speaker/body when portrait is hidden / null.")]
+    public float textLeftWithoutPortrait = 28f;
+
     public DialoguePresentationPriority Priority { get; private set; }
 
     string bodyFitText;
     bool bodyFitReady;
+    bool portraitVisible;
+
+    bool hasPinnedScreenPosition;
+    Vector2 pinnedScreenPosition;
+    Vector2 pinnedPivot;
+
+    public bool HasPinnedScreenPosition => hasPinnedScreenPosition;
 
     public void ConfigurePriority(DialoguePresentationPriority priority)
     {
@@ -50,6 +65,9 @@ public class DialogueChatboxView : MonoBehaviour
             portraitImage.preserveAspect = true;
             portraitImage.color = Color.white;
         }
+
+        portraitVisible = show;
+        ApplyTextColumnInsets(show);
     }
 
     public void SetBodyVisibleText(string text)
@@ -91,7 +109,7 @@ public class DialogueChatboxView : MonoBehaviour
         float slack = Mathf.Max(18f, bodyLabel.fontSize * 0.5f);
         float height = top + Mathf.Max(preferred.y, bodyLabel.fontSize) + bottom + slack;
 
-        if (portraitRoot != null && portraitRoot.activeSelf)
+        if (portraitVisible && portraitRoot != null && portraitRoot.activeSelf)
         {
             var portraitRect = portraitRoot.transform as RectTransform;
             if (portraitRect != null)
@@ -108,6 +126,9 @@ public class DialogueChatboxView : MonoBehaviour
 
     public void SetVisible(bool visible)
     {
+        if (!visible)
+            ClearPinnedScreenPosition();
+
         if (canvasGroup != null)
         {
             canvasGroup.alpha = visible ? 1f : 0f;
@@ -118,6 +139,38 @@ public class DialogueChatboxView : MonoBehaviour
         {
             gameObject.SetActive(visible);
         }
+    }
+
+    public void ClearPinnedScreenPosition()
+    {
+        hasPinnedScreenPosition = false;
+    }
+
+    public void PinCurrentScreenPosition()
+    {
+        if (rectTransform == null)
+            rectTransform = transform as RectTransform;
+        if (rectTransform == null)
+            return;
+
+        pinnedScreenPosition = rectTransform.position;
+        pinnedPivot = rectTransform.pivot;
+        hasPinnedScreenPosition = true;
+    }
+
+    public void ApplyPinnedScreenPosition()
+    {
+        if (!hasPinnedScreenPosition)
+            return;
+        if (rectTransform == null)
+            rectTransform = transform as RectTransform;
+        if (rectTransform == null)
+            return;
+
+        rectTransform.pivot = pinnedPivot;
+        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        rectTransform.position = pinnedScreenPosition;
     }
 
     /// <summary>Screen-space AABB after layout rebuild.</summary>
@@ -144,5 +197,30 @@ public class DialogueChatboxView : MonoBehaviour
         }
 
         return Rect.MinMaxRect(xmin, ymin, xmax, ymax);
+    }
+
+    /// <summary>
+    /// Collapses or restores the left text column so hidden portraits do not leave empty space.
+    /// </summary>
+    public void ApplyTextColumnInsets(bool showPortrait)
+    {
+        float left = showPortrait ? textLeftWithPortrait : textLeftWithoutPortrait;
+        SetLeftInset(speakerLabel != null ? speakerLabel.rectTransform : null, left);
+        SetLeftInset(bodyLabel != null ? bodyLabel.rectTransform : null, left);
+
+        if (bodyFitReady)
+            FitHeightToBody();
+    }
+
+    static void SetLeftInset(RectTransform rt, float left)
+    {
+        if (rt == null)
+            return;
+
+        Vector2 min = rt.offsetMin;
+        if (Mathf.Abs(min.x - left) < 0.01f)
+            return;
+        min.x = left;
+        rt.offsetMin = min;
     }
 }
