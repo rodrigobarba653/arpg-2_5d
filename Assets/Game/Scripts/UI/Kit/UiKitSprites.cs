@@ -44,7 +44,7 @@ public class UiKitSprites : ScriptableObject
 
     public static readonly Color Coral = new Color(1f, 0.40784314f, 0.46666667f, 1f);
     public static readonly Color Cyan = new Color(0.38039216f, 0.8509804f, 0.8235294f, 1f);
-    public static readonly Color Background = new Color(0.12941177f, 0.09803922f, 0.14509805f, 1f);
+    public static readonly Color Background = new Color(0.12941177f, 0.09411765f, 0.14117648f, 1f); // #211824 (dialogue BG fill)
 
     /// <summary>Chatbox / tail fill opacity (1 = fully opaque).</summary>
     public const float FillOpacity = 1f;

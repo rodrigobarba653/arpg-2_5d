@@ -61,7 +61,8 @@ public static class DialogueBubbleKitBuilder
         {
             // Opaque fills: connection mask covers the seam under the stroke.
             if (kit.tailConnectionMask != null)
-                maskGo = CreateSimple("TailMask", go.transform, kit.tailConnectionMask, UiKitSprites.Background, preserveAspect: false);
+                // Sprite matches dialogue BG fill (#211824); white tint avoids multiply darkening.
+                maskGo = CreateSimple("TailMask", go.transform, kit.tailConnectionMask, Color.white, preserveAspect: false);
 
             if (kit.TailBgFor(tailDirection) != null)
             {

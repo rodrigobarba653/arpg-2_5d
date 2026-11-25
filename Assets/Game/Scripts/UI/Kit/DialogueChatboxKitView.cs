@@ -194,6 +194,12 @@ public class DialogueChatboxKitView : MonoBehaviour
             c.a = 1f;
             tailBgImage.color = c;
         }
+
+        if (tailMaskImage != null)
+        {
+            // Mask PNG matches dialogue BG (#211824); white tint keeps multiply exact.
+            tailMaskImage.color = Color.white;
+        }
     }
 
     static void HardenSliced(Image img, float ppuMul)
