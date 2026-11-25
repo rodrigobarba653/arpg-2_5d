@@ -74,10 +74,31 @@ public class DialogueUIController : MonoBehaviour
 
     public DialogueChatboxView SpawnInteractive()
     {
+        return SpawnInteractive(withTail: true, screenBanner: false);
+    }
+
+    /// <summary>
+    /// Interactive chatbox. <paramref name="screenBanner"/> = large top-of-screen box without tail.
+    /// Portrait slot stays available (optional per line).
+    /// </summary>
+    public DialogueChatboxView SpawnInteractive(bool withTail, bool screenBanner)
+    {
         BuildCanvas();
-        var view = Spawn(interactivePrefab, interactiveRoot, "InteractiveChatbox", small: false);
-        view.ConfigurePriority(DialoguePresentationPriority.Interactive);
-        return view;
+        if (interactivePrefab != null && !screenBanner && withTail)
+        {
+            var view = Spawn(interactivePrefab, interactiveRoot, "InteractiveChatbox", small: false);
+            view.ConfigurePriority(DialoguePresentationPriority.Interactive);
+            return view;
+        }
+
+        var built = BuildPlaceholder(
+            interactiveRoot,
+            screenBanner ? "ScreenChatbox" : "InteractiveChatbox",
+            small: false,
+            withTail: withTail,
+            screenBanner: screenBanner);
+        built.ConfigurePriority(DialoguePresentationPriority.Interactive);
+        return built;
     }
 
     public DialogueChoiceView SpawnChoice()
@@ -118,37 +139,46 @@ public class DialogueUIController : MonoBehaviour
             return view;
         }
 
-        view = BuildPlaceholder(parent, name, small);
+        view = BuildPlaceholder(parent, name, small, withTail: true, screenBanner: false);
         return view;
     }
 
-    DialogueChatboxView BuildPlaceholder(RectTransform parent, string name, bool small)
+    DialogueChatboxView BuildPlaceholder(
+        RectTransform parent,
+        string name,
+        bool small,
+        bool withTail = true,
+        bool screenBanner = false)
     {
         var kit = uiKit != null ? uiKit : UiKitRuntime.Get();
         if (kit != null && kit.dialogueFrame != null)
         {
             // UI Kit v2 chrome — progression / layout solver unchanged.
+            Vector2 size = small
+                ? new Vector2(520f, 220f)
+                : (screenBanner ? new Vector2(1100f, 320f) : new Vector2(760f, 280f));
             var kitView = DialogueBubbleKitBuilder.Build(
                 parent,
                 name,
                 kit,
-                size: small ? new Vector2(520f, 220f) : new Vector2(760f, 280f),
+                size: size,
                 tailDirection: DialogueChatboxTailDirection.Bottom,
                 withPortraitSlot: !small,
                 speaker: "",
                 body: "",
                 portraitSprite: null,
                 font: null,
-                withTail: true);
+                withTail: withTail);
             if (!small)
             {
-                kitView.minWidth = 760f;
-                kitView.maxWidth = 1100f;
+                kitView.minWidth = screenBanner ? 900f : 760f;
+                kitView.maxWidth = screenBanner ? 1400f : 1100f;
                 kitView.minBodyLineCount = 3f;
             }
 
             kitView.SetSpeaker("");
             kitView.SetBodyVisibleText("");
+            kitView.IsScreenBanner = screenBanner;
             return kitView;
         }
 

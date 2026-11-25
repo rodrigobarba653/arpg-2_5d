@@ -72,12 +72,21 @@ public class AmbientDialogueHandle
         view.SetVisible(true);
         DialogueVoice.PlayLine(line);
 
-        Vector2 screen = WorldToScreen(anchor != null ? anchor.position : host.transform.position);
+        Vector2 screen = AimScreenPoint();
         bool placed = layout.TryPlaceAmbient(
-            view, screen, preferred, manualOffset, view.rectTransform.rect.size);
+            view,
+            screen,
+            DialogueChatboxPlacement.Above,
+            manualOffset,
+            view.rectTransform.rect.size);
 
         if (!placed)
             return false;
+
+        // Bottom tail slides toward speechAnchor / collider top.
+        var kit = view.GetComponent<DialogueChatboxKitView>();
+        if (kit != null)
+            kit.AimTailAtScreen(screen);
 
         runner = service;
         routine = service.StartCoroutine(Play());
@@ -96,13 +105,32 @@ public class AmbientDialogueHandle
             return;
         }
 
-        Vector2 screen = WorldToScreen(anchor != null ? anchor.position : host.transform.position);
+        Vector2 screen = AimScreenPoint();
         view.FitHeightToBody();
-        if (!layout.TryPlaceAmbient(view, screen, preferred, manualOffset, view.rectTransform.rect.size))
+
+        if (!layout.TryPlaceAmbient(
+                view,
+                screen,
+                DialogueChatboxPlacement.Above,
+                manualOffset,
+                view.rectTransform.rect.size))
         {
             // No space this frame — suppress.
             Dismiss(suppressCooldown: false);
+            return;
         }
+
+        var kit = view.GetComponent<DialogueChatboxKitView>();
+        if (kit != null)
+            kit.AimTailAtScreen(screen);
+    }
+
+    Vector2 AimScreenPoint()
+    {
+        Transform root = host != null ? host.transform : anchor;
+        Transform speech = host != null ? host.speechAnchor : null;
+        Vector3 world = DialogueSpeechAim.ResolveAimWorldPoint(root, speech);
+        return WorldToScreen(world);
     }
 
     public void Dismiss(bool suppressCooldown)

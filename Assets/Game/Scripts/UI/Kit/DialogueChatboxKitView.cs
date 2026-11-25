@@ -23,6 +23,28 @@ public class DialogueChatboxKitView : MonoBehaviour
     /// </summary>
     public float slicePixelsPerUnitMultiplier = DialogueBubbleKitBuilder.DefaultSlicePpuMultiplier;
 
+    Vector2 lastAimScreen;
+    bool hasAimTarget;
+    float alongEdge;
+
+    const float AxisBias = 1.15f;
+
+    public void ClearTailAim()
+    {
+        hasAimTarget = false;
+        alongEdge = 0f;
+    }
+
+    /// <summary>
+    /// Pick Bottom/Top/Left/Right and slide the tip along that edge toward the speaker.
+    /// </summary>
+    public void AimTailAtScreen(Vector2 speakerScreen)
+    {
+        lastAimScreen = speakerScreen;
+        hasAimTarget = true;
+        ApplyAimFromStored();
+    }
+
     public void SetTailDirection(DialogueChatboxTailDirection direction)
     {
         tailDirection = direction;
@@ -38,6 +60,73 @@ public class DialogueChatboxKitView : MonoBehaviour
 
     public void RefreshTailPlacement()
     {
+        if (hasAimTarget)
+        {
+            ApplyAimFromStored();
+            return;
+        }
+
+        PlaceCurrent(alongEdge);
+    }
+
+    void ApplyAimFromStored()
+    {
+        var bubble = transform as RectTransform;
+        if (bubble == null)
+            return;
+
+        Rect screenRect = GetBubbleScreenRect(bubble);
+        if (screenRect.width < 1f || screenRect.height < 1f)
+        {
+            PlaceCurrent(alongEdge);
+            return;
+        }
+
+        Vector2 center = screenRect.center;
+        Vector2 d = lastAimScreen - center;
+
+        float boxW = Mathf.Max(bubble.rect.width, bubble.sizeDelta.x);
+        float boxH = Mathf.Max(bubble.rect.height, bubble.sizeDelta.y);
+        float sx = boxW / screenRect.width;
+        float sy = boxH / screenRect.height;
+
+        DialogueChatboxTailDirection next;
+        float along;
+        bool verticalDominant = Mathf.Abs(d.y) * AxisBias >= Mathf.Abs(d.x);
+
+        if (verticalDominant)
+        {
+            next = d.y < 0f
+                ? DialogueChatboxTailDirection.Bottom
+                : DialogueChatboxTailDirection.Top;
+            along = d.x * sx;
+        }
+        else
+        {
+            next = d.x < 0f
+                ? DialogueChatboxTailDirection.Left
+                : DialogueChatboxTailDirection.Right;
+            along = d.y * sy;
+        }
+
+        alongEdge = along;
+        if (next != tailDirection)
+        {
+            tailDirection = next;
+            if (kit != null)
+            {
+                if (tailBgImage != null)
+                    tailBgImage.sprite = kit.TailBgFor(next);
+                if (tailOtImage != null)
+                    tailOtImage.sprite = kit.TailOtFor(next);
+            }
+        }
+
+        PlaceCurrent(alongEdge);
+    }
+
+    void PlaceCurrent(float along)
+    {
         var bubble = transform as RectTransform;
         if (bubble == null)
             return;
@@ -46,10 +135,33 @@ public class DialogueChatboxKitView : MonoBehaviour
 
         DialogueBubbleKitBuilder.PlaceTail(
             bubble,
+            tailMaskImage != null ? tailMaskImage.rectTransform : null,
             tailBgImage != null ? tailBgImage.rectTransform : null,
             tailOtImage != null ? tailOtImage.rectTransform : null,
             tailDirection,
-            DialogueBubbleKitBuilder.DefaultTailSize);
+            DialogueBubbleKitBuilder.DefaultTailSize,
+            along);
+    }
+
+    static Rect GetBubbleScreenRect(RectTransform bubble)
+    {
+        Canvas.ForceUpdateCanvases();
+        Vector3[] corners = new Vector3[4];
+        bubble.GetWorldCorners(corners);
+
+        float xmin = corners[0].x;
+        float xmax = corners[0].x;
+        float ymin = corners[0].y;
+        float ymax = corners[0].y;
+        for (int i = 1; i < 4; i++)
+        {
+            xmin = Mathf.Min(xmin, corners[i].x);
+            xmax = Mathf.Max(xmax, corners[i].x);
+            ymin = Mathf.Min(ymin, corners[i].y);
+            ymax = Mathf.Max(ymax, corners[i].y);
+        }
+
+        return Rect.MinMaxRect(xmin, ymin, xmax, ymax);
     }
 
     void Awake()
@@ -71,7 +183,7 @@ public class DialogueChatboxKitView : MonoBehaviour
         if (backgroundImage != null)
         {
             var c = backgroundImage.color;
-            c.a = UiKitSprites.FillOpacity;
+            c.a = 1f;
             backgroundImage.color = c;
             backgroundImage.fillCenter = true;
         }
@@ -79,7 +191,7 @@ public class DialogueChatboxKitView : MonoBehaviour
         if (tailBgImage != null)
         {
             var c = tailBgImage.color;
-            c.a = UiKitSprites.FillOpacity;
+            c.a = 1f;
             tailBgImage.color = c;
         }
     }

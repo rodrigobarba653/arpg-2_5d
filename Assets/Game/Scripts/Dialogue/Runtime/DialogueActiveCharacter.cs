@@ -9,12 +9,25 @@ public static class DialogueActiveCharacter
     /// <summary>Preferred authoring token for "whoever is currently controlled".</summary>
     public const string ActivePlayerAlias = "active_player";
 
+    /// <summary>
+    /// Screen-pinned banner: no world pointer / no tail. Authored in Dialogue Editor as "Screen".
+    /// </summary>
+    public const string ScreenAlias = "screen";
+
     static readonly string[] ActivePlayerAliases =
     {
         ActivePlayerAlias,
         "player",
         "party",
         "hero",
+    };
+
+    static readonly string[] ScreenAliases =
+    {
+        ScreenAlias,
+        "narrator",
+        "narration",
+        "none",
     };
 
     public static bool TryGetActiveCharacterId(out string characterId)
@@ -52,13 +65,29 @@ public static class DialogueActiveCharacter
         return false;
     }
 
+    public static bool IsScreenAlias(string speakerId)
+    {
+        if (string.IsNullOrEmpty(speakerId))
+            return false;
+        string key = speakerId.Trim().ToLowerInvariant();
+        for (int i = 0; i < ScreenAliases.Length; i++)
+        {
+            if (key == ScreenAliases[i])
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Maps authored speaker id → resolved character id for the session.
     /// ActivePlayer aliases become <paramref name="sessionActiveCharacterId"/>.
-    /// Fixed ids (e.g. jyn, villager_a) pass through unchanged.
+    /// Screen aliases stay as <see cref="ScreenAlias"/>. Fixed ids pass through.
     /// </summary>
     public static string ResolveSpeakerId(string authoredSpeakerId, string sessionActiveCharacterId)
     {
+        if (IsScreenAlias(authoredSpeakerId))
+            return ScreenAlias;
+
         if (IsActivePlayerAlias(authoredSpeakerId))
         {
             if (!string.IsNullOrEmpty(sessionActiveCharacterId))
@@ -71,6 +100,8 @@ public static class DialogueActiveCharacter
 
     public static string FallbackDisplayName(string characterId)
     {
+        if (IsScreenAlias(characterId))
+            return "";
         if (string.IsNullOrEmpty(characterId) || IsActivePlayerAlias(characterId))
             return "Player";
         return characterId;

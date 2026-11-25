@@ -338,22 +338,33 @@ public class DialogueSession
 
         string resolvedId = DialogueActiveCharacter.ResolveSpeakerId(line.speakerId, SessionActiveCharacterId);
         string speakerKey = string.IsNullOrEmpty(resolvedId) ? "_default" : resolvedId;
+        // Placement is independent of who speaks (Player off-camera → Screen + Active Player).
+        bool screenPinned = line.chatboxAim == DialogueChatboxAim.Screen ||
+                            DialogueActiveCharacter.IsScreenAlias(line.speakerId);
+        if (DialogueActiveCharacter.IsScreenAlias(speakerKey))
+            speakerKey = DialogueActiveCharacter.ScreenAlias;
 
-        if (plan == null)
-            BuildOrRebuildConversationPlan(force: true);
-        else if (!plan.TryGet(speakerKey, out _))
-            AppendUnplannedSpeaker(speakerKey);
+        if (!screenPinned)
+        {
+            if (plan == null)
+                BuildOrRebuildConversationPlan(force: true);
+            else if (!plan.TryGet(speakerKey, out _))
+                AppendUnplannedSpeaker(speakerKey);
+        }
 
         ApplyBubbleLifetimeBeforeLine(speakerKey);
 
-        var view = GetOrCreateBubble(speakerKey);
+        var view = GetOrCreateBubble(speakerKey, screenPinned);
         View = view;
         // New (or re-shown) line: place from the character once, then pin.
         view.ClearPinnedScreenPosition();
+        view.IsScreenBanner = screenPinned;
 
-        Transform anchor = ResolveAnchorForResolvedId(line.speakerId, resolvedId);
+        Transform anchor = screenPinned
+            ? null
+            : ResolveAnchorForResolvedId(line.speakerId, resolvedId);
         anchorBySpeaker[speakerKey] = anchor;
-        if (plan != null && plan.TryGet(speakerKey, out var slot))
+        if (!screenPinned && plan != null && plan.TryGet(speakerKey, out var slot))
         {
             slot.anchor = anchor;
             slot.visible = true;
@@ -554,7 +565,17 @@ public class DialogueSession
         }
 
         Vector2 sizeHint = GetInteractiveSizeHint(layout);
-        plan = layout.BuildConversationPlan(coreDraft, sizeHint);
+        // First-speak order = reachable discovery order (entry walk), then branch ids.
+        var speakOrder = new List<string>(analysis.reachable.Count + analysis.branch.Count);
+        for (int i = 0; i < analysis.reachable.Count; i++)
+            speakOrder.Add(analysis.reachable[i]);
+        for (int i = 0; i < analysis.branch.Count; i++)
+        {
+            if (!ContainsSpeaker(speakOrder, analysis.branch[i]))
+                speakOrder.Add(analysis.branch[i]);
+        }
+
+        plan = layout.BuildConversationPlan(coreDraft, sizeHint, speakOrder);
 
         var branchDraft = new List<ConversationSpeakerSlot>(analysis.branch.Count);
         for (int i = 0; i < draftScratch.Count; i++)
@@ -580,9 +601,6 @@ public class DialogueSession
                 continue;
             AppendUnplannedSpeaker(speakerOrder[i]);
         }
-
-        // Guard + player (or any 2 speakers) must never both sit as Above in the center.
-        layout.EnsureTwoSpeakerPairSides(plan);
 
         for (int i = 0; i < plan.speakers.Count; i++)
         {
@@ -614,24 +632,31 @@ public class DialogueSession
     void FillDraft(List<string> keys)
     {
         draftScratch.Clear();
+        Camera cam = DialogueScreenUtility.ResolveCamera();
         for (int i = 0; i < keys.Count; i++)
         {
             string key = keys[i];
+            if (DialogueActiveCharacter.IsScreenAlias(key))
+                continue;
             Transform anchor = null;
             if (!anchorBySpeaker.TryGetValue(key, out anchor) || !IsAlive(anchor))
                 anchor = ResolveAnchorForResolvedId(key, key);
             if (IsAlive(anchor))
                 anchorBySpeaker[key] = anchor;
 
-            Vector2 screen = IsAlive(anchor)
-                ? WorldToScreen(anchor.position)
-                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            // Off-camera speakers still project (rule 7); aim at speechAnchor / collider top.
+            Vector2 screen = ResolveAimScreen(key, anchor, anchor,
+                new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            float depth = 0f;
+            if (IsAlive(anchor) && cam != null)
+                depth = Vector3.Distance(cam.transform.position, anchor.position);
 
             draftScratch.Add(new ConversationSpeakerSlot
             {
                 speakerId = key,
                 anchor = anchor,
                 screenAnchor0 = screen,
+                cameraDistance = depth,
                 isPlayer = IsSessionPlayerKey(key),
             });
         }
@@ -640,6 +665,8 @@ public class DialogueSession
     void AppendUnplannedSpeaker(string speakerKey)
     {
         if (plan == null || string.IsNullOrEmpty(speakerKey) || plan.TryGet(speakerKey, out _))
+            return;
+        if (DialogueActiveCharacter.IsScreenAlias(speakerKey))
             return;
 
         int region = 0;
@@ -653,21 +680,28 @@ public class DialogueSession
         Transform anchor = ResolveAnchorForResolvedId(speakerKey, speakerKey);
         if (IsAlive(anchor))
             anchorBySpeaker[speakerKey] = anchor;
-        Vector2 screen = IsAlive(anchor)
-            ? WorldToScreen(anchor.position)
-            : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        Vector2 screen = ResolveAimScreen(speakerKey, anchor, anchor,
+            new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
 
         var layout = service.Layout;
         float sideGap = layout.RefToScreen(service.LayoutSettings != null ? service.LayoutSettings.conversationSideGapRef : 36f);
-        float lift = layout.RefToScreen(service.LayoutSettings != null ? service.LayoutSettings.conversationLiftRef : 48f);
-        float y = (region + 1) * (lift + sideGap);
+        float lift = layout.RefToScreen(service.LayoutSettings != null ? service.LayoutSettings.conversationLiftRef : 72f);
+        float below = layout.RefToScreen(service.LayoutSettings != null && service.LayoutSettings.conversationBelowGapRef > 0.01f
+            ? service.LayoutSettings.conversationBelowGapRef
+            : 160f);
+        // Alternate Below when many Above slots already exist.
+        bool preferBelow = (region % 2) == 0;
+        var side = preferBelow ? ConversationSlotSide.Below : ConversationSlotSide.Above;
+        Vector2 offset = preferBelow
+            ? new Vector2(0f, -below - region * sideGap * 0.25f)
+            : new Vector2(0f, lift + region * sideGap * 0.25f);
         plan.speakers.Add(new ConversationSpeakerSlot
         {
             speakerId = speakerKey,
             anchor = anchor,
-            side = ConversationSlotSide.Above,
+            side = side,
             screenAnchor0 = screen,
-            localOffsetScreen = new Vector2(0f, y),
+            localOffsetScreen = offset,
             isPlayer = IsSessionPlayerKey(speakerKey),
             visible = false,
             isCore = false,
@@ -698,10 +732,12 @@ public class DialogueSession
         for (int i = 0; i < speakerOrder.Count; i++)
         {
             string key = speakerOrder[i];
+            if (DialogueActiveCharacter.IsScreenAlias(key))
+                continue;
+
             Transform anchor = GetLiveAnchor(key);
-            Vector2 screen = IsAlive(anchor)
-                ? WorldToScreen(anchor.position)
-                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Vector2 screen = ResolveAimScreen(key, anchor, anchor,
+                new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
             draftScratch.Add(new ConversationSpeakerSlot
             {
                 speakerId = key,
@@ -711,10 +747,22 @@ public class DialogueSession
             });
         }
 
-        if (plan == null || layout.ShouldRebuildConversationPlan(plan, draftScratch))
+        // Slots are frozen before the first line. Never recompose mid-dialogue —
+        // only append anyone who was not in the original graph analysis.
+        if (plan == null)
             BuildOrRebuildConversationPlan(force: true);
+        else
+        {
+            for (int i = 0; i < draftScratch.Count; i++)
+            {
+                var d = draftScratch[i];
+                if (d != null && !plan.TryGet(d.speakerId, out _))
+                    AppendUnplannedSpeaker(d.speakerId);
+            }
+        }
 
         Vector2 sizeHint = GetInteractiveSizeHint(layout);
+        Vector2 screenSizeHint = GetScreenBannerSizeHint(layout);
         bool pin = PinBubblesOnShow;
 
         // Pass 1 — pinned bubbles keep their screen spot (do not follow walk/move).
@@ -726,12 +774,15 @@ public class DialogueSession
             if (!pin || !view.HasPinnedScreenPosition)
                 continue;
 
-            layout.RefreshPinnedBubbleSize(view, sizeHint);
+            layout.RefreshPinnedBubbleSize(
+                view,
+                view.IsScreenBanner ? screenSizeHint : sizeHint);
             view.ApplyPinnedScreenPosition();
             layout.RegisterOccupied(view.GetScreenRect());
+            AimKitTailAtSpeaker(view, key);
         }
 
-        // Pass 2 — unpinned bubbles place from the live anchor, then pin if enabled.
+        // Pass 2 — unpinned bubbles place from the live anchor (or screen-top banner).
         for (int i = 0; i < speakerOrder.Count; i++)
         {
             string key = speakerOrder[i];
@@ -740,6 +791,15 @@ public class DialogueSession
             if (pin && view.HasPinnedScreenPosition)
                 continue;
 
+            if (view.IsScreenBanner || DialogueActiveCharacter.IsScreenAlias(key))
+            {
+                layout.PlaceScreenTop(view, screenSizeHint, manualOffsetRef);
+                ClearKitTailAim(view);
+                if (pin)
+                    view.PinCurrentScreenPosition();
+                continue;
+            }
+
             if (plan == null || !plan.TryGet(key, out var slot))
                 continue;
 
@@ -747,14 +807,65 @@ public class DialogueSession
             if (IsAlive(anchor))
                 slot.anchor = anchor;
 
-            Vector2 screen = IsAlive(slot.anchor)
-                ? WorldToScreen(slot.anchor.position)
-                : (IsAlive(anchor) ? WorldToScreen(anchor.position) : slot.screenAnchor0);
+            Vector2 screen = ResolveAimScreen(key, slot.anchor, anchor, slot.screenAnchor0);
 
             layout.FollowConversationSlot(view, slot, screen, sizeHint, manualOffsetRef);
+            AimKitTailAtSpeaker(view, key);
             if (pin)
                 view.PinCurrentScreenPosition();
         }
+    }
+
+    void AimKitTailAtSpeaker(DialogueChatboxView view, string speakerKey)
+    {
+        if (view == null || view.IsScreenBanner)
+            return;
+
+        var kit = view.GetComponent<DialogueChatboxKitView>();
+        if (kit == null)
+            return;
+
+        Transform anchor = GetLiveAnchor(speakerKey);
+        Vector2 aim = ResolveAimScreen(speakerKey, anchor, anchor, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+        kit.AimTailAtScreen(aim);
+    }
+
+    static void ClearKitTailAim(DialogueChatboxView view)
+    {
+        if (view == null)
+            return;
+        var kit = view.GetComponent<DialogueChatboxKitView>();
+        if (kit != null)
+            kit.ClearTailAim();
+    }
+
+    Vector2 ResolveAimScreen(string _, Transform primary, Transform fallback, Vector2 fallbackScreen)
+    {
+        Transform anchor = IsAlive(primary) ? primary : fallback;
+        if (!IsAlive(anchor))
+            return fallbackScreen;
+
+        Transform root = anchor;
+        Transform speech = null;
+        var binding = anchor.GetComponent<DialogueSpeakerBinding>()
+                      ?? anchor.GetComponentInParent<DialogueSpeakerBinding>();
+        if (binding != null)
+        {
+            root = binding.transform;
+            speech = binding.speechAnchor;
+        }
+        else
+        {
+            var host = anchor.GetComponent<NpcDialogueHost>()
+                       ?? anchor.GetComponentInParent<NpcDialogueHost>();
+            if (host != null)
+            {
+                root = host.transform;
+                speech = host.speechAnchor;
+            }
+        }
+
+        return WorldToScreen(DialogueSpeechAim.ResolveAimWorldPoint(root, speech));
     }
 
     bool TryGetVisibleBubble(string key, out DialogueChatboxView view)
@@ -849,12 +960,22 @@ public class DialogueSession
         return new Vector2(layout.RefToScreen(widthRef), layout.RefToScreen(heightRef));
     }
 
-    DialogueChatboxView GetOrCreateBubble(string speakerKey)
+    DialogueChatboxView GetOrCreateBubble(string speakerKey, bool screenPinned = false)
     {
         if (bubbles.TryGetValue(speakerKey, out var existing) && existing != null)
-            return existing;
+        {
+            // Same speaker can switch Follow ↔ Screen (off-camera); rebuild chrome if needed.
+            if (existing.IsScreenBanner == screenPinned)
+                return existing;
 
-        var view = service.UI.SpawnInteractive();
+            service.UI.Release(existing);
+            bubbles.Remove(speakerKey);
+        }
+
+        var view = screenPinned
+            ? service.UI.SpawnInteractive(withTail: false, screenBanner: true)
+            : service.UI.SpawnInteractive();
+        view.IsScreenBanner = screenPinned;
         if (scale > 0.01f)
             view.rectTransform.localScale = Vector3.one * scale;
 
@@ -862,14 +983,12 @@ public class DialogueSession
             ? maxWidthRef
             : (service.LayoutSettings != null ? service.LayoutSettings.interactiveMaxWidthRef : 560f);
         float heightRef = service.LayoutSettings != null ? service.LayoutSettings.interactiveHeightRef : 220f;
-        view.rectTransform.sizeDelta = new Vector2(widthRef, heightRef);
-
-        if (view.bubbleBackground != null)
+        if (screenPinned)
         {
-            var c = view.bubbleBackground.color;
-            c.a = Mathf.Min(c.a, 0.92f);
-            view.bubbleBackground.color = c;
+            widthRef = Mathf.Max(widthRef, 1100f);
+            heightRef = Mathf.Max(heightRef, 320f);
         }
+        view.rectTransform.sizeDelta = new Vector2(widthRef, heightRef);
 
         bubbles[speakerKey] = view;
         if (!speakerOrder.Contains(speakerKey))
@@ -877,8 +996,20 @@ public class DialogueSession
         return view;
     }
 
+    Vector2 GetScreenBannerSizeHint(DialogueLayoutSolver layout)
+    {
+        float widthRef = 1100f;
+        float heightRef = service.LayoutSettings != null ? service.LayoutSettings.interactiveHeightRef : 320f;
+        heightRef = Mathf.Max(heightRef, 320f);
+        return new Vector2(layout.RefToScreen(widthRef), layout.RefToScreen(heightRef));
+    }
+
     Transform ResolveAnchorForResolvedId(string authoredSpeakerId, string resolvedId)
     {
+        if (DialogueActiveCharacter.IsScreenAlias(authoredSpeakerId) ||
+            DialogueActiveCharacter.IsScreenAlias(resolvedId))
+            return null;
+
         if (DialogueActiveCharacter.IsActivePlayerAlias(authoredSpeakerId))
             return GetSessionPlayerTransform();
 

@@ -16,6 +16,19 @@ MonoBehaviour:
   entryNodeId: a1
   defaultTypewriterCharsPerSecond: 48
   lockGameplay: 0
+  originKind: 0
+  originSpeakerId: 
+  overrideChoicePresentation: 0
+  choicePresentation:
+    placement: 0
+    marginRef: 24
+    offsetRef: {x: 0, y: 0}
+    maxWidthRef: 720
+    maxHeightRef: 420
+    gapFromBubbleRef: 24
+  pinBubblesOnShow: 1
+  bubbleLifetime: 0
+  keepRecentCount: 2
   nodes:
   - rid: 8969645638822134206
   - rid: 8969645638822134207
@@ -30,10 +43,15 @@ MonoBehaviour:
         speakerDisplayName: 
         text: "Hmm\u2026 the wind feels weird today."
         textVariants: []
+        portraitMode: 0
         portraitExpression: Neutral
+        portraitSprite: {fileID: 0}
+        portraitVariants: []
         nextNodeId: a2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+        voiceClip: {fileID: 0}
+        voiceVolume: 1
     - rid: 8969645638822134207
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
@@ -42,7 +60,12 @@ MonoBehaviour:
         speakerDisplayName: 
         text: "\u2026or maybe it's just me."
         textVariants: []
+        portraitMode: 0
         portraitExpression: Neutral
+        portraitSprite: {fileID: 0}
+        portraitVariants: []
         nextNodeId: 
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+        voiceClip: {fileID: 0}
+        voiceVolume: 1

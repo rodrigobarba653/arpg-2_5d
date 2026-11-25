@@ -42,7 +42,7 @@ MonoBehaviour:
       type: {class: DialogueLineNode, ns: , asm: Assembly-CSharp}
       data:
         nodeId: line_1
-        speakerId: guard1
+        speakerId: soldier_melee_cdafdf82
         speakerDisplayName: Guard
         text: Hey! You are not suppose to be here.
         textVariants:
@@ -55,6 +55,7 @@ MonoBehaviour:
         portraitSprite: {fileID: 21300000, guid: 4abd0867055db08408b70080afbaff39, type: 3}
         portraitVariants: []
         nextNodeId: line_2
+        chatboxAim: 0
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
         voiceClip: {fileID: 8300000, guid: 1aaa607fa47fda047903019af90ac782, type: 3}
@@ -80,6 +81,7 @@ MonoBehaviour:
         portraitSprite: {fileID: 0}
         portraitVariants: []
         nextNodeId: line_3
+        chatboxAim: 1
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
         voiceClip: {fileID: 0}
@@ -130,6 +132,7 @@ MonoBehaviour:
         portraitSprite: {fileID: 0}
         portraitVariants: []
         nextNodeId: choice_1
+        chatboxAim: 0
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
         voiceClip: {fileID: 0}

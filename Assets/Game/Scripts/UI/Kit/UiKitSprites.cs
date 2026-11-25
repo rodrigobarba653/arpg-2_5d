@@ -46,16 +46,17 @@ public class UiKitSprites : ScriptableObject
     public static readonly Color Cyan = new Color(0.38039216f, 0.8509804f, 0.8235294f, 1f);
     public static readonly Color Background = new Color(0.12941177f, 0.09803922f, 0.14509805f, 1f);
 
-    /// <summary>70% opacity for chatbox fill + tail bg layers.</summary>
-    public const float FillOpacity = 0.7f;
+    /// <summary>Chatbox / tail fill opacity (1 = fully opaque).</summary>
+    public const float FillOpacity = 1f;
 
     public Sprite TailBgFor(DialogueChatboxTailDirection direction)
     {
         switch (direction)
         {
             case DialogueChatboxTailDirection.Top: return tailTopBg;
-            case DialogueChatboxTailDirection.Left: return tailLeftBg;
-            case DialogueChatboxTailDirection.Right: return tailRightBg;
+            // Art tip points inward on the named side PNGs — swap so the tip faces the speaker.
+            case DialogueChatboxTailDirection.Left: return tailRightBg;
+            case DialogueChatboxTailDirection.Right: return tailLeftBg;
             default: return tailBottomBg;
         }
     }
@@ -65,8 +66,8 @@ public class UiKitSprites : ScriptableObject
         switch (direction)
         {
             case DialogueChatboxTailDirection.Top: return tailTopOt;
-            case DialogueChatboxTailDirection.Left: return tailLeftOt;
-            case DialogueChatboxTailDirection.Right: return tailRightOt;
+            case DialogueChatboxTailDirection.Left: return tailRightOt;
+            case DialogueChatboxTailDirection.Right: return tailLeftOt;
             default: return tailBottomOt;
         }
     }

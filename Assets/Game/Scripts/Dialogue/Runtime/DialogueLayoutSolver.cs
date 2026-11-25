@@ -62,140 +62,60 @@ public class DialogueLayoutSolver
 
     /// <summary>
     /// Builds a stable multi-speaker composition once for the conversation.
-    /// Speakers are sorted by screen X and assigned Left→Right slots (N/S still uses L/R).
+    /// Uses first-speak order + screen geometry (rules 1–7). Off-camera speakers
+    /// still contribute via projected screen positions.
     /// </summary>
     public ConversationLayoutPlan BuildConversationPlan(
         IList<ConversationSpeakerSlot> draftSpeakers,
-        Vector2 sizeHint)
+        Vector2 sizeHint,
+        IList<string> speakOrder = null)
     {
         var plan = new ConversationLayoutPlan();
-        if (draftSpeakers == null || draftSpeakers.Count == 0)
-            return plan;
-
         float sideGap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
-        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
-        float soloLift = RefToScreen(settings != null ? settings.conversationSoloLiftRef : 28f);
+        float lift = RefToScreen(settings != null && settings.conversationLiftRef > 0.01f
+            ? settings.conversationLiftRef
+            : 72f);
+        float soloLift = RefToScreen(settings != null && settings.conversationSoloLiftRef > 0.01f
+            ? settings.conversationSoloLiftRef
+            : 40f);
+        float belowGap = RefToScreen(settings != null && settings.conversationBelowGapRef > 0.01f
+            ? settings.conversationBelowGapRef
+            : 160f);
+        float sideSpaceMin = RefToScreen(settings != null && settings.conversationSideSpaceMinRef > 0.01f
+            ? settings.conversationSideSpaceMinRef
+            : 280f);
         float width = sizeHint.x > 8f
             ? sizeHint.x
-            : RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f);
+            : RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 760f);
+        float height = sizeHint.y > 8f
+            ? sizeHint.y
+            : RefToScreen(settings != null ? settings.interactiveHeightRef : 280f);
 
-        // Sort copy by screen X (left → right).
-        var ordered = new List<ConversationSpeakerSlot>(draftSpeakers.Count);
-        for (int i = 0; i < draftSpeakers.Count; i++)
-        {
-            if (draftSpeakers[i] != null)
-                ordered.Add(draftSpeakers[i]);
-        }
-        ordered.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
-
-        int n = ordered.Count;
-        for (int i = 0; i < n; i++)
-        {
-            var src = ordered[i];
-            ConversationSlotSide side;
-            Vector2 offset;
-
-            if (n == 1)
+        ConversationLayoutComposer.Compose(
+            plan,
+            draftSpeakers,
+            speakOrder,
+            new ConversationLayoutComposer.Metrics
             {
-                // Solo NPC (or solo player): sit closer above the speaker.
-                side = ConversationSlotSide.Above;
-                offset = new Vector2(0f, soloLift);
-            }
-            else if (n == 2)
-            {
-                // Leftmost on screen → Left side, rightmost → Right.
-                bool screenLeft = i == 0;
-                side = screenLeft ? ConversationSlotSide.Left : ConversationSlotSide.Right;
-                float pairDx = Mathf.Abs(ordered[0].screenAnchor0.x - ordered[1].screenAnchor0.x);
-                float minSep = width * 0.55f + sideGap;
-                float xOff;
-                if (pairDx < minSep)
-                {
-                    float mid = (ordered[0].screenAnchor0.x + ordered[1].screenAnchor0.x) * 0.5f;
-                    float targetX = screenLeft ? mid - minSep : mid + minSep;
-                    xOff = targetX - src.screenAnchor0.x;
-                }
-                else
-                {
-                    xOff = screenLeft ? -(sideGap + width * 0.35f) : (sideGap + width * 0.35f);
-                }
-                offset = new Vector2(xOff, lift);
-            }
-            else
-            {
-                // Fan across: outer Left/Right, middles Above with horizontal bias.
-                float t = n == 1 ? 0.5f : i / (float)(n - 1);
-                if (t < 0.34f)
-                {
-                    side = ConversationSlotSide.Left;
-                    offset = new Vector2(-(sideGap + width * 0.35f), lift);
-                }
-                else if (t > 0.66f)
-                {
-                    side = ConversationSlotSide.Right;
-                    offset = new Vector2(sideGap + width * 0.35f, lift);
-                }
-                else
-                {
-                    side = ConversationSlotSide.Above;
-                    float bias = (t - 0.5f) * width * 0.8f;
-                    offset = new Vector2(bias, lift + sideGap);
-                }
-            }
-
-            plan.speakers.Add(new ConversationSpeakerSlot
-            {
-                speakerId = src.speakerId,
-                anchor = src.anchor,
-                side = side,
-                screenAnchor0 = src.screenAnchor0,
-                localOffsetScreen = offset,
-                isPlayer = src.isPlayer,
-                visible = false,
-                isCore = true,
+                sideGap = sideGap,
+                lift = lift,
+                soloLift = soloLift,
+                belowGap = belowGap,
+                width = width,
+                height = height,
+                safe = GetEffectiveSafeScreenRect(),
+                sideSpaceMin = sideSpaceMin,
             });
-        }
 
         return plan;
     }
 
     /// <summary>
-    /// When exactly two speakers share a conversation, force Left/Right composition
-    /// even if one arrived as a branch/Above slot. Prevents center stacking after shots.
+    /// Legacy no-op: pair layout is owned by <see cref="ConversationLayoutComposer"/> (first Above / second Below).
     /// </summary>
     public void EnsureTwoSpeakerPairSides(ConversationLayoutPlan plan)
     {
-        if (plan == null || plan.speakers.Count != 2)
-            return;
-        if (plan.speakers[0] == null || plan.speakers[1] == null)
-            return;
-
-        var ordered = new List<ConversationSpeakerSlot>(2) { plan.speakers[0], plan.speakers[1] };
-        ordered.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
-
-        float sideGap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
-        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
-        float width = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f);
-        float pairDx = Mathf.Abs(ordered[0].screenAnchor0.x - ordered[1].screenAnchor0.x);
-        float minSep = width * 0.55f + sideGap;
-        float mid = (ordered[0].screenAnchor0.x + ordered[1].screenAnchor0.x) * 0.5f;
-
-        for (int i = 0; i < 2; i++)
-        {
-            bool screenLeft = i == 0;
-            var slot = ordered[i];
-            slot.side = screenLeft ? ConversationSlotSide.Left : ConversationSlotSide.Right;
-            if (pairDx < minSep)
-            {
-                float targetX = screenLeft ? mid - minSep : mid + minSep;
-                slot.localOffsetScreen = new Vector2(targetX - slot.screenAnchor0.x, lift);
-            }
-            else
-            {
-                float xOff = screenLeft ? -(sideGap + width * 0.35f) : (sideGap + width * 0.35f);
-                slot.localOffsetScreen = new Vector2(xOff, lift);
-            }
-        }
+        // Intentionally empty — old Left/Right screen columns conflicted with the new rules.
     }
 
     /// <summary>
@@ -354,6 +274,36 @@ public class DialogueLayoutSolver
     }
 
     /// <summary>
+    /// Large interactive banner at the top of the safe area (no world pointer / no tail).
+    /// </summary>
+    public void PlaceScreenTop(
+        DialogueChatboxView view,
+        Vector2 sizeHint,
+        Vector2 manualOffsetRef)
+    {
+        if (view == null || view.rectTransform == null)
+            return;
+
+        Rect safe = GetEffectiveSafeScreenRect();
+        Vector2 size = ResolveSize(view, sizeHint, ambient: false);
+        // Use full interactive width band (not half-column pair clamp).
+        ApplyInteractiveWidth(view, Mathf.Max(size.x, RefToScreen(
+            settings != null ? settings.interactiveMaxWidthRef : 1100f)));
+        UseFittedHeight(view, ref size);
+        size = ResolveSize(view, size, ambient: false);
+
+        Vector2 manualOffset = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
+        Vector2 pivot = new Vector2(0.5f, 1f);
+        float topPad = RefToScreen(8f);
+        Vector2 raw = new Vector2(safe.center.x, safe.yMax - topPad) + manualOffset;
+        Vector2 clamped = ClampPivotPosition(raw, size, pivot, safe);
+
+        view.rectTransform.pivot = pivot;
+        view.rectTransform.position = clamped;
+        RegisterOccupied(view.GetScreenRect());
+    }
+
+    /// <summary>
     /// Updates fitted width/height for a pinned bubble without moving it.
     /// </summary>
     public void RefreshPinnedBubbleSize(DialogueChatboxView view, Vector2 sizeHint)
@@ -373,10 +323,9 @@ public class DialogueLayoutSolver
     }
 
     /// <summary>
-    /// Places a bubble using its reserved conversation slot. Follows the live anchor
-    /// unless the session pins the bubble after first show.
-    /// Left/Right pairs use screen columns so Camera Shots that stack characters
-    /// cannot clamp two wide bubbles onto the same center point.
+    /// Places a bubble using its reserved conversation slot relative to the live speaker
+    /// (Above / Below / Left / Right — same idea as ambient). Slot side + offset are frozen
+    /// at plan time; only the anchor follows.
     /// </summary>
     public bool FollowConversationSlot(
         DialogueChatboxView view,
@@ -392,16 +341,15 @@ public class DialogueLayoutSolver
         Vector2 size = ResolveSize(view, sizeHint, ambient: false);
         Vector2 pivot = PivotForConversationSide(slot.side);
         Vector2 manual = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
-        float pad = RefToScreen(settings != null ? settings.screenMarginRef : 24f) * 0.35f;
-        float lift = RefToScreen(settings != null ? settings.conversationLiftRef : 48f);
 
-        bool pairedSide = slot.side == ConversationSlotSide.Left ||
-                          slot.side == ConversationSlotSide.Right;
-        if (pairedSide)
+        // Side slots share width so L+R can coexist without covering the whole safe area.
+        bool sideSlot = slot.side == ConversationSlotSide.Left ||
+                        slot.side == ConversationSlotSide.Right;
+        if (sideSlot)
         {
-            // Two chatboxes must fit in the safe width with a gap.
             float gap = RefToScreen(settings != null ? settings.conversationSideGapRef : 36f);
-            float maxPairWidth = Mathf.Max(120f, (safe.width - gap) * 0.5f - pad);
+            float pad = RefToScreen(settings != null ? settings.screenMarginRef : 24f) * 0.35f;
+            float maxPairWidth = Mathf.Max(120f, (safe.width - gap) * 0.55f - pad);
             if (size.x > maxPairWidth)
                 size.x = maxPairWidth;
         }
@@ -409,38 +357,12 @@ public class DialogueLayoutSolver
         ApplyInteractiveWidth(view, size.x);
         UseFittedHeight(view, ref size);
 
-        Vector2 pos;
-        if (pairedSide)
-        {
-            // Playtest: side-from-screen-X was mirrored vs the stage after Camera Shot.
-            // Place Left-side speakers in the right column and Right-side in the left.
-            float y = anchorScreen.y + lift + manual.y;
-            bool placeOnLeft = slot.side == ConversationSlotSide.Right;
-            if (placeOnLeft)
-            {
-                float leftEdge = safe.xMin + pad;
-                // Use left-column pivot (1,0.5) regardless of authored side.
-                pivot = new Vector2(1f, 0.5f);
-                pos = new Vector2(leftEdge + size.x * pivot.x, y);
-            }
-            else
-            {
-                float rightEdge = safe.xMax - pad;
-                pivot = new Vector2(0f, 0.5f);
-                pos = new Vector2(rightEdge - size.x * (1f - pivot.x), y);
-            }
-
-            pos = ClampPivotPosition(pos, size, pivot, safe);
-        }
-        else
-        {
-            Vector2 raw = anchorScreen + slot.localOffsetScreen + manual;
-            pos = ClampPivotPosition(raw, size, pivot, safe);
-            Rect avoid = BuildSpeakerAvoidRect(
-                anchorScreen,
-                slot.isPlayer && settings != null ? settings.playerAvoidScale : 1f);
-            pos = NudgeClearOfRect(pos, size, pivot, avoid, slot.side, safe);
-        }
+        Vector2 raw = anchorScreen + slot.localOffsetScreen + manual;
+        Vector2 pos = ClampPivotPosition(raw, size, pivot, safe);
+        Rect avoid = BuildSpeakerAvoidRect(
+            anchorScreen,
+            slot.isPlayer && settings != null ? settings.playerAvoidScale : 1f);
+        pos = NudgeClearOfRect(pos, size, pivot, avoid, slot.side, safe);
 
         view.rectTransform.pivot = pivot;
         view.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -453,104 +375,13 @@ public class DialogueLayoutSolver
     }
 
     /// <summary>
-    /// True when a core speaker crosses into or out of the safe area, disappears,
-    /// or two or more speakers change left-right order by more than the rebuild delta.
-    /// Staying off-screen does not rebuild. The reserved slot keeps following.
+    /// Conversation slots are frozen before the first line. Mid-dialogue rebuilds are off.
     /// </summary>
     public bool ShouldRebuildConversationPlan(
         ConversationLayoutPlan plan,
         IList<ConversationSpeakerSlot> liveSnapshots)
     {
-        if (plan == null || plan.speakers.Count == 0 || liveSnapshots == null)
-            return true;
-
-        float rebuildDelta = RefToScreen(settings != null ? settings.planRebuildDeltaRef : 160f);
-        var core = new List<ConversationSpeakerSlot>(plan.speakers.Count);
-        for (int i = 0; i < plan.speakers.Count; i++)
-        {
-            var planned = plan.speakers[i];
-            if (planned != null && planned.isCore)
-                core.Add(planned);
-        }
-
-        if (core.Count == 0)
-            return false;
-
-        Rect safe = GetEffectiveSafeScreenRect();
-        var liveCore = new List<ConversationSpeakerSlot>(core.Count);
-        for (int i = 0; i < core.Count; i++)
-        {
-            var planned = core[i];
-            ConversationSpeakerSlot live = null;
-            for (int j = 0; j < liveSnapshots.Count; j++)
-            {
-                if (liveSnapshots[j] != null &&
-                    string.Equals(liveSnapshots[j].speakerId, planned.speakerId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    live = liveSnapshots[j];
-                    break;
-                }
-            }
-
-            if (live == null)
-                return true;
-
-            liveCore.Add(live);
-            // A directed shot can leave the speaker outside the safe rect for the whole line.
-            // Rebuilding on every off-screen sample logged a new plan each frame.
-            bool liveOutside = IsOutsideSafe(live.screenAnchor0, safe, rebuildDelta);
-            bool plannedOutside = IsOutsideSafe(planned.screenAnchor0, safe, rebuildDelta);
-            if (liveOutside != plannedOutside)
-                return true;
-        }
-
-        if (liveCore.Count >= 2)
-        {
-            var planOrder = new List<ConversationSpeakerSlot>(core);
-            planOrder.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
-            var liveOrder = new List<ConversationSpeakerSlot>(liveCore);
-            liveOrder.Sort((a, b) => a.screenAnchor0.x.CompareTo(b.screenAnchor0.x));
-
-            for (int i = 0; i < planOrder.Count; i++)
-            {
-                if (!string.Equals(planOrder[i].speakerId, liveOrder[i].speakerId,
-                        System.StringComparison.OrdinalIgnoreCase))
-                {
-                    float dx = Mathf.Abs(liveOrder[i].screenAnchor0.x - planOrder[i].screenAnchor0.x);
-                    if (dx > rebuildDelta)
-                        return true;
-                }
-            }
-
-            // Camera Shot / blend: anchors moved a lot on screen even if L/R order stayed.
-            for (int i = 0; i < core.Count; i++)
-            {
-                var planned = core[i];
-                ConversationSpeakerSlot live = null;
-                for (int j = 0; j < liveCore.Count; j++)
-                {
-                    if (string.Equals(liveCore[j].speakerId, planned.speakerId,
-                            System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        live = liveCore[j];
-                        break;
-                    }
-                }
-                if (live == null)
-                    continue;
-                if (Vector2.Distance(planned.screenAnchor0, live.screenAnchor0) > rebuildDelta * 1.25f)
-                    return true;
-            }
-
-            // Anchors collapsed together under the new framing → need a wider pair recipe.
-            float livePairDx = Mathf.Abs(liveOrder[0].screenAnchor0.x - liveOrder[liveOrder.Count - 1].screenAnchor0.x);
-            float planPairDx = Mathf.Abs(planOrder[0].screenAnchor0.x - planOrder[planOrder.Count - 1].screenAnchor0.x);
-            float collapse = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f) * 0.45f;
-            if (livePairDx < collapse && planPairDx > livePairDx + rebuildDelta * 0.5f)
-                return true;
-        }
-
-        return false;
+        return plan == null || plan.speakers.Count == 0;
     }
 
     static bool IsOutsideSafe(Vector2 screen, Rect safe, float margin)
@@ -625,19 +456,24 @@ public class DialogueLayoutSolver
         Vector2 manualOffset = manualOffsetRef * (canvasScaleFactor > 0.01f ? canvasScaleFactor : 1f);
 
         BuildCandidateOrder(preferred, avoidCoveringAnchor, candidateScratch);
+        // Base lift keeps ambient a bit above the NPC head / speechAnchor when following.
+        float liftRef = settings != null && settings.ambientLiftRef > 0.01f
+            ? settings.ambientLiftRef
+            : 72f;
+        float baseLift = RefToScreen(liftRef);
         float[] lifts = avoidCoveringAnchor
             ? new[]
             {
-                RefToScreen(0f),
-                RefToScreen(48f),
-                RefToScreen(96f),
-                RefToScreen(144f),
+                baseLift,
+                baseLift + RefToScreen(48f),
+                baseLift + RefToScreen(96f),
+                baseLift + RefToScreen(144f),
             }
             : new[]
             {
-                RefToScreen(0f),
-                RefToScreen(36f),
-                RefToScreen(72f),
+                baseLift,
+                baseLift + RefToScreen(36f),
+                baseLift + RefToScreen(72f),
             };
 
         for (int l = 0; l < lifts.Length; l++)

@@ -264,9 +264,19 @@ public sealed class DialogueEditorWindow : EditorWindow
             SerializedProperty portraitSprite = element.FindPropertyRelative("portraitSprite");
             SerializedProperty portraitVariants = element.FindPropertyRelative("portraitVariants");
             SerializedProperty next = element.FindPropertyRelative("nextNodeId");
+            SerializedProperty chatboxAim = element.FindPropertyRelative("chatboxAim");
+
+            // Legacy: speakerId "screen" → Active Player + Screen placement.
+            if (DialogueActiveCharacter.IsScreenAlias(speakerId.stringValue))
+            {
+                speakerId.stringValue = DialogueAuthoringOps.ActivePlayerSpeakerId;
+                if (chatboxAim != null)
+                    chatboxAim.enumValueIndex = (int)DialogueChatboxAim.Screen;
+            }
 
             bool isPlayer = DialogueActiveCharacter.IsActivePlayerAlias(speakerId.stringValue);
             DrawSpeakerRow(speakerId, displayName, ref isPlayer);
+            DrawChatboxAimRow(element);
             DrawPortraitRow(isPlayer, speakerId.stringValue, portraitMode, portraitSprite, portraitVariants);
 
             if (isPlayer)
@@ -312,10 +322,38 @@ public sealed class DialogueEditorWindow : EditorWindow
             EditorGUILayout.Slider(voiceVolume, 0f, 1f, new GUIContent("Volume"));
     }
 
+    void DrawChatboxAimRow(SerializedProperty element)
+    {
+        SerializedProperty aim = element.FindPropertyRelative("chatboxAim");
+        if (aim == null)
+            return;
+
+        int idx = Mathf.Clamp(aim.enumValueIndex, 0, 1);
+        int next = EditorGUILayout.Popup(
+            new GUIContent(
+                "Chatbox placement",
+                "Follow Speaker = tail toward character. Screen = top banner, no tail (Player/NPC off-camera)."),
+            idx,
+            new[] { "Follow Speaker", "Screen (no pointer / off-camera)" });
+        if (next != idx)
+            aim.enumValueIndex = next;
+
+        if (next == (int)DialogueChatboxAim.Screen)
+        {
+            EditorGUILayout.LabelField(
+                " ",
+                "Top of screen · large · no tail · speaker + portrait still apply",
+                hintStyle);
+        }
+    }
+
     void DrawSpeakerRow(SerializedProperty speakerId, SerializedProperty displayName, ref bool isPlayer)
     {
         int mode = isPlayer ? 0 : 1;
-        int nextMode = EditorGUILayout.Popup("Speaker", mode, new[] { "Active Player", "NPC (scene character)" });
+        int nextMode = EditorGUILayout.Popup(
+            "Speaker",
+            mode,
+            new[] { "Active Player", "NPC (scene character)" });
         if (nextMode != mode)
         {
             if (nextMode == 0)

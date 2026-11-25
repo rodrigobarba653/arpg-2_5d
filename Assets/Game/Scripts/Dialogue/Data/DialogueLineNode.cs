@@ -33,6 +33,9 @@ public class DialogueLineNode : DialogueNode
     [Tooltip("Next node id. Empty = end conversation.")]
     public string nextNodeId = "";
 
+    [Tooltip("Follow Speaker = point at character. Screen = top banner, no tail (off-camera VO still uses Player/NPC portraits).")]
+    public DialogueChatboxAim chatboxAim = DialogueChatboxAim.FollowSpeaker;
+
     [Tooltip("Optional typewriter chars/sec override. 0 = use asset/service default.")]
     public float typewriterCharsPerSecond = 0f;
 

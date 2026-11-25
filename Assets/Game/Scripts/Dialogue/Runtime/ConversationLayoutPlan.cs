@@ -3,15 +3,19 @@ using UnityEngine;
 
 public enum ConversationSlotSide
 {
+    /// <summary>Chatbox to the left of the speaker (tail points right).</summary>
     Left = 0,
+    /// <summary>Chatbox to the right of the speaker (tail points left).</summary>
     Right = 1,
+    /// <summary>Chatbox above the speaker head / speechAnchor (ambient-style).</summary>
     Above = 2,
+    /// <summary>Chatbox below the speaker feet (avoids stacking on Above).</summary>
     Below = 3,
 }
 
 /// <summary>
 /// Per-speaker reserved region for an interactive conversation.
-/// Assigned once up front; followed each frame without re-sorting.
+/// Assigned once up front before the first line; followed without re-sorting.
 /// </summary>
 public class ConversationSpeakerSlot
 {
@@ -22,6 +26,9 @@ public class ConversationSpeakerSlot
     public Vector2 localOffsetScreen;
     public bool isPlayer;
     public bool visible;
+
+    /// <summary>Distance from dialogue camera at plan time (CL vs FR).</summary>
+    public float cameraDistance;
 
     /// <summary>False for a branch speaker. Rebuild looks at core slots only.</summary>
     public bool isCore = true;

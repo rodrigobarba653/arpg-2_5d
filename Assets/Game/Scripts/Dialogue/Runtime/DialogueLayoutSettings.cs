@@ -31,6 +31,9 @@ public class DialogueLayoutSettings
     [Tooltip("Ambient chatbox height in Canvas reference units.")]
     public float ambientHeightRef = 210f;
 
+    [Tooltip("Extra upward lift when ambient follows the NPC (ref units). Keeps the box a bit above the head / speechAnchor.")]
+    public float ambientLiftRef = 72f;
+
     [Tooltip("Seconds to lerp when the chosen placement slot changes.")]
     [Min(0f)]
     public float slotTransitionSeconds = 0.15f;
@@ -55,13 +58,19 @@ public class DialogueLayoutSettings
     [Tooltip("Horizontal gap from speaker toward their reserved side (ref units).")]
     public float conversationSideGapRef = 36f;
 
-    [Tooltip("Upward lift from speaker anchor for multi-speaker slots (ref units).")]
-    public float conversationLiftRef = 48f;
+    [Tooltip("Upward lift from speaker head / speechAnchor (ref units).")]
+    public float conversationLiftRef = 72f;
 
     [Tooltip("Upward lift when only one speaker is in the conversation (keep box closer).")]
-    public float conversationSoloLiftRef = 28f;
+    public float conversationSoloLiftRef = 40f;
 
-    [Tooltip("Rebuild plan if any speaker's screen X order flips and moves more than this (ref units).")]
+    [Tooltip("Downward gap past the feet when a speaker is assigned Below (ref units).")]
+    public float conversationBelowGapRef = 160f;
+
+    [Tooltip("Minimum free screen margin beside outer speakers before Left/Right slots are allowed (ref units).")]
+    public float conversationSideSpaceMinRef = 280f;
+
+    [Tooltip("Rebuild plan if any speaker's screen X order flips and moves more than this (ref units). Mid-dialogue rebuilds are disabled by default.")]
     public float planRebuildDeltaRef = 160f;
 
     [Header("Choice menu")]

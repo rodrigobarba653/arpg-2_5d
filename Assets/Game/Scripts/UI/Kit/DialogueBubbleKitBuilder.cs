@@ -40,13 +40,12 @@ public static class DialogueBubbleKitBuilder
 
         var cg = go.GetComponent<CanvasGroup>();
 
-        // Background then frame (9-slice only — no corner/edge mashup).
-        // Chatbox fill at 70% opacity; coral outline stays fully opaque.
+        // Background then frame (9-slice only — no corner/edge mashup). Opaque fill.
         var bg = CreateSliced(
             "Background",
             go.transform,
             kit.dialogueBackground,
-            new Color(1f, 1f, 1f, UiKitSprites.FillOpacity),
+            Color.white,
             DefaultSlicePpuMultiplier);
         bg.material = null;
         StretchFull(bg.rectTransform);
@@ -54,20 +53,23 @@ public static class DialogueBubbleKitBuilder
         var frame = CreateSliced("Frame", go.transform, kit.dialogueFrame, Color.white, DefaultSlicePpuMultiplier);
         StretchFull(frame.rectTransform);
 
+        Image maskGo = null;
         Image tailBgGo = null;
         Image tailOtGo = null;
         bool hasTail = withTail && (kit.TailBgFor(tailDirection) != null || kit.TailOtFor(tailDirection) != null);
         if (hasTail)
         {
-            // No connection mask when fills are translucent — stacking 70% alphas
-            // darkens the join. TailBg stays outside; only TailOt tucks into the stroke.
+            // Opaque fills: connection mask covers the seam under the stroke.
+            if (kit.tailConnectionMask != null)
+                maskGo = CreateSimple("TailMask", go.transform, kit.tailConnectionMask, UiKitSprites.Background, preserveAspect: false);
+
             if (kit.TailBgFor(tailDirection) != null)
             {
                 tailBgGo = CreateSimple(
                     "TailBg",
                     go.transform,
                     kit.TailBgFor(tailDirection),
-                    new Color(1f, 1f, 1f, UiKitSprites.FillOpacity),
+                    Color.white,
                     preserveAspect: false);
             }
 
@@ -83,6 +85,7 @@ public static class DialogueBubbleKitBuilder
 
             PlaceTail(
                 rt,
+                maskGo != null ? maskGo.rectTransform : null,
                 tailBgGo != null ? tailBgGo.rectTransform : null,
                 tailOtGo != null ? tailOtGo.rectTransform : null,
                 tailDirection,
@@ -193,7 +196,7 @@ public static class DialogueBubbleKitBuilder
         kitView.backgroundImage = bg;
         kitView.tailBgImage = tailBgGo;
         kitView.tailOtImage = tailOtGo;
-        kitView.tailMaskImage = null;
+        kitView.tailMaskImage = maskGo;
         kitView.tailDirection = tailDirection;
         kitView.slicePixelsPerUnitMultiplier = DefaultSlicePpuMultiplier;
         kitView.kit = kit;
@@ -210,8 +213,7 @@ public static class DialogueBubbleKitBuilder
         DialogueChatboxTailDirection direction,
         float size)
     {
-        // Back-compat overload used by kit view (mask unused with translucent fills).
-        PlaceTail(bubble, null, tailBg, tailOt, direction, size);
+        PlaceTail(bubble, null, tailBg, tailOt, direction, size, alongEdge: 0f);
     }
 
     public static void PlaceTail(
@@ -222,78 +224,104 @@ public static class DialogueBubbleKitBuilder
         DialogueChatboxTailDirection direction,
         float size)
     {
+        PlaceTail(bubble, mask, tailBg, tailOt, direction, size, alongEdge: 0f);
+    }
+
+    /// <param name="alongEdge">
+    /// Offset along the attached edge from center (local units). Bottom/Top = X, Left/Right = Y.
+    /// Used to slide the tip toward the speaker.
+    /// </param>
+    public static void PlaceTail(
+        RectTransform bubble,
+        RectTransform mask,
+        RectTransform tailBg,
+        RectTransform tailOt,
+        DialogueChatboxTailDirection direction,
+        float size,
+        float alongEdge)
+    {
         RectTransform primary = tailOt != null ? tailOt : tailBg;
         if (bubble == null || primary == null)
             return;
 
         // Prefer sizeDelta — rect.width can be 0 before canvas layout.
         float boxW = Mathf.Max(bubble.rect.width, bubble.sizeDelta.x);
-        // Keep clear of corners (~border) and left portrait zone.
+        float boxH = Mathf.Max(bubble.rect.height, bubble.sizeDelta.y);
         float edgePad = 72f;
         float portraitClear = 190f;
 
-        // Fill meets the outer edge (no overlap with translucent chatbox bg).
-        // Outline tucks INTO the coral stroke so the join looks continuous.
-        const float tuckFill = 0f;
-        const float tuckOutline = 24f;
+        // Pivot on the attached edge. Same tuck for bg + ot so they stay aligned,
+        // pulled INTO the bubble so the triangle joins the coral stroke.
+        const float tuck = 18f;
 
         Vector2 sizeDelta;
         Vector2 anchor;
         Vector2 pivot;
-        Vector2 fillPos;
-        Vector2 outlinePos;
+        Vector2 pos;
+        Vector2 maskSize;
 
         switch (direction)
         {
             case DialogueChatboxTailDirection.Top:
+            {
                 anchor = new Vector2(0.5f, 1f);
                 pivot = new Vector2(0.5f, 0f);
                 sizeDelta = new Vector2(size, size * (124f / 132f));
-                fillPos = new Vector2(0f, -tuckFill);
-                outlinePos = new Vector2(0f, -tuckOutline);
+                float x = ClampAlong(alongEdge, boxW, edgePad, portraitClear: 0f);
+                pos = new Vector2(x, -tuck);
+                maskSize = new Vector2(size * 0.95f, 20f);
                 break;
+            }
 
             case DialogueChatboxTailDirection.Left:
+            {
                 anchor = new Vector2(0f, 0.5f);
                 pivot = new Vector2(1f, 0.5f);
                 sizeDelta = new Vector2(size * (124f / 132f), size);
-                fillPos = new Vector2(tuckFill, 0f);
-                outlinePos = new Vector2(tuckOutline, 0f);
+                float y = ClampAlong(alongEdge, boxH, edgePad, portraitClear: 0f);
+                pos = new Vector2(tuck, y);
+                maskSize = new Vector2(20f, size * 0.95f);
                 break;
+            }
 
             case DialogueChatboxTailDirection.Right:
+            {
                 anchor = new Vector2(1f, 0.5f);
                 pivot = new Vector2(0f, 0.5f);
                 sizeDelta = new Vector2(size * (124f / 132f), size);
-                fillPos = new Vector2(-tuckFill, 0f);
-                outlinePos = new Vector2(-tuckOutline, 0f);
+                float y = ClampAlong(alongEdge, boxH, edgePad, portraitClear: 0f);
+                pos = new Vector2(-tuck, y);
+                maskSize = new Vector2(20f, size * 0.95f);
                 break;
+            }
 
-            default: // Bottom
+            default: // Bottom — slide along X toward speaker; stay clear of corners / portrait.
+            {
                 anchor = new Vector2(0.5f, 0f);
                 pivot = new Vector2(0.5f, 1f);
                 sizeDelta = new Vector2(size, size * (124f / 132f));
-                float x = -boxW * 0.18f;
-                float minX = -boxW * 0.5f + Mathf.Max(edgePad, portraitClear * 0.35f);
-                float maxX = boxW * 0.5f - edgePad;
-                if (minX > maxX)
-                    x = 0f;
-                else
-                    x = Mathf.Clamp(x, minX, maxX);
-                fillPos = new Vector2(x, tuckFill);
-                outlinePos = new Vector2(x, tuckOutline);
+                float x = ClampAlong(alongEdge, boxW, edgePad, portraitClear);
+                pos = new Vector2(x, tuck);
+                maskSize = new Vector2(size * 0.95f, 20f);
                 break;
+            }
         }
 
-        ApplyTailRect(tailBg, anchor, pivot, sizeDelta, fillPos);
-        ApplyTailRect(tailOt, anchor, pivot, sizeDelta, outlinePos);
-        // Keep outline above background fill.
+        ApplyTailRect(tailBg, anchor, pivot, sizeDelta, pos);
+        ApplyTailRect(tailOt, anchor, pivot, sizeDelta, pos);
         if (tailBg != null && tailOt != null)
             tailOt.SetSiblingIndex(tailBg.GetSiblingIndex() + 1);
 
-        // Connection mask only helps with opaque fills; skip when translucent.
-        if (mask != null)
-            mask.gameObject.SetActive(false);
+        PlaceMask(mask, tailBg != null ? tailBg : primary, anchor, maskSize, Vector2.zero);
+    }
+
+    static float ClampAlong(float along, float boxSpan, float edgePad, float portraitClear)
+    {
+        float min = -boxSpan * 0.5f + Mathf.Max(edgePad, portraitClear * 0.35f);
+        float max = boxSpan * 0.5f - edgePad;
+        if (min > max)
+            return 0f;
+        return Mathf.Clamp(along, min, max);
     }
 
     static void ApplyTailRect(RectTransform tail, Vector2 anchor, Vector2 pivot, Vector2 sizeDelta, Vector2 pos)
@@ -303,6 +331,19 @@ public static class DialogueBubbleKitBuilder
         SetTailAnchors(tail, anchor, pivot);
         tail.sizeDelta = sizeDelta;
         tail.anchoredPosition = pos;
+    }
+
+    static void PlaceMask(RectTransform mask, RectTransform tail, Vector2 anchor, Vector2 size, Vector2 offset)
+    {
+        if (mask == null || tail == null)
+            return;
+        mask.gameObject.SetActive(true);
+        mask.SetSiblingIndex(Mathf.Max(0, tail.GetSiblingIndex() - 1));
+        mask.anchorMin = anchor;
+        mask.anchorMax = anchor;
+        mask.pivot = anchor;
+        mask.sizeDelta = size;
+        mask.anchoredPosition = tail.anchoredPosition + offset;
     }
 
     static void SetTailAnchors(RectTransform rt, Vector2 anchor, Vector2 pivot)

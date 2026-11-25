@@ -86,7 +86,9 @@ public static class DialogueGraph
 
             if (node is DialogueLineNode line)
             {
-                AddSpeaker(order, seenSpeakers, line.speakerId, sessionCharacterId);
+                // Screen banners are not L/R conversation speakers (even if speaker is Player/NPC).
+                if (line.chatboxAim != DialogueChatboxAim.Screen)
+                    AddSpeaker(order, seenSpeakers, line.speakerId, sessionCharacterId);
                 if (!string.IsNullOrEmpty(line.nextNodeId))
                     queue.Enqueue(line.nextNodeId);
             }
@@ -115,7 +117,8 @@ public static class DialogueGraph
             if (!(node is DialogueLineNode line))
                 break;
 
-            AddSpeaker(trunk, seenSpeakers, line.speakerId, sessionCharacterId);
+            if (line.chatboxAim != DialogueChatboxAim.Screen)
+                AddSpeaker(trunk, seenSpeakers, line.speakerId, sessionCharacterId);
             if (string.IsNullOrEmpty(line.nextNodeId))
                 break;
 
@@ -155,9 +158,13 @@ public static class DialogueGraph
     {
         if (string.IsNullOrEmpty(authoredId))
             return;
+        if (DialogueActiveCharacter.IsScreenAlias(authoredId))
+            return; // Screen banners are not conversation L/R speakers.
         string resolved = DialogueActiveCharacter.ResolveSpeakerId(authoredId, sessionCharacterId);
         if (string.IsNullOrEmpty(resolved))
             resolved = "_default";
+        if (DialogueActiveCharacter.IsScreenAlias(resolved))
+            return;
         if (seen.Add(resolved))
             order.Add(resolved);
     }

@@ -11,6 +11,7 @@ public static class DialogueAuthoringOps
 {
     public const string DefaultFolder = "Assets/Game/Dialogue";
     public const string ActivePlayerSpeakerId = DialogueActiveCharacter.ActivePlayerAlias;
+    public const string ScreenSpeakerId = DialogueActiveCharacter.ScreenAlias;
 
     public static DialogueAsset CreateConversation(string folder, string fileName, string dialogueId)
     {
@@ -500,6 +501,7 @@ public static class DialogueAuthoringOps
                 portraitSprite = line.portraitSprite,
                 portraitVariants = ClonePortraits(line.portraitVariants),
                 nextNodeId = line.nextNodeId,
+                chatboxAim = line.chatboxAim,
                 typewriterCharsPerSecond = line.typewriterCharsPerSecond,
                 ambientHoldSeconds = line.ambientHoldSeconds,
                 voiceClip = line.voiceClip,

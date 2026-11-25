@@ -36,6 +36,9 @@ public class DialogueChatboxView : MonoBehaviour
 
     public DialoguePresentationPriority Priority { get; private set; }
 
+    /// <summary>True when spawned as a top-of-screen banner (no world tail).</summary>
+    public bool IsScreenBanner { get; set; }
+
     string bodyFitText;
     bool bodyFitReady;
     bool portraitVisible;
