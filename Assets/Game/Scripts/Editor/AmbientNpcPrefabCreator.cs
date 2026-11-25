@@ -29,9 +29,8 @@ public static class AmbientNpcPrefabCreator
         try { File.Delete(path); }
         catch { return; }
 
-        Debug.Log("[AmbientNpc] Request → create prefab + place in TestLab.");
+        Debug.Log("[AmbientNpc] Request → create prefab.");
         BuildPrefabAsset();
-        ReplaceInTestLab(save: true);
     }
 
     const string SoldierPrefabPath = "Assets/Game/Prefabs/Enemy/Soldier-Shooter.prefab";
@@ -52,13 +51,7 @@ public static class AmbientNpcPrefabCreator
         }
     }
 
-    [MenuItem("Tools/ARPG/Level Design/Replace TestLab Ambient NPC", false, 122)]
-    public static void ReplaceTestLabMenu()
-    {
-        ReplaceInTestLab(save: true);
-    }
-
-    /// <summary>Batch / request-file entry.</summary>
+    /// <summary>Batch / request-file entry (no menu — TestLab scaffolding only).</summary>
     public static void CreateAndPlaceInTestLab()
     {
         BuildPrefabAsset();

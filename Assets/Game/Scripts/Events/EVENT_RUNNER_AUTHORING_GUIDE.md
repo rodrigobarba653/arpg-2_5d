@@ -1,6 +1,8 @@
-# Guía rápida — EventRunner (authoring)
+# Guía — EventRunner (authoring)
 
-Cómo armar cutscenes de gameplay con el Event System. Sin Timeline al principio; Timeline es opcional al final.
+Documento canónico del Event System. Cómo armar cutscenes de gameplay con `EventRunner`. Sin Timeline al principio; Timeline es opcional al final.
+
+Para diálogo: `Assets/Game/Scripts/Dialogue/DIALOGUE_AUTHORING_EDITOR.md` y **Tools → ARPG → Dialogue → Dialogue Editor**.
 
 ---
 
@@ -91,7 +93,7 @@ Prefab: `Assets/Game/Prefabs/NPC/NPC_Ambient.prefab` (skin Soldier, **sin** Enem
 
 Move / Face / Play Animation hacen **Seize** → se corta la ruta y (opcional) `dialogue.available = false`. Al soltar → vuelve a patrullar y al diálogo.
 
-Menú: **Tools → ARPG → Level Design → Create Ambient NPC Prefab** (y **Replace TestLab Ambient NPC**).
+Menú: **Tools → ARPG → Level Design → Create Ambient NPC Prefab**.
 
 No uses Soldier/`EnemyAI` para NPCs de historia. Enemigos son otro stack; el EventRunner aún no overridea su patrol.
 

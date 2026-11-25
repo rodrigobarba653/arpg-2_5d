@@ -507,7 +507,7 @@ public static class DialogueAssetValidator
         });
     }
 
-    [MenuItem("Tools/ARPG/Events/Run Validation Self-Check (Phase B Step 8)", false, 214)]
+    [MenuItem("Tools/ARPG/Dialogue/Run Validator Self-Check", false, 190)]
     public static void RunSelfCheck()
     {
         var failures = new List<string>();
@@ -526,16 +526,16 @@ public static class DialogueAssetValidator
 
         if (failures.Count == 0)
         {
-            Debug.Log("[Dialogue] Step 8 validation self-check: 12 passed.");
+            Debug.Log("[Dialogue] Validator self-check: 12 passed.");
             EditorUtility.DisplayDialog(
                 "Dialogue validation",
-                "Step 8 self-check: 12 passed.\n\nSelect a Dialogue asset to see its validation box in the Inspector.",
+                "Self-check: 12 passed.\n\nSelect a Dialogue asset to see its validation box in the Inspector.",
                 "OK");
         }
         else
         {
             string message = string.Join("\n", failures);
-            Debug.LogWarning("[Dialogue] Step 8 validation self-check failed: " + string.Join(" | ", failures));
+            Debug.LogWarning("[Dialogue] Validator self-check failed: " + string.Join(" | ", failures));
             EditorUtility.DisplayDialog("Dialogue validation", "Self-check failed:\n\n" + message, "OK");
         }
     }
