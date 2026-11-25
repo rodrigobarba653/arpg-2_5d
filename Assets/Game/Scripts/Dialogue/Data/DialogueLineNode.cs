@@ -39,6 +39,13 @@ public class DialogueLineNode : DialogueNode
     [Tooltip("Ambient: seconds to keep the finished line visible. 0 = use host/service default.")]
     public float ambientHoldSeconds = 0f;
 
+    [Tooltip("Optional voice / VO clip. Plays when this line's chatbox starts (with typewriter). Stops on Continue / cancel / next line.")]
+    public AudioClip voiceClip;
+
+    [Range(0f, 1f)]
+    [Tooltip("Per-line volume scale for voiceClip (multiplied by AudioManager voice + master).")]
+    public float voiceVolume = 1f;
+
     public override string DisplayName =>
         string.IsNullOrEmpty(nodeId) ? "Line (?)" : $"Line '{nodeId}'";
 }

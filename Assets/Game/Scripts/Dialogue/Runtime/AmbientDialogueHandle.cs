@@ -70,6 +70,7 @@ public class AmbientDialogueHandle
         view.PrepareBodyFit(fullText);
         view.SetBodyVisibleText("");
         view.SetVisible(true);
+        DialogueVoice.PlayLine(line);
 
         Vector2 screen = WorldToScreen(anchor != null ? anchor.position : host.transform.position);
         bool placed = layout.TryPlaceAmbient(
@@ -110,6 +111,7 @@ public class AmbientDialogueHandle
             return;
 
         IsDead = true;
+        DialogueVoice.Stop();
         if (runner != null && routine != null)
             runner.StopCoroutine(routine);
 

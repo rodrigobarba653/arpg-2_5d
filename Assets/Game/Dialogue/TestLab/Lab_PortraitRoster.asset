@@ -17,12 +17,12 @@ MonoBehaviour:
     displayName: Jyn
     expressions:
     - expressionId: Neutral
-      sprite: {fileID: 21300000, guid: 1432cbed14174bdaa827cb195a6c004a, type: 3}
+      sprite: {fileID: 21300000, guid: 068f8cff7996b47edbe41f71c1a46637, type: 3}
   - characterId: ax
     displayName: Ax
     expressions:
     - expressionId: Neutral
-      sprite: {fileID: 21300000, guid: b1d6ef76abde41ecaa18c11551d848e3, type: 3}
+      sprite: {fileID: 21300000, guid: 19b17e2411c6c4722be84ee1bdb69fce, type: 3}
   - characterId: villager_a
     displayName: Villager A
     expressions:

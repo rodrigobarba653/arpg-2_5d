@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Singleton that spawns ItemPickupPopups above the player.
@@ -8,6 +10,9 @@ using UnityEngine;
 ///
 /// Anywhere in code that gives an item to the player can call:
 ///     ItemPickupNotifier.Show(item.displayName, item.icon);
+///
+/// When UI Kit v2 is available, world pickups use a screen-space kit banner
+/// (icon left / text right) instead of the legacy floating prefab chrome.
 /// </summary>
 public class ItemPickupNotifier : MonoBehaviour
 {
@@ -15,7 +20,7 @@ public class ItemPickupNotifier : MonoBehaviour
 
     [Header("Prefab")]
     [Tooltip("Prefab with the ItemPickupPopup script on its root. " +
-             "Designed by the level designer / artist.")]
+             "Used when UI Kit is not available.")]
     public ItemPickupPopup popupPrefab;
 
     [Header("Position")]
@@ -27,7 +32,9 @@ public class ItemPickupNotifier : MonoBehaviour
     public bool parentToPlayer = false;
 
     readonly List<ItemPickupPopup> screenNotices = new List<ItemPickupPopup>();
-    const float ScreenRowStep = 52f;
+    readonly List<KitScreenToast> kitToasts = new List<KitScreenToast>();
+    Canvas kitCanvas;
+    const float ScreenRowStep = 72f;
 
     void Awake()
     {
@@ -53,6 +60,14 @@ public class ItemPickupNotifier : MonoBehaviour
     {
         var inst = Instance;
         if (inst == null) return;
+
+        string label = string.IsNullOrEmpty(itemDisplayName)
+            ? "Item"
+            : $"{itemDisplayName} obtenido.";
+
+        if (UiKitRuntime.HasKit && inst.TryShowKitToast(label, icon))
+            return;
+
         inst.SpawnPopup(itemDisplayName, icon);
     }
 
@@ -93,6 +108,67 @@ public class ItemPickupNotifier : MonoBehaviour
             if (screenNotices[i] != null)
                 screenNotices[i].SetScreenStack(i, ScreenRowStep);
         }
+    }
+
+    public void ReleaseKitToast(KitScreenToast toast)
+    {
+        kitToasts.Remove(toast);
+        for (int i = 0; i < kitToasts.Count; i++)
+        {
+            if (kitToasts[i] != null)
+                kitToasts[i].SetStack(i, ScreenRowStep);
+        }
+    }
+
+    bool TryShowKitToast(string label, Sprite icon)
+    {
+        var kit = UiKitRuntime.Get();
+        if (kit == null || kit.notificationFrame == null)
+            return false;
+
+        EnsureKitCanvas();
+        var banner = NotificationKitBuilder.Build(
+            kitCanvas.transform as RectTransform,
+            "KitToast",
+            kit,
+            new Vector2(520f, 80f),
+            label,
+            icon,
+            ResolveFont());
+
+        var toast = banner.gameObject.AddComponent<KitScreenToast>();
+        toast.Begin(kitToasts.Count, ScreenRowStep, this);
+        kitToasts.Add(toast);
+        return true;
+    }
+
+    void EnsureKitCanvas()
+    {
+        if (kitCanvas != null)
+            return;
+
+        var go = new GameObject("KitNoticeCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        DontDestroyOnLoad(go);
+        kitCanvas = go.GetComponent<Canvas>();
+        kitCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        kitCanvas.sortingOrder = (int)DialoguePresentationPriority.Notification;
+        var scaler = go.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+    }
+
+    static TMP_FontAsset ResolveFont()
+    {
+        var loaded = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+        for (int i = 0; i < loaded.Length; i++)
+        {
+            if (loaded[i] != null &&
+                loaded[i].name.IndexOf("dogica", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return loaded[i];
+        }
+
+        return TMP_Settings.defaultFontAsset;
     }
 
     void SpawnPopup(string itemDisplayName, Sprite icon)

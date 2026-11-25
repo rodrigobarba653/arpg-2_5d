@@ -3142,7 +3142,7 @@ public static class EventSystemTestLabBuilder
                 displayName = "Jyn",
                 expressions = new System.Collections.Generic.List<PortraitExpression>
                 {
-                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("Jyn_Placeholder") },
+                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("JynPNG-Placeholder") },
                 },
             },
             new CharacterPortraitSet
@@ -3151,7 +3151,7 @@ public static class EventSystemTestLabBuilder
                 displayName = "Ax",
                 expressions = new System.Collections.Generic.List<PortraitExpression>
                 {
-                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("Ax_Placeholder") },
+                    new PortraitExpression { expressionId = "Neutral", sprite = LoadPlaceholderPortrait("AxPNG-Placeholder") },
                 },
             },
             new CharacterPortraitSet
@@ -3181,10 +3181,15 @@ public static class EventSystemTestLabBuilder
 
     static Sprite LoadPlaceholderPortrait(string spriteName)
     {
-        string path = $"{PlaceholderPortraitFolder}/{spriteName}.jpg";
-        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        string pngPath = $"{PlaceholderPortraitFolder}/{spriteName}.png";
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(pngPath);
         if (sprite == null)
-            Debug.LogWarning($"[EventSystemTestLab] Missing placeholder portrait at {path}.");
+        {
+            string jpgPath = $"{PlaceholderPortraitFolder}/{spriteName}.jpg";
+            sprite = AssetDatabase.LoadAssetAtPath<Sprite>(jpgPath);
+            if (sprite == null)
+                Debug.LogWarning($"[EventSystemTestLab] Missing placeholder portrait at {pngPath} or {jpgPath}.");
+        }
         return sprite;
     }
 

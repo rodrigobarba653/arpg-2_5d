@@ -292,8 +292,24 @@ public sealed class DialogueEditorWindow : EditorWindow
                 text.stringValue = EditorGUILayout.TextArea(text.stringValue ?? "", bigText, GUILayout.MinHeight(56f));
             }
 
+            DrawVoiceRow(element);
+
             DrawDestination(next, "Next");
         }
+    }
+
+    void DrawVoiceRow(SerializedProperty element)
+    {
+        SerializedProperty voiceClip = element.FindPropertyRelative("voiceClip");
+        SerializedProperty voiceVolume = element.FindPropertyRelative("voiceVolume");
+        if (voiceClip == null)
+            return;
+
+        EditorGUILayout.Space(4f);
+        EditorGUILayout.LabelField("Voice / Audio (sync with this box)", EditorStyles.miniBoldLabel);
+        EditorGUILayout.PropertyField(voiceClip, new GUIContent("Clip", "Plays when this line starts; stops on Continue / next line / cancel."));
+        if (voiceClip.objectReferenceValue != null && voiceVolume != null)
+            EditorGUILayout.Slider(voiceVolume, 0f, 1f, new GUIContent("Volume"));
     }
 
     void DrawSpeakerRow(SerializedProperty speakerId, SerializedProperty displayName, ref bool isPlayer)

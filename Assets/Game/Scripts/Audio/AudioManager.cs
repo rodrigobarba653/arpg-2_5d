@@ -2,9 +2,8 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Global audio manager. Three channels: BGM (music), Ambient (loop ambience),
-/// SFX (one-shots). All volumes are stored as 0-1 scalars and combined with a
-/// master volume. UI hooks can call SetXxxVolume() later.
+/// Global audio manager. Channels: BGM, Ambient, SFX (one-shots), Voice (stoppable dialogue).
+/// All volumes are 0-1 scalars combined with master. UI hooks call SetXxxVolume().
 ///
 /// Place ONE GameObject called "AudioManager" in your first scene with this
 /// component. It auto-creates child AudioSources and persists across scenes.
@@ -18,12 +17,14 @@ public class AudioManager : MonoBehaviour
     [Range(0f, 1f)] public float bgmVolume     = 0.7f;
     [Range(0f, 1f)] public float ambientVolume = 0.6f;
     [Range(0f, 1f)] public float sfxVolume     = 1f;
+    [Range(0f, 1f)] public float voiceVolume   = 1f;
 
     [Header("Sources (auto-created if empty)")]
     public AudioSource bgmA;
     public AudioSource bgmB;
     public AudioSource ambientSource;
     public AudioSource sfxSource;
+    public AudioSource voiceSource;
 
     [Header("Behavior")]
     [Tooltip("Default fade time for BGM crossfade and Ambient transitions.")]
@@ -47,6 +48,7 @@ public class AudioManager : MonoBehaviour
     const string BgmVolumeKey     = "Settings_BGMVolume";
     const string AmbientVolumeKey = "Settings_AmbientVolume";
     const string SfxVolumeKey     = "Settings_SFXVolume";
+    const string VoiceVolumeKey   = "Settings_VoiceVolume";
 
     void Awake()
     {
@@ -78,6 +80,7 @@ public class AudioManager : MonoBehaviour
         bgmVolume     = PlayerPrefs.GetFloat(BgmVolumeKey,     bgmVolume);
         ambientVolume = PlayerPrefs.GetFloat(AmbientVolumeKey, ambientVolume);
         sfxVolume     = PlayerPrefs.GetFloat(SfxVolumeKey,     sfxVolume);
+        voiceVolume   = PlayerPrefs.GetFloat(VoiceVolumeKey,   voiceVolume);
     }
 
     void OnDestroy()
@@ -95,7 +98,12 @@ public class AudioManager : MonoBehaviour
 
         if (ambientSource != null && ambientSource.isPlaying && ambientFadeRoutine == null)
             ambientSource.volume = ambientVolume * masterVolume;
+
+        if (voiceSource != null && voiceSource.isPlaying)
+            voiceSource.volume = voiceVolume * masterVolume * voicePlayScale;
     }
+
+    float voicePlayScale = 1f;
 
     void EnsureSources()
     {
@@ -103,6 +111,7 @@ public class AudioManager : MonoBehaviour
         if (!bgmB)          bgmB          = CreateSource("BGM_B",   loop: true);
         if (!ambientSource) ambientSource = CreateSource("Ambient", loop: true);
         if (!sfxSource)     sfxSource     = CreateSource("SFX",     loop: false);
+        if (!voiceSource)   voiceSource   = CreateSource("Voice",   loop: false);
     }
 
     AudioSource CreateSource(string name, bool loop)
@@ -292,6 +301,56 @@ public class AudioManager : MonoBehaviour
         sfxSource.PlayOneShot(clip, Mathf.Clamp01(volumeScale) * sfxVolume * masterVolume);
     }
 
+    /// <summary>
+    /// Play a 2D clip on a temporary AudioSource (can wait / stop). Prefer
+    /// <see cref="PlaySFX"/> for fire-and-forget UI clicks.
+    /// </summary>
+    public AudioSource PlaySFXManaged(AudioClip clip, float volumeScale = 1f)
+    {
+        if (clip == null)
+            return null;
+
+        var go = new GameObject($"SFX2D_{clip.name}");
+        go.transform.SetParent(transform, false);
+        var src = go.AddComponent<AudioSource>();
+        src.clip = clip;
+        src.volume = Mathf.Clamp01(volumeScale) * sfxVolume * masterVolume;
+        src.spatialBlend = 0f;
+        src.playOnAwake = false;
+        src.outputAudioMixerGroup = defaultMixerGroup;
+        src.Play();
+        Destroy(go, clip.length + 0.15f);
+        return src;
+    }
+
+    /// <summary>
+    /// Dialogue / event voice line on a dedicated channel. Stops any previous voice.
+    /// </summary>
+    public AudioSource PlayVoice(AudioClip clip, float volumeScale = 1f)
+    {
+        EnsureSources();
+        if (clip == null || voiceSource == null)
+            return null;
+
+        voiceSource.Stop();
+        voicePlayScale = Mathf.Clamp01(volumeScale);
+        voiceSource.clip = clip;
+        voiceSource.volume = voicePlayScale * voiceVolume * masterVolume;
+        voiceSource.loop = false;
+        voiceSource.Play();
+        return voiceSource;
+    }
+
+    public void StopVoice()
+    {
+        if (voiceSource == null)
+            return;
+        voiceSource.Stop();
+        voiceSource.clip = null;
+    }
+
+    public bool IsVoicePlaying => voiceSource != null && voiceSource.isPlaying;
+
     /// <summary>Play a 3D positional SFX at a world location. Creates a temporary
     /// AudioSource that destroys itself after the clip finishes.</summary>
     public AudioSource PlaySFXAt(AudioClip clip, Vector3 worldPos, float volumeScale = 1f, float spatialBlend = 1f, float minDistance = 1f, float maxDistance = 20f)
@@ -346,6 +405,13 @@ public class AudioManager : MonoBehaviour
     {
         sfxVolume = Mathf.Clamp01(v);
         PlayerPrefs.SetFloat(SfxVolumeKey, sfxVolume);
+        PlayerPrefs.Save();
+    }
+
+    public void SetVoiceVolume(float v)
+    {
+        voiceVolume = Mathf.Clamp01(v);
+        PlayerPrefs.SetFloat(VoiceVolumeKey, voiceVolume);
         PlayerPrefs.Save();
     }
 

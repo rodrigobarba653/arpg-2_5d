@@ -38,6 +38,7 @@ public static class EventActionRegistry
         new Entry(typeof(WaitAction), "Flow", "Wait", false, false),
         new Entry(typeof(DebugLogAction), "Flow", "Debug Log", false, false),
         new Entry(typeof(UnityEventAction), "Flow", "Unity Event", false, false),
+        new Entry(typeof(PlayAudioAction), "Audio", "Play Audio", false, false),
         new Entry(typeof(ParallelActions), "Flow", "Parallel", true, true),
         // DelayedStart is created by Parallel delay UX — not listed in Add menus.
 

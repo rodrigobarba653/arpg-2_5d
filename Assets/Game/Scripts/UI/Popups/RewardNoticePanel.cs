@@ -335,8 +335,75 @@ public class RewardNoticePanel : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
 
+        var kit = UiKitRuntime.Get();
+        if (kit != null && kit.notificationFrame != null)
+            BuildKitPanel(canvasGo.transform, kit);
+        else
+            BuildLegacyPanel(canvasGo.transform);
+    }
+
+    void BuildKitPanel(Transform canvasParent, UiKitSprites kit)
+    {
+        // Banner chrome from UI Kit v2 (icon left, text right). No pointer.
+        float height = 88f;
+        float width = Mathf.Max(420f, panelMaxWidth);
+        var banner = NotificationKitBuilder.Build(
+            canvasParent as RectTransform ?? canvasParent.GetComponent<RectTransform>(),
+            "Panel",
+            kit,
+            new Vector2(width, height),
+            "",
+            null,
+            fontAsset);
+
+        panelRoot = banner;
+        panelRoot.anchorMin = new Vector2(0.5f, 1f);
+        panelRoot.anchorMax = new Vector2(0.5f, 1f);
+        panelRoot.pivot = new Vector2(0.5f, 1f);
+        panelRoot.anchoredPosition = new Vector2(0f, -topMargin);
+
+        canvasGroup = banner.gameObject.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+            canvasGroup = banner.gameObject.AddComponent<CanvasGroup>();
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.interactable = false;
+
+        Transform frameT = banner.Find("Frame");
+        Transform bgT = banner.Find("Background");
+        panelBackground = frameT != null
+            ? frameT.GetComponent<Image>()
+            : (bgT != null ? bgT.GetComponent<Image>() : null);
+
+        Transform iconT = banner.Find("IconRoot/Icon");
+        iconImage = iconT != null ? iconT.GetComponent<Image>() : null;
+
+        Transform labelT = banner.Find("Label");
+        bodyLabel = labelT != null ? labelT.GetComponent<TMP_Text>() : null;
+        if (bodyLabel != null)
+        {
+            bodyLabel.fontSize = fontSize;
+            bodyLabel.color = textColor;
+            bodyLabel.enableWordWrapping = true;
+            bodyLabel.overflowMode = TextOverflowModes.Overflow;
+        }
+
+        var hintGo = new GameObject("Hint", typeof(RectTransform));
+        hintGo.transform.SetParent(banner, false);
+        hintLabel = hintGo.AddComponent<TextMeshProUGUI>();
+        ConfigureTmp(hintLabel, hintFontSize, hintColor, TextAlignmentOptions.Center);
+        hintLabel.gameObject.SetActive(false);
+        var hRt = hintLabel.rectTransform;
+        hRt.anchorMin = new Vector2(0f, 0f);
+        hRt.anchorMax = new Vector2(1f, 0f);
+        hRt.pivot = new Vector2(0.5f, 0f);
+        hRt.sizeDelta = new Vector2(-40f, 22f);
+        hRt.anchoredPosition = new Vector2(0f, 6f);
+    }
+
+    void BuildLegacyPanel(Transform canvasParent)
+    {
         var panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(CanvasGroup), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-        panelGo.transform.SetParent(canvasGo.transform, false);
+        panelGo.transform.SetParent(canvasParent, false);
         panelRoot = panelGo.GetComponent<RectTransform>();
         panelRoot.anchorMin = new Vector2(0.5f, 1f);
         panelRoot.anchorMax = new Vector2(0.5f, 1f);
@@ -405,7 +472,6 @@ public class RewardNoticePanel : MonoBehaviour
         ConfigureTmp(hintLabel, hintFontSize, hintColor, TextAlignmentOptions.Center);
         hintLabel.gameObject.SetActive(false);
 
-        // Cap preferred width on panel via LayoutElement
         var panelLe = panelGo.AddComponent<LayoutElement>();
         panelLe.preferredWidth = panelMaxWidth;
     }

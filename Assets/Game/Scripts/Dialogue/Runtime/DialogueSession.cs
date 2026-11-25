@@ -384,7 +384,11 @@ public class DialogueSession
         bool lineComplete = string.IsNullOrEmpty(fullText);
         view.PrepareBodyFit(fullText);
         view.SetBodyVisibleText("");
+        view.SetContinuePrompt(false);
         view.SetVisible(true);
+
+        // Voice starts with the line (alongside typewriter). Continue / next line stops it.
+        DialogueVoice.PlayLine(line);
 
         RelayoutAll();
 
@@ -401,6 +405,8 @@ public class DialogueSession
 
             if (allowCancel && DialogueInput.CancelPressedThisFrame())
             {
+                view.SetContinuePrompt(false);
+                DialogueVoice.Stop();
                 Cancel("user-cancel", stopRoutine: false);
                 yield break;
             }
@@ -439,6 +445,8 @@ public class DialogueSession
 
                 if (allowCancel && DialogueInput.CancelPressedThisFrame())
                 {
+                    view.SetContinuePrompt(false);
+                    DialogueVoice.Stop();
                     Cancel("user-cancel", stopRoutine: false);
                     yield break;
                 }
@@ -446,6 +454,8 @@ public class DialogueSession
                 // Optional: Confirm skips the remainder of the hold.
                 if (DialogueInput.ConfirmPressedThisFrame())
                 {
+                    view.SetContinuePrompt(false);
+                    DialogueVoice.Stop();
                     DialogueInput.SuppressConfirmUntilReleased();
                     yield break;
                 }
@@ -453,27 +463,38 @@ public class DialogueSession
                 t += Time.deltaTime;
                 yield return null;
             }
+            view.SetContinuePrompt(false);
+            DialogueVoice.Stop();
             yield break;
         }
 
+        // Waiting for Confirm — show classic bottom-right caret.
+        view.SetContinuePrompt(true);
         while (!WasCancelled)
         {
             RelayoutAll();
 
             if (allowCancel && DialogueInput.CancelPressedThisFrame())
             {
+                view.SetContinuePrompt(false);
+                DialogueVoice.Stop();
                 Cancel("user-cancel", stopRoutine: false);
                 yield break;
             }
 
             if (DialogueInput.ConfirmPressedThisFrame())
             {
+                view.SetContinuePrompt(false);
+                DialogueVoice.Stop();
                 DialogueInput.SuppressConfirmUntilReleased();
                 yield break;
             }
 
             yield return null;
         }
+
+        view.SetContinuePrompt(false);
+        DialogueVoice.Stop();
     }
 
     void BuildOrRebuildConversationPlan(bool force)
@@ -1461,6 +1482,7 @@ public class DialogueSession
 
         IsFinished = true;
         routine = null;
+        DialogueVoice.Stop();
         ReleaseConsequenceScope();
 
         foreach (var kvp in bubbles)

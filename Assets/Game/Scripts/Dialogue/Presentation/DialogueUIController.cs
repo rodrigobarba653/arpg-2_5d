@@ -12,10 +12,13 @@ public class DialogueUIController : MonoBehaviour
     public RectTransform ambientRoot;
     public RectTransform interactiveRoot;
 
-    [Header("Optional prefabs (null = runtime placeholder)")]
+    [Header("Optional prefabs (null = runtime placeholder / UI Kit)")]
     public DialogueChatboxView ambientPrefab;
     public DialogueChatboxView interactivePrefab;
     public DialogueChoiceView choicePrefab;
+
+    [Tooltip("Optional override. Empty = UiKitRuntime / Resources UiKitSprites.")]
+    public UiKitSprites uiKit;
 
     public static DialogueUIController CreateRuntime(Transform parent = null)
     {
@@ -121,6 +124,39 @@ public class DialogueUIController : MonoBehaviour
 
     DialogueChatboxView BuildPlaceholder(RectTransform parent, string name, bool small)
     {
+        var kit = uiKit != null ? uiKit : UiKitRuntime.Get();
+        if (kit != null && kit.dialogueFrame != null)
+        {
+            // UI Kit v2 chrome — progression / layout solver unchanged.
+            var kitView = DialogueBubbleKitBuilder.Build(
+                parent,
+                name,
+                kit,
+                size: small ? new Vector2(520f, 220f) : new Vector2(760f, 280f),
+                tailDirection: DialogueChatboxTailDirection.Bottom,
+                withPortraitSlot: !small,
+                speaker: "",
+                body: "",
+                portraitSprite: null,
+                font: null,
+                withTail: true);
+            if (!small)
+            {
+                kitView.minWidth = 760f;
+                kitView.maxWidth = 1100f;
+                kitView.minBodyLineCount = 3f;
+            }
+
+            kitView.SetSpeaker("");
+            kitView.SetBodyVisibleText("");
+            return kitView;
+        }
+
+        return BuildLegacyPlaceholder(parent, name, small);
+    }
+
+    DialogueChatboxView BuildLegacyPlaceholder(RectTransform parent, string name, bool small)
+    {
         var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(parent, false);
         var rt = go.GetComponent<RectTransform>();
@@ -133,7 +169,6 @@ public class DialogueUIController : MonoBehaviour
 
         var cg = go.AddComponent<CanvasGroup>();
 
-        // Portrait (interactive)
         GameObject portraitRoot = null;
         Image portraitImage = null;
         if (!small)
@@ -152,8 +187,6 @@ public class DialogueUIController : MonoBehaviour
             portraitRoot.SetActive(false);
         }
 
-        // Header band for speaker name; body starts strictly below it (no overlap).
-        // Interactive starts without portrait space; SetPortrait expands the left inset when needed.
         float textLeftNoPortrait = small ? 20f : 28f;
         float textLeftWithPortrait = small ? 20f : 320f;
         float headerHeight = small ? 48f : 56f;

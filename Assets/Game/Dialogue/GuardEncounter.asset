@@ -57,6 +57,8 @@ MonoBehaviour:
         nextNodeId: line_2
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+        voiceClip: {fileID: 8300000, guid: 1aaa607fa47fda047903019af90ac782, type: 3}
+        voiceVolume: 1
     - rid: 8969645841261789185
       type: {class: DialogueEndNode, ns: , asm: Assembly-CSharp}
       data:
@@ -80,6 +82,8 @@ MonoBehaviour:
         nextNodeId: line_3
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+        voiceClip: {fileID: 0}
+        voiceVolume: 1
     - rid: 8969645841261789347
       type: {class: DialogueChoiceNode, ns: , asm: Assembly-CSharp}
       data:
@@ -128,3 +132,5 @@ MonoBehaviour:
         nextNodeId: choice_1
         typewriterCharsPerSecond: 0
         ambientHoldSeconds: 0
+        voiceClip: {fileID: 0}
+        voiceVolume: 1

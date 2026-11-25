@@ -16,8 +16,11 @@ public class DialogueLayoutSettings
     [Tooltip("Gap between speaker anchor and chatbox edge, in Canvas reference units.")]
     public float speakerOffsetRef = 24f;
 
+    [Tooltip("Interactive chatbox minimum width in Canvas reference units.")]
+    public float interactiveMinWidthRef = 760f;
+
     [Tooltip("Interactive chatbox max width in Canvas reference units.")]
-    public float interactiveMaxWidthRef = 760f;
+    public float interactiveMaxWidthRef = 1100f;
 
     [Tooltip("Interactive chatbox height hint in Canvas reference units.")]
     public float interactiveHeightRef = 340f;

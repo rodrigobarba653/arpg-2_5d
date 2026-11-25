@@ -70,6 +70,7 @@ Arriba de Actions. Todas deben pasar (AND) para que el event arranque (flags, �
 | **Play Animation**            | Pose 2D. **Hold Until Event Ends** = se queda en la pose. **Play Once** = una vez y sigue. Sin crossfade. |
 | **Start Dialogue**            | Diálogo interactivo. **Lock World**: Use Asset / Stop World / Keep Moving. Espera a que termine por defecto. |
 | **Wait**                      | Pausa en segundos                                                                                         |
+| **Play Audio**                | SFX 2D / SFX 3D (en el runner) / **Voice** (canal stoppable). `Wait Until Finished` opcional. Voces de diálogo por línea van en el Dialogue Editor, no aquí. |
 | **Parallel**                  | Varios pasos a la vez (ver abajo)                                                                         |
 | **Play Timeline**             | Cinemática Timeline (opcional)                                                                            |
 | **Set / Clear Flag**          | WorldState                                                                                                |
@@ -168,7 +169,9 @@ Política de cámara: mientras corre Timeline, no pelees con CameraDirector (no 
 Add → **Dialogue → Start Dialogue** → asigná el asset.  
 Por defecto espera a que el jugador termine el diálogo. Esc / cancel → el event no Completa.
 
-Consequences del diálogo (en el asset) pueden SetFlag, OpenDoor, Move, etc. — **no** Camera Shot ni Parallel ni Start Dialogue anidado.
+Consequences del diálogo (en el asset) pueden SetFlag, OpenDoor, Move, **Play Audio**, etc. — **no** Camera Shot ni Parallel ni Start Dialogue anidado.
+
+**Voz por línea:** en el Dialogue Editor, cada Dialogue Line tiene **Voice / Audio → Clip**. Arranca con el typewriter; se corta al Continue / cancel / siguiente línea. Necesita `AudioManager` en escena.
 
 ---
 

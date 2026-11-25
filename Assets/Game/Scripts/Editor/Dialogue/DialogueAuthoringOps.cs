@@ -502,6 +502,8 @@ public static class DialogueAuthoringOps
                 nextNodeId = line.nextNodeId,
                 typewriterCharsPerSecond = line.typewriterCharsPerSecond,
                 ambientHoldSeconds = line.ambientHoldSeconds,
+                voiceClip = line.voiceClip,
+                voiceVolume = line.voiceVolume,
             };
         }
 

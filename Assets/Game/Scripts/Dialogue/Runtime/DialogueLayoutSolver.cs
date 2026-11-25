@@ -1051,6 +1051,16 @@ public class DialogueLayoutSolver
         // sizeDelta is in canvas/local units; divide screen pixels by scaleFactor.
         float inv = 1f / Mathf.Max(0.01f, canvasScaleFactor);
         float widthLocal = widthScreen * inv;
+
+        float minW = settings != null ? settings.interactiveMinWidthRef : 760f;
+        float maxW = settings != null ? settings.interactiveMaxWidthRef : 1100f;
+        if (view.minWidth > 8f)
+            minW = view.minWidth;
+        if (view.maxWidth > 8f)
+            maxW = view.maxWidth;
+        maxW = Mathf.Max(minW, maxW);
+        widthLocal = Mathf.Clamp(widthLocal, minW, maxW);
+
         float heightLocal = settings != null ? settings.interactiveHeightRef : 200f;
         if (view.rectTransform.sizeDelta.y > 8f)
             heightLocal = view.rectTransform.sizeDelta.y;
@@ -1082,9 +1092,11 @@ public class DialogueLayoutSolver
         }
         else
         {
-            float maxW = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 520f);
-            if (size.x < 8f) size.x = maxW;
-            size.x = Mathf.Min(size.x, maxW);
+            float minW = RefToScreen(settings != null ? settings.interactiveMinWidthRef : 760f);
+            float maxW = RefToScreen(settings != null ? settings.interactiveMaxWidthRef : 1100f);
+            maxW = Mathf.Max(minW, maxW);
+            if (size.x < 8f) size.x = minW;
+            size.x = Mathf.Clamp(size.x, minW, maxW);
             if (size.y < 8f) size.y = RefToScreen(settings != null ? settings.interactiveHeightRef : 200f);
         }
 
