@@ -68,5 +68,4 @@ El flag se escribe al confirmar la opción (memoria de runtime). Persistencia a 
 
 ## 5. Validación
 
-- Inspector del `DialogueAsset` muestra issues.
-- **Tools → ARPG → Dialogue → Run Validator Self-Check** prueba las reglas del validador.
+- Inspector del `DialogueAsset` muestra issues (warnings / errors) al seleccionarlo.
