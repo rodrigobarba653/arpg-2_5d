@@ -503,7 +503,7 @@ public class EnemyHealth : MonoBehaviour
                 inv.Add(drop.item, drop.quantity);
                 ItemPickupNotifier.Show(
                     string.IsNullOrEmpty(drop.item.displayName) ? drop.item.name : drop.item.displayName,
-                    drop.item.icon);
+                    NotificationIconResolver.ForItem(drop.item));
             }
         }
     }

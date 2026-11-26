@@ -30,7 +30,7 @@ public class RewardNoticePanel : MonoBehaviour
     public Color textColor = Color.white;
     public Color hintColor = new Color(1f, 1f, 1f, 0.55f);
     public Vector2 panelPadding = new Vector2(28f, 18f);
-    public float panelMaxWidth = 520f;
+    public float panelMaxWidth = 720f;
     public float topMargin = 36f;
     public int fontSize = 22;
     public int hintFontSize = 14;
@@ -198,6 +198,9 @@ public class RewardNoticePanel : MonoBehaviour
                 iconImage.sprite = notice.icon;
         }
 
+        if (panelRoot != null)
+            NotificationKitBuilder.ApplyHugWidth(panelRoot, Mathf.Max(NotificationKitBuilder.DefaultWidth, panelMaxWidth));
+
         if (hintLabel != null)
             hintLabel.gameObject.SetActive(false);
 
@@ -344,9 +347,9 @@ public class RewardNoticePanel : MonoBehaviour
 
     void BuildKitPanel(Transform canvasParent, UiKitSprites kit)
     {
-        // Banner chrome from UI Kit v2 (icon left, text right). No pointer.
-        float height = 88f;
-        float width = Mathf.Max(420f, panelMaxWidth);
+        // Banner chrome from UI Kit v2 (icon left, text right). Same slice scale as chatboxes, shorter.
+        float height = NotificationKitBuilder.DefaultHeight;
+        float width = Mathf.Max(NotificationKitBuilder.DefaultWidth, panelMaxWidth);
         var banner = NotificationKitBuilder.Build(
             canvasParent as RectTransform ?? canvasParent.GetComponent<RectTransform>(),
             "Panel",
@@ -387,17 +390,19 @@ public class RewardNoticePanel : MonoBehaviour
             bodyLabel.overflowMode = TextOverflowModes.Overflow;
         }
 
+        // Hint sits just below the banner chrome (outside the 9-slice).
         var hintGo = new GameObject("Hint", typeof(RectTransform));
         hintGo.transform.SetParent(banner, false);
         hintLabel = hintGo.AddComponent<TextMeshProUGUI>();
         ConfigureTmp(hintLabel, hintFontSize, hintColor, TextAlignmentOptions.Center);
+        hintLabel.enableWordWrapping = false;
         hintLabel.gameObject.SetActive(false);
         var hRt = hintLabel.rectTransform;
-        hRt.anchorMin = new Vector2(0f, 0f);
-        hRt.anchorMax = new Vector2(1f, 0f);
-        hRt.pivot = new Vector2(0.5f, 0f);
-        hRt.sizeDelta = new Vector2(-40f, 22f);
-        hRt.anchoredPosition = new Vector2(0f, 6f);
+        hRt.anchorMin = new Vector2(0.5f, 0f);
+        hRt.anchorMax = new Vector2(0.5f, 0f);
+        hRt.pivot = new Vector2(0.5f, 1f);
+        hRt.sizeDelta = new Vector2(width, 22f);
+        hRt.anchoredPosition = new Vector2(0f, -8f);
     }
 
     void BuildLegacyPanel(Transform canvasParent)

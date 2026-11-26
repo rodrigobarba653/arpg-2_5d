@@ -17,6 +17,10 @@ MonoBehaviour:
   notificationFrame: {fileID: 21300000, guid: b23fc5e648be441648df39930f1facc3, type: 3}
   notificationBackground: {fileID: 21300000, guid: 1a9af56c94e184447a0f4fd519205017, type: 3}
   notificationIconFrame: {fileID: 21300000, guid: e0f3f18dbeca845aa8181f19e47ffce1, type: 3}
+  notificationIconVarium: {fileID: 21300000, guid: 07b703bd126264ec384d483937a7cc6d, type: 3}
+  notificationIconPotion: {fileID: 21300000, guid: 1dd53b6af5ed64d27b1adad0288abe24, type: 3}
+  notificationIconEther: {fileID: 21300000, guid: 8c86bf0cfdedb4025aa525e1e14a8eb0, type: 3}
+  notificationIconGear: {fileID: 21300000, guid: 0790b6c83cdba49f9afdb3e514ac3da9, type: 3}
   portraitFrame: {fileID: 21300000, guid: a612f731806b44d4ba59fd692cc038f1, type: 3}
   portraitBackground: {fileID: 21300000, guid: c2afa941b75b24c9ab2e560fef581414, type: 3}
   tailBottomBg: {fileID: 21300000, guid: d40b565f71794400ba5376691464ea5d, type: 3}

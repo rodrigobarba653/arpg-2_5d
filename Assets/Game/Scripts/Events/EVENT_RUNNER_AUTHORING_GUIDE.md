@@ -223,7 +223,7 @@ No hace falta un Set Flag aparte si Persist State está ON (el componente escrib
 ## 10c. Encounter Kill Gate (matar N enemigos → event)
 
 **No** es “matar → abrir puerta”. Es: **matar N enemigos elegidos → arrancar un EventRunner**.  
-Ese runner hace lo que quieras (Open Door, Move Object, Wait, Camera, Set Active del boss, diálogo…).
+Ese runner hace lo que quieras (Open Door, Move Object, Wait, Camera, FlagDrivenActive del boss, diálogo…).
 
 ### Setup
 
@@ -233,7 +233,7 @@ Ese runner hace lo que quieras (Open Door, Move Object, Wait, Camera, Set Active
    - **Enemies**: arrastrá los malos que cuentan, **o** parenéalos bajo el GO y pulsá **Collect Children**.
    - **Required Kills**: `0` = todos los listados; `15` = bastan 15 aunque haya más en la lista.
    - **Persist Completion** + **Completed Flag Id** (`room_a_cleared`) para no re-disparar tras save.
-4. En el EventRunner → Actions: Open Door / Move Object / Set Active (boss) / Wait / Camera…
+4. En el EventRunner → Actions: Open Door / Move Object / Set Flag (boss vía FlagDrivenActive) / Wait / Camera…
 
 ### Spawns en runtime
 
@@ -244,30 +244,16 @@ En el prefab del enemigo: **Encounter Member** → asigná el Kill Gate. Al spaw
 | Querés… | Kill Gate | EventRunner Actions |
 |---------|-----------|---------------------|
 | Matar 3 → abrir puerta | 3 enemigos, Required = 0 o 3 | Open Door (+ Persist en la puerta) |
-| Matar 15 de un área → boss | lista grande, Required = 15 | Set Active del boss / Play Timeline / Dialogue |
+| Matar 15 de un área → boss | lista grande, Required = 15 | Set Flag + FlagDrivenActive del boss / Play Timeline / Dialogue |
 | Matar un jefe concreto | 1 enemigo | cutscene, Move Object, flags… |
 
 El gate **solo cuenta kills y llama `TryStart()`**. La consecuencia vive en el EventRunner.
 
----
-
-## 11. Menús TestLab (fixtures listos)
-
-Con la escena TestLab abierta, **salí de Play** y usá:
-
-**Tools → ARPG → Events → …**
-
-Ejemplos Sprint 09:
-
-- Add Staggered Delay Fixture
-- Add Timeline Fixture
-- Add DialogueCheckpoint Fixtures
-
-Crean pads de prueba. Guardá la escena después.
+Para mostrar/ocultar props tras un flag, usá **FlagDrivenActive** en el objeto (no hace falta un menú TestLab).
 
 ---
 
-## 12. Checklist rápido
+## 11. Checklist rápido
 
 1. EventRunner + (opcional) WorldInteractable
 2. Event Id si Persist Once
@@ -291,7 +277,7 @@ Crean pads de prueba. Guardá la escena después.
 
 ---
 
-## 13. Qué no hace esta herramienta
+## 12. Qué no hace esta herramienta
 
 - No es un node graph ni un editor aparte.
 - No convierte Actions ↔ clips de Timeline.

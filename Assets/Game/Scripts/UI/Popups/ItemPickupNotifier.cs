@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// scene loads via DontDestroyOnLoad.
 ///
 /// Anywhere in code that gives an item to the player can call:
-///     ItemPickupNotifier.Show(item.displayName, item.icon);
+///     ItemPickupNotifier.Show(item); // category icon in teal box
 ///
 /// When UI Kit v2 is available, world pickups use a screen-space kit banner
 /// (icon left / text right) instead of the legacy floating prefab chrome.
@@ -34,7 +34,7 @@ public class ItemPickupNotifier : MonoBehaviour
     readonly List<ItemPickupPopup> screenNotices = new List<ItemPickupPopup>();
     readonly List<KitScreenToast> kitToasts = new List<KitScreenToast>();
     Canvas kitCanvas;
-    const float ScreenRowStep = 72f;
+    const float ScreenRowStep = NotificationKitBuilder.DefaultHeight + 8f;
 
     void Awake()
     {
@@ -65,10 +65,29 @@ public class ItemPickupNotifier : MonoBehaviour
             ? "Item"
             : $"{itemDisplayName} obtenido.";
 
-        if (UiKitRuntime.HasKit && inst.TryShowKitToast(label, icon))
+        Sprite resolved = icon != null ? icon : NotificationIconResolver.Resolve(null, null);
+        if (UiKitRuntime.HasKit && inst.TryShowKitToast(label, resolved))
             return;
 
-        inst.SpawnPopup(itemDisplayName, icon);
+        inst.SpawnPopup(itemDisplayName, resolved);
+    }
+
+    public static void Show(ItemDefinition item, int quantity = 1)
+    {
+        if (item == null)
+            return;
+
+        string name = string.IsNullOrEmpty(item.displayName) ? item.name : item.displayName;
+        if (quantity > 1)
+            name = name + " x" + quantity;
+        Show(name, NotificationIconResolver.ForItem(item));
+    }
+
+    public static void ShowVarium(int amount)
+    {
+        if (amount <= 0)
+            return;
+        Show("Varium x" + amount, NotificationIconResolver.ForVarium());
     }
 
     /// <summary>
@@ -131,7 +150,7 @@ public class ItemPickupNotifier : MonoBehaviour
             kitCanvas.transform as RectTransform,
             "KitToast",
             kit,
-            new Vector2(520f, 80f),
+            new Vector2(NotificationKitBuilder.DefaultWidth, NotificationKitBuilder.DefaultHeight),
             label,
             icon,
             ResolveFont());

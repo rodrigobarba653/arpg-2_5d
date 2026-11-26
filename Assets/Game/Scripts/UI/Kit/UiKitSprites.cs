@@ -16,10 +16,18 @@ public class UiKitSprites : ScriptableObject
     public Sprite dialogueFrame;
     public Sprite dialogueBackground;
 
-    [Header("Notification 9-slice (PNG 1120x200 — L 230 R 100 T/B 60)")]
+    [Header("Notification 9-slice (PNG 1120x200 — L 230 R 100 T/B 60; same PPU scale as chatbox)")]
     public Sprite notificationFrame;
     public Sprite notificationBackground;
     public Sprite notificationIconFrame;
+
+    [Header("Notification category icons (teal box)")]
+    public Sprite notificationIconVarium;
+    public Sprite notificationIconPotion;
+    public Sprite notificationIconEther;
+    public Sprite notificationIconGear;
+
+    public const string NotificationIconsFolder = "Assets/Game/UI/UI Icons";
 
     [Header("Portrait (do not slice)")]
     public Sprite portraitFrame;

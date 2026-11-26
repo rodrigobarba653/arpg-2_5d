@@ -213,24 +213,25 @@ public static class UiKitImportAndTestBuilder
             AddLabel(canvasRt, dirs[i].ToString(), new Vector2(x, dirY + 110f), font);
         }
 
-        // --- Two notification sizes ---
+        // --- Two notification widths (same slice PPU as chatboxes, shorter height) ---
         float noteY = -320f;
+        float noteH = NotificationKitBuilder.DefaultHeight;
         NotificationKitBuilder.Build(
             canvasRt,
             "Notification_Compact",
             kit,
-            new Vector2(420f, 72f),
+            new Vector2(420f, noteH),
             "Ether Potion x1 obtenido.",
-            null,
+            kit.notificationIconPotion,
             font).anchoredPosition = new Vector2(-280f, noteY);
 
         NotificationKitBuilder.Build(
             canvasRt,
             "Notification_Wide",
             kit,
-            new Vector2(720f, 96f),
-            "Ether Potion x1 obtenido. — wide banner check",
-            null,
+            new Vector2(720f, noteH),
+            "Varium x25 — wide banner check",
+            kit.notificationIconVarium,
             font).anchoredPosition = new Vector2(280f, noteY);
 
         AddLabel(canvasRt, "Notifications (no pointer)", new Vector2(0f, noteY + 80f), font);
@@ -285,6 +286,10 @@ public static class UiKitImportAndTestBuilder
         kit.notificationFrame = LoadSprite("notification_frame_9slice.png");
         kit.notificationBackground = LoadSprite("notification_background_9slice.png");
         kit.notificationIconFrame = LoadSprite("notification_icon_frame.png");
+        kit.notificationIconVarium = LoadNotificationIcon("varium.png");
+        kit.notificationIconPotion = LoadNotificationIcon("potion.png");
+        kit.notificationIconEther = LoadNotificationIcon("ether.png");
+        kit.notificationIconGear = LoadNotificationIcon("gear.png");
         kit.portraitFrame = LoadSprite("portrait_frame.png");
         kit.portraitBackground = LoadSprite("portrait_background.png");
         kit.tailBottomBg = LoadSprite("tail_bottom_right_angle-bg.png");
@@ -303,6 +308,56 @@ public static class UiKitImportAndTestBuilder
     {
         string path = Path.Combine(UiKitSprites.PngFolder, fileName).Replace('\\', '/');
         return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
+    static Sprite LoadNotificationIcon(string fileName)
+    {
+        string path = Path.Combine(UiKitSprites.NotificationIconsFolder, fileName).Replace('\\', '/');
+        EnsureSpriteImport(path);
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
+    static void EnsureSpriteImport(string assetPath)
+    {
+        var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+        if (importer == null)
+            return;
+
+        bool dirty = false;
+        if (importer.textureType != TextureImporterType.Sprite)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            dirty = true;
+        }
+
+        if (importer.spriteImportMode != SpriteImportMode.Single)
+        {
+            importer.spriteImportMode = SpriteImportMode.Single;
+            dirty = true;
+        }
+
+        if (importer.mipmapEnabled)
+        {
+            importer.mipmapEnabled = false;
+            dirty = true;
+        }
+
+        if (!importer.alphaIsTransparency)
+        {
+            importer.alphaIsTransparency = true;
+            dirty = true;
+        }
+
+        if (importer.npotScale != TextureImporterNPOTScale.None)
+        {
+            importer.npotScale = TextureImporterNPOTScale.None;
+            dirty = true;
+        }
+
+        if (dirty)
+        {
+            importer.SaveAndReimport();
+        }
     }
 
     static TMP_FontAsset FindDogica()

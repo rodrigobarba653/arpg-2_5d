@@ -99,7 +99,7 @@ public static class RewardDelivery
             GrantItems(inventory, items, lines, ref firstIcon);
 
         if (wantsVarium)
-            GrantVarium(wallet, varium, lines);
+            GrantVarium(wallet, varium, lines, ref firstIcon);
 
         if (lines.Count > 0)
             RewardNoticePanel.EnqueueMany(lines, firstIcon);
@@ -126,12 +126,12 @@ public static class RewardDelivery
                 continue;
 
             lines.Add("Obtained \"" + ItemLabel(entry.item, gained) + "\"");
-            if (firstIcon == null && entry.item.icon != null)
-                firstIcon = entry.item.icon;
+            if (firstIcon == null)
+                firstIcon = NotificationIconResolver.ForItem(entry.item);
         }
     }
 
-    static void GrantVarium(PlayerWallet wallet, int amount, List<string> lines)
+    static void GrantVarium(PlayerWallet wallet, int amount, List<string> lines, ref Sprite firstIcon)
     {
         int before = PlayerWallet.Total;
         wallet.AddVarium(amount);
@@ -140,6 +140,8 @@ public static class RewardDelivery
             return;
 
         lines.Add("Obtained \"Varium x" + gained + "\"");
+        if (firstIcon == null)
+            firstIcon = NotificationIconResolver.ForVarium();
     }
 
     static string ItemLabel(ItemDefinition item, int gained)
