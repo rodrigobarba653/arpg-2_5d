@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: VLC_CarpetRoyal 2
+  m_Shader: {fileID: 4800000, guid: 0148ba909721dc8438ece84cf9cc238d, type: 3}
+  m_Parent: {fileID: 2100000, guid: 54dfcd4eec43742629102fe7cfb5335f, type: 2}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _OPACITYDISTANCEFADETOGGLE_ON
+  m_InvalidKeywords:
+  - _DETAIL_MULX2
+  - _METALLICGLOSSMAP
+  - _METALLICSPECGLOSSMAP
+  - _NORMALMAP
+  - _OCCLUSIONMAP
+  - _PARALLAXMAP
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _NormalTexture:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RipplesTexture:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Depth: 6
+    - _FoamEdgeDistance: 0.06
+    - _FoamEdgeGradContrast: 20
+    - _FoamEdgeNoiseContrast: 4
+    - _FoamNoiseTiling: 15
+    - _FoamSpeed: 0.01
+    - _NormalDistanceFadeOpacity: 1
+    - _NormalDistanceFadeStart: 50
+    - _NormalSpeed: 0.1
+    - _NormalStrength: 0.2
+    - _NormalTiling: 1
+    - _Opacity: 0.8
+    - _OpacityDistanceFadeStart: 100
+    - _RipplesDissolve: 0.7
+    - _RipplesSpeed: 1
+    - _RipplesTIling: 0.2
+    - _RipplesTransparency: 0.4
+    - _Smoothness: 0
+    m_Colors:
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _WaterColorDeep: {r: 0.12721395, g: 0.09344957, b: 0.7924528, a: 0}
+    - _WaterColorShallow: {r: 0.26713237, g: 0.8207547, b: 0.8099126, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
+--- !u!114 &5228330657591221836
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 10

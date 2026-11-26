@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_Name: 04 Diamond Cut Prism
+  m_Shader: {fileID: 4800000, guid: 95e0e906b3192b1d30eeef0eeda241ae, type: 3}
+  m_ValidKeywords:
+  - _REFRACTION_OFF
+  - _FACETS_ON
+  m_InvalidKeywords: []
+  m_CustomRenderQueue: -1
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Wear:
+        m_Texture: {fileID: 2800000, guid: 41de531fe5cfaa7049cf54b25ae7ff73, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Refraction: 0
+    - _Body: 0.04
+    - _Thickness: 1.42
+    - _Rough: 0.035
+    - _Face: 0.18
+    - _Reflect: 1.55
+    - _Scratch: 0.055
+    - _Smudge: 0.04
+    - _Bump: 0.055
+    - _Film: 0.86
+    - _Bands: 2.25
+    - _Facets: 1
+    - _Bend: 16
+    - _Split: 0.55
+    - _Mix: 0.7
+    - _Highlight: 1.25
+    m_Colors:
+    - _Tint: {r: 0.77, g: 0.88, b: 0.97, a: 1}

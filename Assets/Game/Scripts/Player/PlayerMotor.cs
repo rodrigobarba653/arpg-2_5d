@@ -315,7 +315,13 @@ public class PlayerMotor : MonoBehaviour
                 // Follow the surface. Adding world-down on top of this drives the capsule
                 // into the corner where a slope meets flat ground and the controller stops.
                 Vector3 slopedMove = Vector3.ProjectOnPlane(finalMove, groundNormal);
-                slopedMove -= groundNormal * 2f;
+
+                // Preserve movement speed along the slope.
+                slopedMove = slopedMove.normalized * finalMove.magnitude;
+
+                // Preserve ground contact.
+                slopedMove -= groundNormal * 1f;
+
                 finalMove = slopedMove;
             }
             else

@@ -18,3 +18,7 @@
 *.tif filter=lfs diff=lfs merge=lfs -text
 *.unitypackage filter=lfs diff=lfs merge=lfs -text
 Assets/_Creepy_Cat/3D[[:space:]]Scifi[[:space:]]Kit[[:space:]]Starter[[:space:]]Kit_HDRP.unitypackage filter=lfs diff=lfs merge=lfs -text
+*.glb filter=lfs diff=lfs merge=lfs -text
+
+# TMP font atlas churns on every Unity open — always keep our branch copy on merge.
+"Assets/Game/UI/Fonts/dogica 2/dogica/TTF/dogica SDF.asset" merge=ours
