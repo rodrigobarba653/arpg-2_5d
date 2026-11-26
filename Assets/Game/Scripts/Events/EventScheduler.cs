@@ -21,6 +21,19 @@ public static class EventScheduler
     public static int EnvironmentalCount => environmentalRunners.Count;
     public static bool HasPlayerControllingEvent => playerControllingRunner != null;
 
+    /// <summary>
+    /// Locking interactive dialogue owns player attention the same way a
+    /// seize-control EventRunner does — new seize starts must wait.
+    /// </summary>
+    public static bool HasLockingInteractiveDialogue
+    {
+        get
+        {
+            var service = DialogueService.Instance;
+            return service != null && service.HasLockingInteractive;
+        }
+    }
+
     public static bool TryBegin(EventRunner runner, out string rejectReason)
     {
         rejectReason = null;
@@ -42,6 +55,12 @@ public static class EventScheduler
             {
                 rejectReason =
                     $"player-control busy ({playerControllingRunner.name})";
+                return false;
+            }
+
+            if (HasLockingInteractiveDialogue)
+            {
+                rejectReason = "locking interactive dialogue busy";
                 return false;
             }
 
@@ -73,7 +92,8 @@ public static class EventScheduler
         string player = playerControllingRunner != null
             ? playerControllingRunner.name
             : "none";
-        return $"playerControl={player} env={environmentalRunners.Count}";
+        string dialogue = HasLockingInteractiveDialogue ? "lock" : "none";
+        return $"playerControl={player} dialogue={dialogue} env={environmentalRunners.Count}";
     }
 
 #if UNITY_EDITOR

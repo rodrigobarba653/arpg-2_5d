@@ -94,6 +94,7 @@ public class StartDialogueAction : EventAction
             _ => null,
         };
 
+        // Nested inside the running EventRunner — allowed even when that event holds player control.
         bool started = service.TryStartInteractive(
             asset,
             npcAnchor: npcAnchor,
@@ -106,7 +107,8 @@ public class StartDialogueAction : EventAction
             initiatorCharacterId: characterId,
             initiatorTransform: actor,
             progressionMode: progressionMode,
-            autoAdvanceHoldSeconds: autoAdvanceHoldSeconds);
+            autoAdvanceHoldSeconds: autoAdvanceHoldSeconds,
+            allowWhilePlayerEvent: true);
 
         if (!started)
         {

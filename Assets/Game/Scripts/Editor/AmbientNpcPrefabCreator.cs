@@ -11,8 +11,8 @@ public static class AmbientNpcPrefabCreator
     const string SoldierPrefabPath = "Assets/Game/Prefabs/Enemy/Soldier-Shooter.prefab";
     const string OutputFolder = "Assets/Game/Prefabs/NPC";
     const string OutputPrefabPath = OutputFolder + "/NPC_Ambient.prefab";
-    const string AmbientDialoguePath = "Assets/Game/Dialogue/TestLab/Lab_Ambient_A.asset";
-    const string InteractiveDialoguePath = "Assets/Game/Dialogue/TestLab/Lab_Both_Interactive.asset";
+    const string AmbientDialoguePath = "Assets/Game/Dialogue/Lab_Ambient_A.asset";
+    const string InteractiveDialoguePath = "Assets/Game/Dialogue/Lab_Both_Interactive.asset";
 
     [MenuItem("Tools/ARPG/Level Design/Create Ambient NPC Prefab", false, 121)]
     public static void CreatePrefabMenu()

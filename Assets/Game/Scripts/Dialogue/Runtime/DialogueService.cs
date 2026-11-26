@@ -42,6 +42,14 @@ public class DialogueService : MonoBehaviour
     /// </summary>
     public bool HasInteractive => SessionRunning || interruptReserved;
 
+    /// <summary>
+    /// True while an interactive session that freezes player control is active
+    /// (or reserved mid-interrupt). Blocks new player-control EventRunners.
+    /// </summary>
+    public bool HasLockingInteractive =>
+        interruptReserved ||
+        (SessionRunning && interactive != null && interactive.LocksGameplay);
+
     bool SessionRunning => interactive != null && !interactive.IsFinished;
 
     public DialogueSession InteractiveSession => interactive;
@@ -207,7 +215,8 @@ public class DialogueService : MonoBehaviour
         string initiatorCharacterId = null,
         Transform initiatorTransform = null,
         DialogueProgressionMode progressionMode = DialogueProgressionMode.Manual,
-        float autoAdvanceHoldSeconds = 1.75f)
+        float autoAdvanceHoldSeconds = 1.75f,
+        bool allowWhilePlayerEvent = false)
     {
         if (asset == null)
         {
@@ -222,14 +231,24 @@ public class DialogueService : MonoBehaviour
             return false;
         }
 
+        bool lockGp = lockGameplayOverride ?? asset.lockGameplay;
+        if (lockGp &&
+            EventScheduler.HasPlayerControllingEvent &&
+            !allowWhilePlayerEvent)
+        {
+            if (debugLog)
+                Debug.Log(
+                    "[Dialogue] Player-control EventRunner is busy — reject locking interactive.",
+                    this);
+            return false;
+        }
+
         // Interactive takes priority: dismiss ambients that would fight for attention.
         DismissAllAmbient("interactive-start");
 
         float width = maxWidthRef > 1f
             ? maxWidthRef
             : (layoutSettings != null ? layoutSettings.interactiveMaxWidthRef : 560f);
-
-        bool lockGp = lockGameplayOverride ?? asset.lockGameplay;
         interactive = new DialogueSession(
             this,
             asset,

@@ -16,6 +16,9 @@ public class DialogueSession
     public bool IsFinished { get; private set; }
     public DialogueSessionOutcome Outcome { get; private set; } = DialogueSessionOutcome.None;
 
+    /// <summary>True when this session holds <see cref="GameplayLockChannels.PlayerControl"/>.</summary>
+    public bool LocksGameplay => lockGameplay;
+
     /// <summary>True only when this session was cancelled. A failure is not a cancel.</summary>
     public bool WasCancelled => Outcome == DialogueSessionOutcome.Cancelled;
 
