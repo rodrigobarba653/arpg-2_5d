@@ -1,21 +1,19 @@
-using System.Collections.Generic;
 using System.IO;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// Configures UI Kit v2 PNG import settings from README.txt and builds a visual test scene.
-/// Menu: Tools → ARPG → UI → Configure UI Kit Sprites / Build UI Kit Visual Test Scene
+/// Configures UI Kit v2 PNG import settings and rebuilds the visual test scene.
+/// Menu: Tools → ARPG → UI → Rebuild UI Kit Visual Test
 /// </summary>
 public static class UiKitImportAndTestBuilder
 {
     const string ScenePath = "Assets/Game/Scenes/UIKit_VisualTest.unity";
     const string ResourcesAssetPath = "Assets/Game/Resources/UiKitSprites.asset";
-    const string MenuRoot = "Tools/ARPG/UI/";
+    const string MenuPath = "Tools/ARPG/UI/Rebuild UI Kit Visual Test";
 
     struct SliceSpec
     {
@@ -55,11 +53,16 @@ public static class UiKitImportAndTestBuilder
         new SliceSpec { fileName = "edge_right.png", border = Vector4.zero, sliced = false },
     };
 
-    [MenuItem(MenuRoot + "1. Configure UI Kit Sprites", false, 200)]
-    public static void ConfigureSprites()
+    [MenuItem(MenuPath, false, 200)]
+    public static void RebuildUiKitVisualTest()
+    {
+        ConfigureSprites();
+        BuildVisualTestScene();
+    }
+
+    static void ConfigureSprites()
     {
         int configured = 0;
-        var paths = new List<string>();
         for (int i = 0; i < Specs.Length; i++)
         {
             string path = Path.Combine(UiKitSprites.PngFolder, Specs[i].fileName).Replace('\\', '/');
@@ -102,7 +105,6 @@ public static class UiKitImportAndTestBuilder
 
             EditorUtility.SetDirty(importer);
             importer.SaveAndReimport();
-            paths.Add(path);
             configured++;
         }
 
@@ -117,15 +119,11 @@ public static class UiKitImportAndTestBuilder
         AssetDatabase.SaveAssets();
         UiKitRuntime.ClearCache();
 
-        Debug.Log($"[UI Kit] Configured {configured} sprites + refreshed {UiKitSprites.AssetPath} / Resources. Borders from README.txt.");
-        EditorGUIUtility.PingObject(kit);
+        Debug.Log($"[UI Kit] Configured {configured} sprites + refreshed {UiKitSprites.AssetPath} / Resources.");
     }
 
-    [MenuItem(MenuRoot + "2. Build UI Kit Visual Test Scene", false, 201)]
-    public static void BuildVisualTestScene()
+    static void BuildVisualTestScene()
     {
-        ConfigureSprites();
-
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
         // NewScene can invalidate previously loaded asset refs — reload after.
@@ -143,7 +141,7 @@ public static class UiKitImportAndTestBuilder
         {
             EditorUtility.DisplayDialog(
                 "UI Kit",
-                "Sprites not ready. Run Configure UI Kit Sprites first and wait for import.",
+                "Sprites not ready after rebuild. Check UI_Kit/PNG assets and try again.",
                 "OK");
             return;
         }

@@ -33,7 +33,7 @@ public static class UiKitRuntime
         if (cached == null || cached.dialogueFrame == null)
         {
             Debug.LogWarning(
-                "[UI Kit] UiKitSprites missing or empty. Run Tools → ARPG → UI → Configure UI Kit Sprites.");
+                "[UI Kit] UiKitSprites missing or empty. Run Tools → ARPG → UI → Rebuild UI Kit Visual Test.");
             cached = null;
         }
 

@@ -2,14 +2,12 @@
 
 ## What was built
 
-1. **Sprite import** — `Tools → ARPG → UI → 1. Configure UI Kit Sprites`  
+1. **Rebuild** — `Tools → ARPG → UI → Rebuild UI Kit Visual Test`  
    Sets Sprite (UI), Full Rect, Alpha Is Transparency, Compression None, and README borders:
    - Dialogue 9-slice: L/R 264, T/B 100
    - Notification 9-slice: L 230, R 100, T/B 60  
-   Writes `Assets/Game/UI/UI_Kit/UiKitSprites.asset`.
-
-2. **Visual test scene** — `Tools → ARPG → UI → 2. Build UI Kit Visual Test Scene`  
-   Creates `Assets/Game/Scenes/UIKit_VisualTest.unity` with:
+   Writes `Assets/Game/UI/UI_Kit/UiKitSprites.asset` + Resources copy, then rebuilds
+   `Assets/Game/Scenes/UIKit_VisualTest.unity` with:
    - 3 chatbox widths (portrait on)
    - 4 tail directions
    - 2 notification sizes  
@@ -28,11 +26,10 @@ Open the visual test scene and check:
 
 ## Runtime (wired)
 
-After **Configure UI Kit Sprites** (copies to `Assets/Game/Resources/UiKitSprites.asset`):
+After **Rebuild UI Kit Visual Test** (copies to `Assets/Game/Resources/UiKitSprites.asset`):
 
 - `DialogueUIController` builds interactive/ambient chatboxes with kit 9-slice + portrait frame + tail/mask  
-- `RewardNoticePanel` uses notification 9-slice (icon left / text right)  
-- `ItemPickupNotifier.Show` prefers kit screen toasts when the kit is present  
+- `RewardNoticePanel` / `ItemPickupNotifier` use notification 9-slice (icon left / text right)  
 
 Progression, EventRunner, flags, and layout solver are unchanged — chrome only.
 
